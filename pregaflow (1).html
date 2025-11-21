@@ -4,40 +4,49 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>PregaFlow Studio Pro</title>
-
+    
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
-
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
-
+    
     <style>
         /* --- VARIÁVEIS E RESET --- */
         :root {
             --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             --font-serif: 'Lora', serif;
+            
             --bg-body: #F3F4F6;
             --bg-paper: #FFFFFF;
             --bg-toolbar: rgba(255, 255, 255, 0.95);
+            
             --txt-primary: #111827;
             --txt-secondary: #6B7280;
             --txt-tertiary: #9CA3AF;
+            
             --accent: #2563EB;
             --accent-hover: #1D4ED8;
             --danger: #EF4444;
+            
             --border: #E5E7EB;
             --radius-sm: 8px;
             --radius-md: 12px;
+            
             --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
             --shadow-float: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+
+            /* Cores de Destaque */
             --swatch-gray: #F3F4F6; --txt-gray: #374151;
             --swatch-blue: #EFF6FF; --txt-blue: #1D4ED8;
             --swatch-green: #ECFDF5; --txt-green: #047857;
             --swatch-red: #FEF2F2; --txt-red: #B91C1C;
             --swatch-amber: #FFFBEB; --txt-amber: #B45309;
         }
+
         * { box-sizing: border-box; outline: none; -webkit-tap-highlight-color: transparent; }
+        
         body {
             background-color: var(--bg-body);
             color: var(--txt-primary);
@@ -48,9 +57,832 @@
             height: 100dvh;
             overflow: hidden;
         }
+
+        /* --- UTILITÁRIOS --- */
+        .hidden { display: none !important; }
+        .btn { cursor: pointer; border: none; background: none; font-family: inherit; transition: all 0.2s ease; }
+        .icon { width: 20px; height: 20px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+        
+        /* --- LAYOUT GERAL --- */
+        #app { display: flex; flex-direction: column; height: 100%; width: 100%; max-width: 800px; margin: 0 auto; background: var(--bg-paper); box-shadow: var(--shadow-sm); position: relative; }
+        
+        /* --- HEADER --- */
+        header {
+            height: 60px; padding: 0 20px;
+            display: flex; align-items: center; justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-paper);
+            flex-shrink: 0; z-index: 20;
+        }
+        .brand { font-weight: 700; font-size: 18px; display: flex; align-items: center; gap: 10px; color: var(--txt-primary); }
+        .brand span { background: var(--txt-primary); color: #fff; padding: 4px 8px; border-radius: 6px; font-size: 14px; }
+
+        .header-actions { display: flex; gap: 8px; align-items: center; }
+        .action-btn {
+            padding: 8px; border-radius: 8px; color: var(--txt-secondary);
+        }
+        .action-btn:hover { background: var(--bg-body); color: var(--txt-primary); }
+        .save-status { font-size: 12px; font-weight: 500; color: var(--txt-tertiary); display: flex; align-items: center; gap: 4px; margin-right: 8px; opacity: 0; transition: opacity 0.3s; }
+        .save-status.visible { opacity: 1; }
+
+        /* --- VIEW: LISTA --- */
+        #view-list { padding: 20px; overflow-y: auto; height: 100%; }
+        .empty-state { text-align: center; padding: 40px 20px; color: var(--txt-tertiary); }
+        
+        .new-sermon-btn {
+            width: 100%; background: var(--txt-primary); color: white;
+            padding: 14px; border-radius: var(--radius-md); font-weight: 600; font-size: 16px;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            margin-bottom: 24px; box-shadow: var(--shadow-sm);
+        }
+        .new-sermon-btn:active { transform: scale(0.98); }
+
+        .sermon-card {
+            background: white; border: 1px solid var(--border);
+            border-radius: var(--radius-md); padding: 16px; margin-bottom: 12px;
+            position: relative; cursor: pointer; transition: transform 0.2s, border-color 0.2s;
+        }
+        .sermon-card:hover { border-color: var(--txt-tertiary); transform: translateY(-2px); }
+        .card-title { font-weight: 700; font-size: 17px; margin-bottom: 4px; color: var(--txt-primary); }
+        .card-meta { font-size: 13px; color: var(--txt-secondary); display: flex; gap: 10px; }
+        .btn-delete-card {
+            position: absolute; top: 16px; right: 16px; color: var(--txt-tertiary);
+            padding: 4px; z-index: 2;
+        }
+        .btn-delete-card:hover { color: var(--danger); background: var(--swatch-red); border-radius: 4px; }
+
+        /* --- VIEW: EDITOR --- */
+        #view-editor { display: flex; flex-direction: column; height: 100%; position: relative; }
+        
+        .editor-scroll-area {
+            flex: 1; overflow-y: auto; padding: 24px 24px 140px 24px;
+        }
+
+        .meta-inputs input {
+            width: 100%; border: none; display: block; font-family: var(--font-sans);
+            padding: 0; margin: 0;
+        }
+        .input-title { font-size: 28px; font-weight: 800; margin-bottom: 8px; color: var(--txt-primary); }
+        .input-ref { font-size: 16px; font-weight: 500; color: var(--txt-secondary); margin-bottom: 32px; }
+        .input-title::placeholder, .input-ref::placeholder { color: var(--border); }
+
+        /* --- BLOCOS --- */
+        #blocks-container { display: flex; flex-direction: column; gap: 8px; }
+        
+        .block-wrapper {
+            position: relative; display: flex; align-items: flex-start; gap: 8px;
+            border-radius: var(--radius-sm); transition: background 0.2s;
+            padding: 2px; border: 1px solid transparent;
+        }
+        .block-wrapper.focused { background: var(--swatch-gray); }
+
+        /* Drag Handle (Alça) */
+        .drag-handle {
+            width: 24px; height: 24px; margin-top: 6px; cursor: grab; color: var(--border); flex-shrink: 0; opacity: 0; transition: opacity 0.2s;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .block-wrapper:hover .drag-handle, .block-wrapper.focused .drag-handle { opacity: 1; color: var(--txt-secondary); }
+        
+        textarea {
+            width: 100%; border: none; background: transparent; resize: none;
+            font-family: var(--font-sans); font-size: 16px; line-height: 1.6;
+            padding: 4px 0; color: var(--txt-primary); overflow: hidden;
+            word-wrap: break-word; overflow-wrap: break-word;
+        }
+
+        /* Estilos de Formatação Dinâmica */
+        .block-wrapper[data-color="gray"] { color: var(--txt-gray); }
+        .block-wrapper[data-color="blue"] { color: var(--txt-blue); }
+        .block-wrapper[data-color="green"] { color: var(--txt-green); }
+        .block-wrapper[data-color="red"] { color: var(--txt-red); }
+        .block-wrapper[data-color="amber"] { color: var(--txt-amber); }
+        
+        .block-wrapper[data-format*="bold"] textarea, .block-wrapper[data-format*="bold"] { font-weight: 700; }
+        .block-wrapper[data-format*="italic"] textarea, .block-wrapper[data-format*="italic"] { font-style: italic; }
+
+        /* Estilos de Tipo */
+        .block-wrapper[data-type="topic"] textarea { font-weight: 600; }
+        .block-wrapper[data-type="topic"]::before {
+            content: ''; display: block; width: 6px; height: 6px; border-radius: 50%;
+            background: currentColor; margin-top: 14px; margin-right: 4px; opacity: 0.8;
+            flex-shrink: 0;
+        }
+        .block-wrapper[data-type="topic"] { gap: 0; }
+        .block-wrapper[data-type="topic"] .drag-handle { margin-top: 10px; }
+
+        .block-wrapper[data-type="scripture"] textarea {
+            font-family: var(--font-serif); font-style: italic; font-size: 17px;
+            padding-left: 16px; border-left: 3px solid currentColor;
+        }
+
+        .block-wrapper[data-type="highlight"] textarea {
+            font-size: 20px; font-weight: 800; text-align: center;
+            background: var(--swatch-gray); color: var(--txt-primary); padding: 20px; border-radius: 8px;
+        }
+        .block-wrapper[data-type="note"] textarea {
+            font-size: 14px; background: var(--swatch-amber); color: #92400E;
+            padding: 12px; border-radius: 6px; border: 1px solid #FDE68A;
+        }
+
+        /* --- TOOLBAR FLUTUANTE --- */
+        .toolbar {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            max-width: 800px; margin: 0 auto;
+            background: var(--bg-toolbar); backdrop-filter: blur(12px);
+            border-top: 1px solid var(--border);
+            padding: 12px 20px; z-index: 50;
+            display: flex; flex-direction: column; gap: 12px;
+            box-shadow: var(--shadow-float);
+        }
+        
+        .toolbar-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; align-items: center; }
+        .toolbar-row::-webkit-scrollbar { display: none; }
+
+        .tool-btn {
+            flex-shrink: 0; width: 40px; height: 40px; border-radius: var(--radius-sm);
+            display: flex; align-items: center; justify-content: center;
+            color: var(--txt-secondary); background: var(--bg-body);
+            border: 1px solid var(--border);
+        }
+        .tool-btn:hover { background: var(--border); color: var(--txt-primary); }
+        .tool-btn.active { background: var(--txt-primary); color: white; border-color: var(--txt-primary); }
+        
+        .tool-sep { width: 1px; height: 24px; background: var(--border); margin: 0 4px; flex-shrink: 0; }
+
+        .color-dot { width: 24px; height: 24px; border-radius: 6px; cursor: pointer; border: 2px solid white; box-shadow: 0 0 0 1px var(--txt-tertiary); flex-shrink: 0; }
+        .color-dot.active { border-color: var(--txt-primary); transform: scale(1.1); box-shadow: 0 0 0 3px var(--txt-primary); }
+
+        .btn-add-main {
+            position: absolute; right: 20px; top: -24px;
+            background: var(--accent); color: white;
+            width: 48px; height: 48px; border-radius: 14px;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+            border: none; cursor: pointer; transition: transform 0.2s;
+        }
+        .btn-add-main:active { transform: scale(0.92); }
+
+        /* --- MODO LEITURA (SEM ALTERAÇÕES VISUAIS) --- */
+        #reading-overlay {
+            position: fixed; inset: 0; background: var(--bg-paper); z-index: 100;
+            overflow-y: auto; padding: 60px 24px 100px 24px; display: none;
+        }
+        .reading-content { max-width: 700px; margin: 0 auto; padding-bottom: 100px; }
+        .reading-block { margin-bottom: 16px; font-size: 24px; line-height: 1.6; word-wrap: break-word; overflow-wrap: break-word; color: var(--txt-primary); }
+        .reading-block.type-title { font-size: 42px; font-weight: 800; color: #000; margin-bottom: 16px; line-height: 1.2; }
+        .reading-block.type-ref { font-size: 24px; font-weight: 500; color: var(--txt-secondary); margin-bottom: 50px; border-bottom: 1px solid var(--border); padding-bottom: 20px; }
+        .reading-block.type-scripture { font-family: var(--font-serif); font-style: italic; background: #FAFAFA; padding: 20px; border-left: 4px solid #ccc; color: #444; margin: 20px 0; }
+        .reading-block.type-highlight { font-size: 30px; font-weight: 800; text-align: center; padding: 40px 20px; border-radius: 12px; margin: 40px 0; }
+        .reading-block.type-topic { font-weight: 700; display: flex; gap: 12px; }
+        .reading-block.type-note { font-size: 18px; background: #FFFBEB; color: #92400E; padding: 15px; border: 1px solid #FDE68A; text-align: center; font-style: italic; width: 90%; margin: 20px auto; }
+        
+        .reading-block.is-bold { font-weight: 800 !important; }
+        .reading-block.is-italic { font-style: italic !important; }
+        .reading-block[data-txt-color] { color: var(--txt-color); }
+        .reading-block[data-bg-color] { background-color: var(--bg-color); }
+
+        .toast {
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+            background: #333; color: white; padding: 8px 16px; border-radius: 20px;
+            font-size: 14px; opacity: 0; transition: opacity 0.3s; z-index: 200; pointer-events: none;
+        }
+
     </style>
 </head>
 <body>
-<!-- Conteúdo truncado em demonstração -->
+
+<div id="app">
+    
+    <div id="toast" class="toast">Salvo</div>
+
+    <!-- VIEW: LISTA -->
+    <div id="view-list" class="hidden">
+        <header style="position: sticky; top: 0; margin: -20px -20px 20px -20px; padding: 0 20px;">
+            <div class="brand">
+                <div class="icon-box"><svg class="icon" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>
+                PregaFlow Studio
+            </div>
+        </header>
+        
+        <button class="new-sermon-btn" onclick="App.createSermon()">
+            <svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Novo Esboço
+        </button>
+
+        <div id="sermon-list-container"></div>
+    </div>
+
+    <!-- VIEW: EDITOR -->
+    <div id="view-editor" class="hidden">
+        <header>
+            <button class="btn action-btn" onclick="App.showList()">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+            </button>
+            <div class="save-status" id="save-indicator">
+                <svg width="12" height="12" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" fill="none"><path d="M20 6L9 17l-5-5"/></svg> Salvo
+            </div>
+            <div class="header-actions">
+                <button class="btn action-btn" onclick="Reader.open()" title="Modo Púlpito">
+                    <svg class="icon" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 1-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+                </button>
+                <button class="btn action-btn" onclick="Exporter.generatePDF()" title="Exportar PDF" style="color: var(--accent)">
+                    <svg class="icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line></svg>
+                </button>
+            </div>
+        </header>
+
+        <div class="editor-scroll-area" id="editor-area">
+            <div class="meta-inputs">
+                <textarea id="edit-title" class="input-title" placeholder="Título da Mensagem..." rows="1" oninput="App.handleInput(this)"></textarea>
+                <textarea id="edit-ref" class="input-ref" placeholder="Texto Base / Referência..." rows="1" oninput="App.handleInput(this)"></textarea>
+            </div>
+            <div id="blocks-container"></div>
+            <!-- Espaço extra para rolagem suave -->
+            <div style="height: 150px;"></div> 
+        </div>
+
+        <div class="toolbar">
+            <button class="btn-add-main" onclick="App.addBlock()">
+                <svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            </button>
+            
+            <div class="toolbar-row">
+                <!-- Botões de Tipo -->
+                <button class="tool-btn" data-type="text" onclick="App.setBlockType('text')"><svg class="icon" viewBox="0 0 24 24"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg></button>
+                <button class="tool-btn" data-type="topic" onclick="App.setBlockType('topic')"><svg class="icon" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line></svg></button>
+                <button class="tool-btn" data-type="scripture" onclick="App.setBlockType('scripture')"><svg class="icon" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg></button>
+                <button class="tool-btn" data-type="highlight" onclick="App.setBlockType('highlight')"><svg class="icon" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg></button>
+                <button class="tool-btn" data-type="note" onclick="App.setBlockType('note')"><svg class="icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line></svg></button>
+                
+                <div class="tool-sep"></div>
+                
+                <!-- Botões de Formatação (B/I) -->
+                <button class="tool-btn" data-format="bold" onclick="App.setBlockFormat('bold')"><b>B</b></button>
+                <button class="tool-btn" data-format="italic" onclick="App.setBlockFormat('italic')"><i>I</i></button>
+
+                <div class="tool-sep"></div>
+
+                <!-- Botões de Posicionamento -->
+                <button class="tool-btn" onclick="App.moveBlock('up')" title="Subir"><svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg></button>
+                <button class="tool-btn" onclick="App.moveBlock('down')" title="Descer"><svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg></button>
+            </div>
+
+            <div class="toolbar-row" style="justify-content: space-between; padding: 0 4px;">
+                <!-- Cores -->
+                <div class="color-dot" style="background: var(--swatch-gray)" data-color="gray" onclick="App.setBlockColor('gray')"></div>
+                <div class="color-dot" style="background: #60A5FA" data-color="blue" onclick="App.setBlockColor('blue')"></div>
+                <div class="color-dot" style="background: #34D399" data-color="green" onclick="App.setBlockColor('green')"></div>
+                <div class="color-dot" style="background: #F87171" data-color="red" onclick="App.setBlockColor('red')"></div>
+                <div class="color-dot" style="background: #FBBF24" data-color="amber" onclick="App.setBlockColor('amber')"></div>
+                
+                <div class="tool-sep"></div>
+
+                <button class="btn-delete-text" onclick="App.deleteBlock()">Apagar Texto</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODO LEITURA -->
+    <div id="reading-overlay" class="overlay">
+        <button style="position:fixed; top:20px; right:20px; z-index:200; background:black; color:white; border:none; padding:10px 20px; border-radius:30px; font-weight:bold; cursor:pointer;" onclick="Reader.close()">✕ Fechar</button>
+        <div class="reading-content" id="reading-container"></div>
+    </div>
+
+</div>
+
+<script>
+/**
+ * --- PREGAFLOW CORE ENGINE ---
+ * Módulos organizados para performance e estabilidade
+ */
+
+// 1. STORAGE MODULE (Gerencia Dados)
+const Store = {
+    key: 'pregaflow_v2_data',
+    get() {
+        try { return JSON.parse(localStorage.getItem(this.key) || '[]'); } 
+        catch (e) { console.error("Erro ler dados", e); return []; }
+    },
+    save(data) {
+        localStorage.setItem(this.key, JSON.stringify(data));
+    },
+    update(id, payload) {
+        const list = this.get();
+        const idx = list.findIndex(i => i.id === id);
+        if (idx !== -1) {
+            list[idx] = { ...list[idx], ...payload, lastMod: Date.now() };
+            this.save(list);
+            return list[idx];
+        }
+        return null;
+    },
+    delete(id) {
+        const list = this.get().filter(i => i.id !== id);
+        this.save(list);
+    }
+};
+
+// 2. UTILS (Funções auxiliares)
+const Utils = {
+    id: () => Date.now().toString(36) + Math.random().toString(36).substr(2),
+    debounce: (func, wait) => {
+        let timeout;
+        return function(...args) {
+            const context = this;
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(context, args), wait);
+        };
+    },
+    toast: (msg) => {
+        const t = document.getElementById('toast');
+        t.innerText = msg; t.style.opacity = '1';
+        setTimeout(() => t.style.opacity = '0', 2000);
+    },
+    getStylesForColor(colorId) {
+        const map = {
+            gray: { txt: '#374151', bg: '#F3F4F6' },
+            blue: { txt: '#1D4ED8', bg: '#EFF6FF' },
+            green: { txt: '#047857', bg: '#ECFDF5' },
+            red: { txt: '#B91C1C', bg: '#FEF2F2' },
+            amber: { txt: '#B45309', bg: '#FFFBEB' },
+        };
+        return map[colorId] || map['gray'];
+    }
+};
+
+// 3. APP CONTROLLER (Lógica Principal)
+const App = {
+    currentId: null,
+    focusedBlockId: null,
+    sortable: null,
+
+    init() {
+        this.setView('list');
+        this.renderList();
+        
+        const container = document.getElementById('blocks-container');
+        this.sortable = Sortable.create(container, {
+            handle: '.drag-handle',
+            animation: 150,
+            onEnd: () => this.saveFromDOM(true)
+        });
+    },
+    
+    setView(viewName) {
+        const list = document.getElementById('view-list');
+        const editor = document.getElementById('view-editor');
+        const overlay = document.getElementById('reading-overlay');
+        
+        list.classList.add('hidden');
+        editor.classList.add('hidden');
+        overlay.classList.remove('active');
+        overlay.style.display = 'none';
+
+        if (viewName === 'list') {
+            list.classList.remove('hidden');
+        } else if (viewName === 'editor') {
+            editor.classList.remove('hidden');
+        } else if (viewName === 'read') {
+            overlay.classList.add('active');
+            overlay.style.display = 'block';
+        }
+    },
+
+
+    renderList() {
+        const list = Store.get();
+        const container = document.getElementById('sermon-list-container');
+        
+        if(list.length === 0) {
+            container.innerHTML = `<div class="empty-state">
+                <svg class="icon" style="width:48px; height:48px; opacity:0.2; margin-bottom:10px;" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                <br>Seu púlpito digital está vazio.<br>Crie seu primeiro esboço.
+            </div>`;
+            return;
+        }
+
+        container.innerHTML = list.map(s => `
+            <div class="sermon-card" onclick="App.openSermon('${s.id}')">
+                <div class="card-title">${s.title || 'Esboço Sem Título'}</div>
+                <div class="card-meta">
+                    <span>${new Date(s.createdAt).toLocaleDateString('pt-BR')}</span>
+                    <span>•</span>
+                    <span>${s.bibleRef || 'Sem referência'}</span>
+                </div>
+                <!-- CORREÇÃO: Chama o wrapper para garantir stopPropagation e deleção -->
+                <button class="btn btn-delete-card" onclick="App.deleteSermonWrapper(event, '${s.id}')">
+                    <svg class="icon" style="width:16px; height:16px" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                </button>
+            </div>
+        `).join('');
+    },
+    
+    // Função Wrapper para exclusão da lista
+    deleteSermonWrapper(e, id) {
+        if (e) e.stopPropagation(); // Impede a abertura do editor
+        if (confirm('Tem certeza que deseja apagar este esboço?')) {
+            Store.delete(id);
+            this.renderList();
+        }
+    },
+
+
+    createSermon() {
+        const newSermon = {
+            id: Utils.id(),
+            title: '',
+            bibleRef: '',
+            createdAt: Date.now(),
+            blocks: [{ id: Utils.id(), type: 'text', content: '', color: 'gray', isBold: false, isItalic: false }]
+        };
+        const list = Store.get();
+        list.unshift(newSermon);
+        Store.save(list);
+        this.openSermon(newSermon.id);
+    },
+
+    deleteSermon(id) {
+        // Função original mantida por compatibilidade
+        if(confirm('Tem certeza que deseja apagar este esboço?')) {
+            Store.delete(id);
+            this.renderList();
+        }
+    },
+
+    openSermon(id) {
+        this.currentId = id;
+        const sermon = Store.get().find(s => s.id === id);
+        if(!sermon) return;
+
+        this.setView('editor');
+        
+        document.getElementById('edit-title').value = sermon.title;
+        document.getElementById('edit-ref').value = sermon.bibleRef;
+        
+        this.adjustTextareas(document.getElementById('edit-title'));
+        this.adjustTextareas(document.getElementById('edit-ref'));
+        
+        this.renderBlocks(sermon.blocks);
+    },
+
+    showList() {
+        this.saveFromDOM();
+        this.currentId = null;
+        this.setView('list');
+        this.renderList();
+    },
+
+    renderBlocks(blocks) {
+        const container = document.getElementById('blocks-container');
+        container.innerHTML = '';
+        blocks.forEach(b => {
+            container.appendChild(this.createBlockDOM(b));
+        });
+        this.adjustTextareas();
+    },
+
+    createBlockDOM(data) {
+        const div = document.createElement('div');
+        div.className = 'block-wrapper';
+        div.id = `block-${data.id}`;
+        div.dataset.id = data.id;
+        div.dataset.type = data.type;
+        div.dataset.color = data.color || 'gray';
+        
+        let formatStr = '';
+        if (data.isBold) formatStr += 'bold';
+        if (data.isItalic) formatStr += (formatStr ? ' ' : '') + 'italic';
+        div.dataset.format = formatStr.trim();
+
+        div.innerHTML = `
+            <div class="drag-handle"><svg class="icon" style="width:14px;height:14px;" viewBox="0 0 24 24"><path d="M12 2v20M2 12h20"/></svg></div>
+            <div class="block-content">
+                <textarea rows="1" placeholder="Digite algo..." onfocus="App.setFocus('${data.id}')" oninput="App.handleInput(this)">${data.content}</textarea>
+            </div>
+        `;
+        return div;
+    },
+
+    setFocus(id) {
+        this.focusedBlockId = id;
+        document.querySelectorAll('.block-wrapper').forEach(el => el.classList.remove('focused'));
+        const el = document.getElementById(`block-${id}`);
+        if(el) el.classList.add('focused');
+        
+        this.updateToolbarState(el ? el.dataset : {});
+        
+        // Rolagem Inteligente (Smart Scroll)
+        const area = document.getElementById('editor-area');
+        if (el) {
+            const rect = el.getBoundingClientRect();
+            const areaRect = area.getBoundingClientRect();
+            const toolbarHeight = 130; 
+            
+            // Posição desejada: no máximo 1/3 da altura da tela a partir do topo do editor
+            const idealTop = areaRect.top + 100;
+            const idealBottom = areaRect.bottom - toolbarHeight - 20;
+
+            if (rect.top < idealTop) {
+                // Rola para cima se estiver muito no topo
+                area.scrollTop -= (idealTop - rect.top) + 10;
+            } else if (rect.bottom > idealBottom) {
+                // Rola para baixo se estiver muito perto da toolbar
+                 area.scrollTop += (rect.bottom - idealBottom) + 10;
+            }
+        }
+    },
+    
+    updateToolbarState(dataset) {
+        document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.color-dot').forEach(dot => dot.classList.remove('active'));
+
+        if(dataset.type) {
+            document.querySelector(`.tool-btn[data-type="${dataset.type}"]`)?.classList.add('active');
+        }
+        if(dataset.format && dataset.format.includes('bold')) {
+            document.querySelector(`.tool-btn[data-format="bold"]`)?.classList.add('active');
+        }
+        if(dataset.format && dataset.format.includes('italic')) {
+            document.querySelector(`.tool-btn[data-format="italic"]`)?.classList.add('active');
+        }
+        if(dataset.color) {
+            document.querySelector(`.color-dot[data-color="${dataset.color}"]`)?.classList.add('active');
+        }
+    },
+
+    addBlock() {
+        const newBlock = { id: Utils.id(), type: 'text', content: '', color: 'gray', isBold: false, isItalic: false };
+        const dom = this.createBlockDOM(newBlock);
+        
+        const container = document.getElementById('blocks-container');
+        let reference = null;
+        
+        if (this.focusedBlockId) {
+            reference = document.getElementById(`block-${this.focusedBlockId}`);
+        }
+        
+        if (reference && reference.nextSibling) {
+            container.insertBefore(dom, reference.nextSibling);
+        } else {
+            container.appendChild(dom);
+        }
+        
+        dom.querySelector('textarea').focus();
+        this.saveFromDOM();
+    },
+
+    deleteBlock() {
+        if (!this.focusedBlockId) {
+             Utils.toast('Toque em um texto para Apagar.');
+             return;
+        }
+        
+        if(!confirm('Apagar bloco?')) return;
+        
+        const el = document.getElementById(`block-${this.focusedBlockId}`);
+        if (!el) return;
+
+        const prev = el.previousElementSibling;
+        const next = el.nextElementSibling;
+        
+        el.classList.remove('focused'); 
+        el.remove(); // Remove do DOM
+        
+        this.focusedBlockId = null;
+
+        // Tenta focar no anterior ou no próximo
+        let focusTarget = null;
+        if (prev && prev.querySelector('textarea')) {
+            focusTarget = prev.querySelector('textarea');
+        } else if (next && next.querySelector('textarea')) {
+            focusTarget = next.querySelector('textarea');
+        }
+
+        if(focusTarget) {
+            focusTarget.focus();
+            // Move o cursor para o final
+            const val = focusTarget.value; focusTarget.value = ''; focusTarget.value = val;
+            // setFocus será chamado via onfocus
+        } else {
+            // Se não houver blocos, reseta o estado da toolbar
+            this.updateToolbarState({});
+        }
+
+        // Salva o estado atual do DOM após a exclusão
+        this.saveFromDOM(true);
+    },
+
+    moveBlock(direction) {
+        if(!this.focusedBlockId) return;
+        this.saveFromDOM(true); 
+
+        const allData = Store.get().find(x => x.id === this.currentId);
+        const blocks = allData.blocks;
+        const idx = blocks.findIndex(b => b.id === this.focusedBlockId);
+        
+        if (direction === 'up' && idx > 0) {
+            [blocks[idx], blocks[idx-1]] = [blocks[idx-1], blocks[idx]];
+        } else if (direction === 'down' && idx < blocks.length - 1) {
+            [blocks[idx], blocks[idx+1]] = [blocks[idx+1], blocks[idx]];
+        } else { return; }
+        
+        Store.update(this.currentId, { blocks });
+        
+        this.renderBlocks(blocks);
+        setTimeout(() => {
+            const el = document.getElementById(`block-${this.focusedBlockId}`);
+            if(el) {
+                const ta = el.querySelector('textarea');
+                ta.focus();
+                // Usa o scroll reforçado
+                App.setFocus(this.focusedBlockId);
+            }
+        }, 50);
+    },
+
+    setBlockType(type) {
+        if(!this.focusedBlockId) return;
+        const el = document.getElementById(`block-${this.focusedBlockId}`);
+        el.dataset.type = type;
+        this.saveFromDOM();
+        this.setFocus(this.focusedBlockId);
+    },
+    
+    setBlockFormat(format) {
+        if(!this.focusedBlockId) return;
+        const el = document.getElementById(`block-${this.focusedBlockId}`);
+        let currentFormat = el.dataset.format || "";
+        const isActive = currentFormat.includes(format);
+        
+        if (isActive) {
+            currentFormat = currentFormat.replace(format, '').trim();
+        } else {
+            currentFormat = (currentFormat + ' ' + format).trim();
+        }
+        
+        el.dataset.format = currentFormat;
+        this.saveFromDOM();
+        this.setFocus(this.focusedBlockId);
+    },
+
+    setBlockColor(color) {
+        if(!this.focusedBlockId) return;
+        const el = document.getElementById(`block-${this.focusedBlockId}`);
+        el.dataset.color = color;
+        this.saveFromDOM();
+        this.setFocus(this.focusedBlockId);
+    },
+
+    adjustTextareas(target) {
+        const targets = target ? [target] : document.querySelectorAll('.editor-scroll-area textarea');
+        targets.forEach(tx => {
+            tx.style.height = 'auto';
+            tx.style.height = (tx.scrollHeight + 2) + 'px';
+        });
+    },
+
+    handleInput: Utils.debounce(function(target) {
+        App.adjustTextareas(target);
+        App.saveFromDOM();
+    }, 400),
+
+    saveFromDOM(skipFeedback = false) {
+        if(!this.currentId) return;
+        
+        const title = document.getElementById('edit-title').value;
+        const ref = document.getElementById('edit-ref').value;
+        
+        const blocks = [];
+        document.querySelectorAll('.block-wrapper').forEach(el => {
+            blocks.push({
+                id: el.dataset.id,
+                type: el.dataset.type,
+                color: el.dataset.color,
+                content: el.querySelector('textarea').value,
+                isBold: el.dataset.format.includes('bold'),
+                isItalic: el.dataset.format.includes('italic')
+            });
+        });
+
+        Store.update(this.currentId, { title, bibleRef: ref, blocks });
+        
+        if (!skipFeedback) {
+            const indicator = document.getElementById('save-indicator');
+            indicator.classList.add('visible');
+            setTimeout(() => indicator.classList.remove('visible'), 1500);
+        }
+    }
+};
+
+// 4. READER MODULE (Modo Púlpito)
+const Reader = {
+    open() {
+        App.saveFromDOM();
+        const s = Store.get().find(x => x.id === App.currentId);
+        const container = document.getElementById('reading-container');
+        
+        // CORREÇÃO: Chama setView para garantir a transição
+        App.setView('read'); 
+
+        let html = `<div class="reading-block type-title">${s.title}</div>`;
+        html += `<div class="reading-block type-ref">${s.bibleRef}</div>`;
+        
+        s.blocks.forEach(b => {
+            const styles = Utils.getStylesForColor(b.color);
+            const text = b.content.replace(/\n/g, '<br>');
+            const isBold = b.isBold ? 'is-bold' : '';
+            const isItalic = b.isItalic ? 'is-italic' : '';
+            
+            let blockClass = `reading-block type-${b.type} ${isBold} ${isItalic}`;
+            let blockStyle = ``;
+            
+            // Define o estilo de cor padrão para o bloco
+            blockStyle = `color:${styles.txt};`;
+
+            if (b.type === 'topic') {
+                 blockStyle += `display:flex; align-items:flex-start; gap:12px; font-weight:700;`;
+                 html += `<div class="${blockClass}" style="${blockStyle}"><span style="color:${styles.txt}; margin-top:5px;">•</span> <div>${text}</div></div>`;
+                 return;
+            }
+            if (b.type === 'highlight') {
+                blockStyle = `background-color: ${styles.bg}; color: ${styles.txt}; padding: 30px; border-radius:12px; text-align:center; font-weight:800;`;
+            } else if (b.type === 'scripture') {
+                blockStyle = `border-left: 4px solid ${styles.txt}; background:${styles.bg}; padding: 20px; font-family:var(--font-serif); font-style:italic; color:${styles.txt};`;
+            } else if (b.type === 'note') {
+                blockStyle = `background-color: ${Utils.getStylesForColor('amber').bg}; color: ${styles.txt}; padding: 15px; border: 1px solid #FDE68A; text-align: center; font-style: italic; font-size: 18px; width: 90%; margin: 20px auto;`;
+            } else if (b.type === 'text') {
+                blockStyle += `font-size: 24px;`;
+            }
+
+            html += `<div class="${blockClass}" style="${blockStyle}">${text}</div>`;
+        });
+        
+        container.innerHTML = html;
+        container.scrollTop = 0;
+    },
+    close() {
+        document.getElementById('reading-overlay').classList.remove('active');
+        App.setView('editor');
+    }
+};
+
+// 5. EXPORTER (PDF)
+const Exporter = {
+    generatePDF() {
+        App.saveFromDOM();
+        const s = Store.get().find(x => x.id === App.currentId);
+        const colors = Utils.getStylesForColor;
+        
+        const element = document.createElement('div');
+        element.style.padding = "40px";
+        element.style.fontFamily = "Inter, sans-serif";
+        element.style.fontSize = "12pt";
+        
+        let pdfHtml = `<div style="text-align:center; margin-bottom:30px; font-family:Inter, sans-serif;">
+            <h1 style="font-size:24pt; margin:0; color:#111;">${s.title}</h1>
+            <div style="font-size:14pt; font-weight:500; color:#666; margin-top:5px;">${s.bibleRef}</div>
+        </div>`;
+        
+        s.blocks.forEach(b => {
+            const styles = colors(b.color);
+            const text = b.content.replace(/\n/g, '<br>');
+            const isBold = b.isBold ? '700' : '400';
+            const isItalic = b.isItalic ? 'italic' : 'normal';
+            
+            let blockStyle = `margin-bottom: 12px; font-size:12pt; line-height:1.5; font-weight:${isBold}; font-style:${isItalic}; color:${styles.txt};`;
+
+            if (b.type === 'scripture') {
+                blockStyle += `font-family:Lora, serif; padding:10px 15px; border-left:3px solid ${styles.txt}; background:${styles.bg}; font-style:italic;`;
+            } else if (b.type === 'highlight') {
+                blockStyle += `background:${styles.bg}; padding:15px; border-radius:8px; text-align:center; font-weight:800; font-size:14pt;`;
+            } else if (b.type === 'topic') {
+                 blockStyle += `display:flex; align-items:baseline; gap:8px; font-weight:700; font-size:12pt;`;
+                 pdfHtml += `<div style="${blockStyle}"><span style="font-size:14pt; color:${styles.txt}">•</span> <div>${text}</div></div>`;
+                 return;
+            }
+
+            pdfHtml += `<div style="${blockStyle}">${text}</div>`;
+        });
+
+        element.innerHTML = pdfHtml;
+
+        const opt = {
+            margin: 15,
+            filename: `${s.title || 'esboco'}.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2 },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+
+        Utils.toast('Gerando PDF...');
+        html2pdf().set(opt).from(element).save();
+    }
+};
+
+// Start App
+window.startApp = App.init.bind(App);
+startApp();
+
+</script>
 </body>
-</html>
+    </html>
