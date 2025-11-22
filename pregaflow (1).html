@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PregaFlow Desktop - Rolagem Corrigida</title>
+    <title>PregaFlow - Rolagem Corrigida</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,11 +13,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
     
     <style>
-        /* --- VARIÁVEIS --- */
+        /* --- CONFIGURAÇÕES GERAIS --- */
         :root {
-            --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            --font-serif: 'Lora', serif;
-            
             --bg-app: #F3F4F6;       
             --bg-sidebar: #FFFFFF;   
             --bg-paper: #FFFFFF;     
@@ -28,388 +25,372 @@
             
             --accent: #2563EB;
             --border: #E5E7EB;
-            --shadow-paper: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-
-            /* Cores de Destaque */
-            --swatch-gray: #F3F4F6; --txt-gray: #374151;
-            --swatch-blue: #EFF6FF; --txt-blue: #1D4ED8;
-            --swatch-green: #ECFDF5; --txt-green: #047857;
-            --swatch-red: #FEF2F2; --txt-red: #B91C1C;
-            --swatch-amber: #FFFBEB; --txt-amber: #B45309;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
 
         * { box-sizing: border-box; outline: none; }
-        
-        /* --- BARRA DE ROLAGEM LARGA E VISÍVEL --- */
-        ::-webkit-scrollbar { width: 16px; height: 16px; }
-        ::-webkit-scrollbar-track { background: #E5E7EB; border-left: 1px solid #D1D5DB; }
-        ::-webkit-scrollbar-thumb { background: #9CA3AF; border: 4px solid #E5E7EB; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: #6B7280; }
 
-        body {
-            background-color: var(--bg-app);
-            color: var(--txt-primary);
-            font-family: var(--font-sans);
-            margin: 0;
-            height: 100vh;
-            overflow: hidden; /* O corpo não rola, apenas os painéis internos */
+        /* --- BARRA DE ROLAGEM (FORÇADA E VISÍVEL) --- */
+        ::-webkit-scrollbar {
+            width: 16px; /* Bem larga para o mouse */
+            height: 16px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #E5E7EB; 
+            border-left: 1px solid #D1D5DB;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #9CA3AF; 
+            border: 3px solid #E5E7EB; 
+            border-radius: 8px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6B7280; /* Mais escuro ao passar o mouse */
         }
 
-        /* --- LAYOUT GRID --- */
+        body {
+            margin: 0;
+            height: 100vh; /* Altura total da tela */
+            overflow: hidden; /* Impede scroll duplo na pagina inteira */
+            background-color: var(--bg-app);
+            font-family: 'Inter', sans-serif;
+            color: var(--txt-primary);
+        }
+
+        /* --- LAYOUT PRINCIPAL --- */
         #app {
             display: grid;
-            grid-template-columns: 300px 1fr; /* Sidebar fixa | Editor flexível */
-            height: 100vh;
+            grid-template-columns: 300px 1fr; /* Esquerda fixa | Direita flexível */
+            height: 100%;
             width: 100%;
         }
 
-        /* UTILITÁRIOS */
-        .hidden { display: none !important; }
-        .btn { cursor: pointer; border: none; background: none; font-family: inherit; display: inline-flex; align-items: center; justify-content: center;}
-        .icon { width: 18px; height: 18px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
-        
-        /* --- SIDEBAR (LISTA) --- */
+        /* --- COLUNA DA ESQUERDA (LISTA) --- */
         #view-list {
             background: var(--bg-sidebar);
             border-right: 1px solid var(--border);
             display: flex;
             flex-direction: column;
-            height: 100%;
+            height: 100%; 
+            overflow: hidden; /* Contém o scroll interno */
+        }
+        
+        .brand { padding: 20px; font-weight: 700; border-bottom: 1px solid var(--border); }
+        .btn-new { margin: 15px; padding: 12px; background: var(--txt-primary); color: white; border-radius: 6px; cursor: pointer; font-weight: 600; text-align: center; border: none; }
+        
+        #list-scroll {
+            flex: 1; /* Ocupa o resto da altura */
+            overflow-y: auto; /* SCROLL AQUI */
+            padding: 10px;
+        }
+
+        .card { padding: 12px; border-radius: 6px; margin-bottom: 5px; cursor: pointer; border: 1px solid transparent; }
+        .card:hover { background: #F3F4F6; border-color: #E5E7EB; }
+        .card.active { background: #EFF6FF; border-color: #BFDBFE; color: var(--accent); }
+        .card-title { font-weight: 600; margin-bottom: 4px; }
+        .card-date { font-size: 12px; color: var(--txt-secondary); }
+
+        /* --- COLUNA DA DIREITA (EDITOR) --- */
+        #view-editor {
+            display: flex;
+            flex-direction: column;
+            height: 100%; /* Garante altura total */
+            position: relative;
+            visibility: hidden; /* Escondido até selecionar um item */
+        }
+
+        /* Toolbar Fixa no Topo */
+        .toolbar {
+            height: 60px;
+            flex-shrink: 0; /* Não encolhe */
+            background: var(--bg-toolbar);
+            border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; gap: 8px; padding: 0 20px;
             z-index: 10;
         }
 
-        .sidebar-header { padding: 20px; border-bottom: 1px solid var(--border); font-weight: 700; font-size: 16px; display: flex; align-items: center; gap: 8px; }
-        
-        .new-sermon-btn {
-            margin: 15px 20px; background: var(--txt-primary); color: white;
-            padding: 12px; border-radius: 6px; font-weight: 600; font-size: 14px;
-            display: flex; align-items: center; justify-content: center; gap: 8px;
-        }
-        .new-sermon-btn:hover { opacity: 0.9; }
-
-        #sermon-list-container { flex: 1; overflow-y: auto; padding: 0 10px 20px 10px; }
-
-        .sermon-card {
-            border-radius: 6px; padding: 12px 15px; margin-bottom: 4px;
-            cursor: pointer; border: 1px solid transparent; transition: all 0.1s;
-        }
-        .sermon-card:hover { background: var(--bg-app); border-color: var(--border); }
-        .sermon-card.active { background: #EFF6FF; border-color: #DBEAFE; color: var(--accent); }
-        
-        .card-title { font-weight: 600; font-size: 15px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .card-meta { font-size: 12px; opacity: 0.7; }
-        
-        /* --- EDITOR --- */
-        #view-editor {
-            display: flex; flex-direction: column; height: 100%;
-            background: var(--bg-app); position: relative;
-        }
-
-        /* Toolbar Sticky */
-        .formatting-toolbar {
-            background: var(--bg-toolbar);
-            border-bottom: 1px solid var(--border);
-            padding: 8px 30px;
-            display: flex; align-items: center; gap: 8px;
-            position: sticky; top: 0; z-index: 100;
-            flex-shrink: 0; /* Impede que a toolbar encolha */
-            height: 50px;
-        }
-
-        .tool-btn { width: 32px; height: 32px; border-radius: 4px; color: var(--txt-secondary); border: 1px solid transparent; }
-        .tool-btn:hover { background: var(--swatch-gray); color: var(--txt-primary); }
-        .tool-btn.active { background: var(--swatch-gray); color: var(--accent); border-color: #DBEAFE; }
-        .tool-sep { width: 1px; height: 20px; background: var(--border); margin: 0 6px; }
-        .color-dot { width: 18px; height: 18px; border-radius: 4px; cursor: pointer; border: 2px solid transparent; }
-        .color-dot:hover { transform: scale(1.1); }
-        .color-dot.active { border-color: var(--txt-primary); box-shadow: 0 0 0 2px white, 0 0 0 4px var(--txt-primary); }
-
-        /* ÁREA DE ROLAGEM (CRÍTICO) */
-        .editor-scroll-area {
-            flex: 1; /* Ocupa todo o espaço restante */
-            overflow-y: auto; /* Garante a barra de rolagem */
-            display: block;
+        /* ÁREA DE ROLAGEM DO EDITOR (AQUI ESTAVA O PROBLEMA) */
+        .editor-scroll-container {
+            flex-grow: 1; /* Cresce para preencher a tela */
+            overflow-y: scroll; /* FORÇA A BARRA DE ROLAGEM */
             padding: 40px;
-            /* IMPORTANTE: Espaço extra no fundo para permitir rolar além do final */
-            padding-bottom: 300px; 
+            display: block;
+            background: var(--bg-app);
+            scroll-behavior: smooth;
         }
 
-        /* Folha */
-        .paper-sheet {
-            background: var(--bg-paper);
-            width: 100%; max-width: 850px;
-            min-height: 100%; height: fit-content;
-            padding: 60px 70px;
-            box-shadow: var(--shadow-paper);
+        /* O "Papel" */
+        .paper {
+            background: white;
+            max-width: 850px;
+            min-height: 1000px; /* Altura mínima garantida */
+            margin: 0 auto;
+            padding: 60px;
+            box-shadow: var(--shadow);
             border-radius: 2px;
-            margin: 0 auto; /* Centraliza horizontalmente */
+            padding-bottom: 200px; /* Espaço extra no fim para digitar confortável */
         }
 
-        /* Inputs */
-        .meta-inputs { margin-bottom: 40px; border-bottom: 2px solid var(--border); padding-bottom: 20px; }
-        .input-title { font-size: 32px; font-weight: 800; margin-bottom: 10px; width: 100%; border: none; resize: none; font-family: inherit; }
-        .input-ref { font-size: 18px; font-weight: 500; color: var(--txt-secondary); width: 100%; border: none; resize: none; font-family: inherit; }
+        /* Botões da Toolbar */
+        .btn-tool { width: 32px; height: 32px; border: 1px solid transparent; background: transparent; cursor: pointer; border-radius: 4px; color: #555; }
+        .btn-tool:hover { background: #eee; color: #000; }
+        .btn-tool.active { background: #e0e7ff; color: var(--accent); border-color: #c7d2fe; }
+        .sep { width: 1px; height: 20px; background: #ddd; margin: 0 5px; }
+        .dot { width: 16px; height: 16px; border-radius: 4px; cursor: pointer; display: inline-block; border: 2px solid transparent; }
+        .dot.active { border-color: #000; transform: scale(1.2); }
 
-        /* Blocos */
-        #blocks-container { display: flex; flex-direction: column; gap: 10px; }
+        /* Inputs do Editor */
+        .inp-title { width: 100%; font-size: 32px; font-weight: 800; border: none; margin-bottom: 10px; resize: none; overflow: hidden; font-family: inherit; }
+        .inp-ref { width: 100%; font-size: 18px; color: #666; border: none; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 30px; resize: none; font-family: inherit; }
+
+        /* Blocos de Texto */
+        .block-wrap { position: relative; display: flex; gap: 10px; padding: 4px 0; align-items: flex-start; }
+        .drag { cursor: grab; color: #ccc; opacity: 0; margin-top: 5px; }
+        .block-wrap:hover .drag { opacity: 1; }
+        textarea { width: 100%; border: none; resize: none; font-family: inherit; font-size: 16px; line-height: 1.6; overflow: hidden; background: transparent; }
         
-        .block-wrapper {
-            position: relative; display: flex; align-items: flex-start; gap: 12px;
-            border-radius: 4px; padding: 4px 8px 4px 2px; border: 1px solid transparent;
-        }
-        .block-wrapper:hover { background: #F9FAFB; }
-        .block-wrapper.focused { background: #F3F4F6; }
+        /* Estilos */
+        .block-wrap[data-fmt*="bold"] textarea { font-weight: 700; }
+        .block-wrap[data-fmt*="italic"] textarea { font-style: italic; }
+        .block-wrap[data-color="blue"] textarea { color: #1D4ED8; }
+        .block-wrap[data-color="red"] textarea { color: #B91C1C; }
+        .block-wrap[data-color="green"] textarea { color: #047857; }
+        .block-wrap[data-color="amber"] textarea { color: #B45309; }
+
+        .block-wrap[data-type="topic"] textarea { font-size: 20px; font-weight: 700; }
+        .block-wrap[data-type="topic"] .drag { margin-top: 8px; }
+        .block-wrap[data-type="scripture"] textarea { font-family: 'Lora', serif; font-style: italic; background: #f9fafb; padding: 10px 15px; border-left: 3px solid #ccc; }
+        .block-wrap[data-type="highlight"] textarea { font-size: 24px; font-weight: 800; text-align: center; background: #f3f4f6; padding: 20px; border-radius: 8px; }
+        .block-wrap[data-type="note"] textarea { background: #fffbeb; color: #92400e; padding: 10px; border: 1px solid #fcd34d; border-radius: 4px; font-size: 14px; }
+
+        .btn-add { width: 100%; padding: 15px; margin-top: 20px; border: 2px dashed #e5e7eb; background: transparent; cursor: pointer; color: #6b7280; font-weight: 600; }
+        .btn-add:hover { border-color: #9ca3af; color: #374151; }
+
+        /* Modo Leitura */
+        #reader { position: fixed; inset: 0; background: #111; z-index: 100; overflow-y: auto; display: none; }
+        #reader.active { display: block; }
+        .read-content { background: #fff; max-width: 900px; margin: 0 auto; padding: 80px; min-height: 100vh; }
         
-        .drag-handle { width: 20px; height: 24px; margin-top: 4px; cursor: grab; color: #D1D5DB; opacity: 0; }
-        .block-wrapper:hover .drag-handle { opacity: 1; }
-        .block-content { flex: 1; }
+        .toast { position: fixed; bottom: 20px; right: 20px; background: #000; color: #fff; padding: 8px 16px; border-radius: 4px; opacity: 0; transition: 0.3s; }
 
-        textarea {
-            width: 100%; border: none; background: transparent; resize: none;
-            font-family: inherit; font-size: 16px; line-height: 1.6;
-            padding: 2px 0; color: var(--txt-primary); overflow: hidden;
-        }
-
-        /* Estilos de Bloco */
-        .block-wrapper[data-color="gray"] { color: var(--txt-gray); }
-        .block-wrapper[data-color="blue"] { color: var(--txt-blue); }
-        .block-wrapper[data-color="green"] { color: var(--txt-green); }
-        .block-wrapper[data-color="red"] { color: var(--txt-red); }
-        .block-wrapper[data-color="amber"] { color: var(--txt-amber); }
-        
-        .block-wrapper[data-format*="bold"] textarea { font-weight: 700; }
-        .block-wrapper[data-format*="italic"] textarea { font-style: italic; }
-
-        .block-wrapper[data-type="topic"] textarea { font-weight: 600; font-size: 18px; }
-        .block-wrapper[data-type="topic"]::before { content: '•'; font-size: 24px; margin-top: -2px; margin-right: 8px; }
-        .block-wrapper[data-type="scripture"] textarea { font-family: var(--font-serif); font-style: italic; font-size: 17px; padding: 10px 20px; border-left: 3px solid currentColor; background: rgba(0,0,0,0.02); }
-        .block-wrapper[data-type="highlight"] textarea { font-size: 24px; font-weight: 800; text-align: center; background: var(--swatch-gray); padding: 30px; border-radius: 8px; }
-        .block-wrapper[data-type="note"] textarea { font-size: 14px; background: var(--swatch-amber); color: #92400E; padding: 12px; border-radius: 6px; border: 1px solid #FDE68A; }
-
-        .btn-add-bottom { margin: 30px auto; display: block; background: var(--border); color: var(--txt-secondary); width: 100%; padding: 15px; border-radius: 6px; font-weight: 600; cursor: pointer;}
-        .btn-add-bottom:hover { background: var(--txt-secondary); color: white; }
-
-        /* Overlays */
-        #reading-overlay { position: fixed; inset: 0; background: #111; z-index: 200; overflow-y: auto; padding: 40px; display: none; }
-        #reading-overlay.active { display: block; }
-        .reading-paper { max-width: 900px; margin: 0 auto; background: #fff; padding: 80px; border-radius: 4px; min-height: 100vh; }
-        .reading-block { margin-bottom: 24px; font-size: 28px; line-height: 1.6; color: #111; }
-        
-        .toast { position: fixed; bottom: 30px; right: 30px; background: #111; color: white; padding: 10px 20px; border-radius: 6px; opacity: 0; transition: opacity 0.3s; }
-        .save-status { font-size: 12px; font-weight: 500; color: #047857; display: flex; align-items: center; gap: 4px; opacity: 0; transition: opacity 0.3s; }
-        .save-status.visible { opacity: 1; }
     </style>
 </head>
 <body>
 
 <div id="app">
-    <div id="toast" class="toast">Salvo</div>
-
     <div id="view-list">
-        <div class="sidebar-header">
-            <svg class="icon" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-            PregaFlow
-        </div>
-        <button class="new-sermon-btn" onclick="App.createSermon()">+ Novo Esboço</button>
-        <div id="sermon-list-container"></div>
+        <div class="brand">PregaFlow Studio</div>
+        <button class="btn-new" onclick="App.create()">+ Novo Esboço</button>
+        <div id="list-scroll">
+            </div>
     </div>
 
-    <div id="view-editor" style="visibility: hidden;">
-        <div class="formatting-toolbar">
-            <button class="tool-btn" onclick="App.setBlockType('text')" title="Texto">T</button>
-            <button class="tool-btn" onclick="App.setBlockType('topic')" title="Tópico">H1</button>
-            <button class="tool-btn" onclick="App.setBlockType('scripture')" title="Versículo">""</button>
-            <button class="tool-btn" onclick="App.setBlockType('highlight')" title="Destaque">★</button>
-            <button class="tool-btn" onclick="App.setBlockType('note')" title="Nota">✎</button>
-            <div class="tool-sep"></div>
-            <button class="tool-btn" onclick="App.setBlockFormat('bold')" title="Negrito"><b>B</b></button>
-            <button class="tool-btn" onclick="App.setBlockFormat('italic')" title="Itálico"><i>I</i></button>
-            <div class="tool-sep"></div>
-            <div class="color-dot" style="background: #D1D5DB" data-color="gray" onclick="App.setBlockColor('gray')"></div>
-            <div class="color-dot" style="background: #60A5FA" data-color="blue" onclick="App.setBlockColor('blue')"></div>
-            <div class="color-dot" style="background: #34D399" data-color="green" onclick="App.setBlockColor('green')"></div>
-            <div class="color-dot" style="background: #F87171" data-color="red" onclick="App.setBlockColor('red')"></div>
-            <div class="color-dot" style="background: #FBBF24" data-color="amber" onclick="App.setBlockColor('amber')"></div>
-            <div class="tool-sep"></div>
-            <button class="tool-btn" onclick="App.moveBlock('up')">↑</button>
-            <button class="tool-btn" onclick="App.moveBlock('down')">↓</button>
-            <button class="tool-btn" onclick="App.deleteBlock()" style="color:var(--danger)">✕</button>
+    <div id="view-editor">
+        <div class="toolbar">
+            <button class="btn-tool" onclick="App.setType('text')">T</button>
+            <button class="btn-tool" onclick="App.setType('topic')">H1</button>
+            <button class="btn-tool" onclick="App.setType('scripture')">""</button>
+            <button class="btn-tool" onclick="App.setType('highlight')">★</button>
+            <button class="btn-tool" onclick="App.setType('note')">✎</button>
+            <div class="sep"></div>
+            <button class="btn-tool" onclick="App.setFmt('bold')"><b>B</b></button>
+            <button class="btn-tool" onclick="App.setFmt('italic')"><i>I</i></button>
+            <div class="sep"></div>
+            <div class="dot" style="background:#333" onclick="App.setColor('gray')"></div>
+            <div class="dot" style="background:#2563EB" onclick="App.setColor('blue')"></div>
+            <div class="dot" style="background:#059669" onclick="App.setColor('green')"></div>
+            <div class="dot" style="background:#DC2626" onclick="App.setColor('red')"></div>
+            <div class="dot" style="background:#D97706" onclick="App.setColor('amber')"></div>
             <div style="flex:1"></div>
-            <div class="save-status" id="save-indicator">Salvo</div>
-            <button class="btn" onclick="Reader.open()" title="Púlpito"><svg class="icon" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 1-4 4v14a3 3 0 0 1 3-3h7z"></path></svg></button>
-            <button class="btn" onclick="Exporter.generatePDF()" title="PDF" style="color:var(--accent); margin-left:10px;"><svg class="icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line></svg></button>
+            <button class="btn-tool" onclick="Reader.open()" title="Leitura">👁</button>
+            <button class="btn-tool" onclick="Exporter.pdf()" title="PDF">PDF</button>
+            <button class="btn-tool" onclick="App.delBlock()" style="color:red">✕</button>
         </div>
 
-        <div class="editor-scroll-area" id="editor-area">
-            <div class="paper-sheet">
-                <div class="meta-inputs">
-                    <textarea id="edit-title" class="input-title" placeholder="Título da Mensagem..." rows="1" oninput="App.handleInput(this)"></textarea>
-                    <textarea id="edit-ref" class="input-ref" placeholder="Texto Base / Referência..." rows="1" oninput="App.handleInput(this)"></textarea>
-                </div>
-                <div id="blocks-container"></div>
-                <button class="btn-add-bottom" onclick="App.addBlock()">+ Adicionar Texto Abaixo</button>
+        <div class="editor-scroll-container" id="main-scroll">
+            <div class="paper">
+                <textarea id="title" class="inp-title" placeholder="Título da Mensagem" rows="1" oninput="App.input(this)"></textarea>
+                <textarea id="ref" class="inp-ref" placeholder="Referência / Texto Base" rows="1" oninput="App.input(this)"></textarea>
+                
+                <div id="blocks"></div>
+                
+                <button class="btn-add" onclick="App.add()">+ Adicionar Texto</button>
             </div>
         </div>
     </div>
-
-    <div id="reading-overlay" class="overlay">
-        <button style="position:fixed; top:30px; right:30px; padding:10px 20px; background:#fff; border-radius:5px; cursor:pointer; font-weight:bold;" onclick="Reader.close()">Fechar</button>
-        <div class="reading-paper"><div id="reading-container"></div></div>
-    </div>
 </div>
 
-<script>
-const Store = {
-    get() { try { return JSON.parse(localStorage.getItem('pregaflow_v2_data') || '[]'); } catch { return []; } },
-    save(data) { localStorage.setItem('pregaflow_v2_data', JSON.stringify(data)); },
-    update(id, payload) {
-        const list = this.get(); const idx = list.findIndex(i => i.id === id);
-        if (idx !== -1) { list[idx] = { ...list[idx], ...payload, lastMod: Date.now() }; this.save(list); }
-    },
-    delete(id) { this.save(this.get().filter(i => i.id !== id)); }
-};
+<div id="reader"><button style="position:fixed;top:20px;right:20px;padding:10px;cursor:pointer" onclick="Reader.close()">Fechar</button><div id="read-box" class="read-content"></div></div>
+<div id="toast" class="toast">Salvo</div>
 
-const Utils = {
-    id: () => Date.now().toString(36) + Math.random().toString(36).substr(2),
-    debounce: (f, w) => { let t; return function(...a) { clearTimeout(t); t = setTimeout(() => f.apply(this, a), w); }; },
-    toast: (m) => { const t = document.getElementById('toast'); t.innerText = m; t.style.opacity = '1'; setTimeout(() => t.style.opacity = '0', 2000); },
-    colors: (c) => ({
-        gray: {t:'#374151',b:'#F3F4F6'}, blue: {t:'#1D4ED8',b:'#EFF6FF'}, green: {t:'#047857',b:'#ECFDF5'},
-        red: {t:'#B91C1C',b:'#FEF2F2'}, amber: {t:'#B45309',b:'#FFFBEB'}
-    })[c] || {t:'#374151',b:'#F3F4F6'}
+<script>
+/* SISTEMA SIMPLIFICADO E ROBUSTO */
+const ID = () => Math.random().toString(36).substr(2, 9);
+const DB = {
+    get: () => JSON.parse(localStorage.getItem('pf_data') || '[]'),
+    set: (d) => localStorage.setItem('pf_data', JSON.stringify(d))
 };
 
 const App = {
-    currentId: null, focusedBlockId: null,
+    curr: null, focus: null,
+
     init() {
         this.renderList();
-        Sortable.create(document.getElementById('blocks-container'), { handle: '.drag-handle', animation: 150, onEnd: () => this.saveFromDOM(true) });
-        const list = Store.get();
-        if(list.length > 0) this.openSermon(list[0].id); else this.createSermon();
+        // Sortable (Arrastar)
+        new Sortable(document.getElementById('blocks'), { 
+            handle: '.drag', animation: 150, onEnd: () => this.save() 
+        });
+        const list = DB.get();
+        if(list.length) this.open(list[0].id);
     },
+
     renderList() {
-        const list = Store.get();
-        document.getElementById('sermon-list-container').innerHTML = list.map(s => `
-            <div class="sermon-card ${s.id === this.currentId ? 'active' : ''}" onclick="App.openSermon('${s.id}')">
+        const list = DB.get();
+        document.getElementById('list-scroll').innerHTML = list.map(s => `
+            <div class="card ${this.curr === s.id ? 'active' : ''}" onclick="App.open('${s.id}')">
                 <div class="card-title">${s.title || 'Sem Título'}</div>
-                <div class="card-meta">${new Date(s.createdAt).toLocaleDateString('pt-BR')}</div>
-                <button class="btn btn-delete-card" onclick="App.deleteSermonWrapper(event, '${s.id}')">🗑</button>
-            </div>`).join('');
+                <div class="card-date">${new Date(s.date).toLocaleDateString()}</div>
+                <span style="font-size:12px;color:red;float:right" onclick="App.delSermon(event,'${s.id}')">Apagar</span>
+            </div>
+        `).join('');
     },
-    deleteSermonWrapper(e, id) { e.stopPropagation(); if(confirm('Apagar?')) { Store.delete(id); if(this.currentId===id) {document.getElementById('view-editor').style.visibility='hidden';this.currentId=null;} this.renderList(); } },
-    createSermon() { const n = { id: Utils.id(), title: '', bibleRef: '', createdAt: Date.now(), blocks: [{ id: Utils.id(), type: 'text', content: '', color: 'gray', isBold: false, isItalic: false }] }; const l = Store.get(); l.unshift(n); Store.save(l); this.renderList(); this.openSermon(n.id); },
-    openSermon(id) {
-        if(this.currentId && this.currentId !== id) this.saveFromDOM(true);
-        this.currentId = id; const s = Store.get().find(x => x.id === id); if(!s) return;
-        document.querySelectorAll('.sermon-card').forEach(c => c.classList.remove('active'));
+
+    create() {
+        const s = { id: ID(), title: '', ref: '', date: Date.now(), blocks: [{id:ID(), type:'text', content:''}] };
+        const l = DB.get(); l.unshift(s); DB.set(l);
+        this.renderList(); this.open(s.id);
+    },
+
+    delSermon(e, id) {
+        e.stopPropagation();
+        if(!confirm('Apagar?')) return;
+        const l = DB.get().filter(x => x.id !== id);
+        DB.set(l);
+        if(this.curr === id) document.getElementById('view-editor').style.visibility = 'hidden';
         this.renderList();
+    },
+
+    open(id) {
+        if(this.curr) this.save();
+        this.curr = id;
+        const s = DB.get().find(x => x.id === id);
+        if(!s) return;
+
         document.getElementById('view-editor').style.visibility = 'visible';
-        document.getElementById('edit-title').value = s.title;
-        document.getElementById('edit-ref').value = s.bibleRef;
-        this.adjustTextareas(document.getElementById('edit-title'));
-        this.adjustTextareas(document.getElementById('edit-ref'));
-        this.renderBlocks(s.blocks);
+        document.getElementById('title').value = s.title;
+        document.getElementById('ref').value = s.ref;
+        this.resize(document.getElementById('title'));
+        this.resize(document.getElementById('ref'));
+
+        const box = document.getElementById('blocks'); box.innerHTML = '';
+        s.blocks.forEach(b => box.appendChild(this.domBlock(b)));
+        
+        this.renderList(); // Atualiza active
     },
-    renderBlocks(blocks) {
-        const c = document.getElementById('blocks-container'); c.innerHTML = '';
-        blocks.forEach(b => c.appendChild(this.createBlockDOM(b)));
-        this.adjustTextareas();
+
+    domBlock(b) {
+        const d = document.createElement('div'); d.className = 'block-wrap'; d.id = 'b-'+b.id;
+        d.dataset.id = b.id; d.dataset.type = b.type || 'text'; d.dataset.color = b.color || 'gray';
+        d.dataset.fmt = (b.bold?'bold ':'') + (b.italic?'italic':'');
+        
+        d.innerHTML = `
+            <div class="drag">⠿</div>
+            <textarea rows="1" onfocus="App.setFocus('${b.id}')" oninput="App.input(this)">${b.content || ''}</textarea>
+        `;
+        setTimeout(()=>this.resize(d.querySelector('textarea')),0);
+        return d;
     },
-    createBlockDOM(d) {
-        const div = document.createElement('div'); div.className = 'block-wrapper'; div.id = `block-${d.id}`;
-        div.dataset.id = d.id; div.dataset.type = d.type; div.dataset.color = d.color || 'gray';
-        let f = ''; if(d.isBold) f+='bold'; if(d.isItalic) f+=' italic'; div.dataset.format = f.trim();
-        div.innerHTML = `<div class="drag-handle">⠿</div><div class="block-content"><textarea rows="1" placeholder="Digite..." onfocus="App.setFocus('${d.id}')" oninput="App.handleInput(this)">${d.content}</textarea></div>`;
-        return div;
+
+    add() {
+        const b = { id:ID(), type:'text', content:'' };
+        const el = this.domBlock(b);
+        document.getElementById('blocks').appendChild(el);
+        const ta = el.querySelector('textarea');
+        ta.focus();
+        
+        // ROLAGEM AUTOMÁTICA
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        this.save();
     },
-    setFocus(id) {
-        this.focusedBlockId = id;
-        document.querySelectorAll('.block-wrapper').forEach(e => e.classList.remove('focused'));
-        const el = document.getElementById(`block-${id}`);
-        if(el) { el.classList.add('focused'); this.updateToolbarState(el.dataset); }
+
+    save() {
+        if(!this.curr) return;
+        const blocks = [];
+        document.querySelectorAll('.block-wrap').forEach(el => {
+            blocks.push({
+                id: el.dataset.id,
+                type: el.dataset.type,
+                color: el.dataset.color,
+                bold: el.dataset.fmt.includes('bold'),
+                italic: el.dataset.fmt.includes('italic'),
+                content: el.querySelector('textarea').value
+            });
+        });
+        
+        const title = document.getElementById('title').value;
+        const list = DB.get();
+        const idx = list.findIndex(x => x.id === this.curr);
+        if(idx > -1) {
+            list[idx] = { ...list[idx], title, ref: document.getElementById('ref').value, blocks };
+            DB.set(list);
+        }
+
+        const t = document.getElementById('toast'); t.style.opacity=1; setTimeout(()=>t.style.opacity=0,1000);
     },
-    updateToolbarState(ds) {
-        document.querySelectorAll('.tool-btn, .color-dot').forEach(b => b.classList.remove('active'));
-        if(ds.type) document.querySelector(`.tool-btn[data-type="${ds.type}"]`)?.classList.add('active');
-        if(ds.format?.includes('bold')) document.querySelector(`.tool-btn[data-format="bold"]`)?.classList.add('active');
-        if(ds.format?.includes('italic')) document.querySelector(`.tool-btn[data-format="italic"]`)?.classList.add('active');
-        if(ds.color) document.querySelector(`.color-dot[data-color="${ds.color}"]`)?.classList.add('active');
+
+    // Ferramentas
+    setFocus(id) { this.focus = id; },
+    mod(fn) { if(!this.focus) return; const el = document.getElementById('b-'+this.focus); if(el){ fn(el); this.save(); } },
+    
+    setType(t) { this.mod(e => e.dataset.type = t); },
+    setColor(c) { this.mod(e => e.dataset.color = c); },
+    setFmt(f) { this.mod(e => { const c=e.dataset.fmt||''; e.dataset.fmt = c.includes(f)?c.replace(f,''):c+' '+f; }); },
+    delBlock() { if(this.focus) { document.getElementById('b-'+this.focus).remove(); this.save(); } },
+
+    input(el) {
+        this.resize(el);
+        // Debounce save
+        clearTimeout(this.tm); this.tm = setTimeout(() => {
+            this.save();
+            if(el.id === 'title') this.renderList();
+        }, 500);
     },
-    addBlock() {
-        const dom = this.createBlockDOM({ id: Utils.id(), type: 'text', content: '', color: 'gray' });
-        const c = document.getElementById('blocks-container');
-        let ref = this.focusedBlockId ? document.getElementById(`block-${this.focusedBlockId}`) : null;
-        if(ref && ref.nextSibling) c.insertBefore(dom, ref.nextSibling); else c.appendChild(dom);
-        const ta = dom.querySelector('textarea'); ta.focus(); 
-        // SCROLL AUTOMATICO PARA O NOVO BLOCO
-        dom.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        this.saveFromDOM();
-    },
-    deleteBlock() { if(!this.focusedBlockId) return; document.getElementById(`block-${this.focusedBlockId}`).remove(); this.focusedBlockId=null; this.saveFromDOM(true); },
-    moveBlock(dir) {
-        if(!this.focusedBlockId) return; this.saveFromDOM(true);
-        const blocks = Store.get().find(x=>x.id===this.currentId).blocks;
-        const idx = blocks.findIndex(b=>b.id===this.focusedBlockId);
-        if(dir==='up' && idx>0) [blocks[idx],blocks[idx-1]] = [blocks[idx-1],blocks[idx]];
-        else if(dir==='down' && idx<blocks.length-1) [blocks[idx],blocks[idx+1]] = [blocks[idx+1],blocks[idx]];
-        else return;
-        Store.update(this.currentId, {blocks}); this.renderBlocks(blocks);
-        setTimeout(()=>{const el=document.getElementById(`block-${this.focusedBlockId}`); if(el){el.querySelector('textarea').focus(); el.scrollIntoView({block:'center'});}},50);
-    },
-    setBlockType(t) { if(!this.focusedBlockId) return; document.getElementById(`block-${this.focusedBlockId}`).dataset.type=t; this.saveFromDOM(); this.setFocus(this.focusedBlockId); },
-    setBlockColor(c) { if(!this.focusedBlockId) return; document.getElementById(`block-${this.focusedBlockId}`).dataset.color=c; this.saveFromDOM(); this.setFocus(this.focusedBlockId); },
-    setBlockFormat(f) { if(!this.focusedBlockId) return; const el=document.getElementById(`block-${this.focusedBlockId}`); let c=el.dataset.format||""; el.dataset.format=c.includes(f)?c.replace(f,'').trim():(c+' '+f).trim(); this.saveFromDOM(); this.setFocus(this.focusedBlockId); },
-    adjustTextareas(t) { (t?[t]:document.querySelectorAll('textarea')).forEach(tx=>{tx.style.height='auto';tx.style.height=tx.scrollHeight+'px'}); },
-    handleInput: Utils.debounce(function(t){ App.adjustTextareas(t); App.saveFromDOM(); if(t.id==='edit-title') App.renderList(); }, 400),
-    saveFromDOM(skip) {
-        if(!this.currentId) return;
-        const blocks = Array.from(document.querySelectorAll('.block-wrapper')).map(el => ({
-            id: el.dataset.id, type: el.dataset.type, color: el.dataset.color,
-            content: el.querySelector('textarea').value, isBold: el.dataset.format.includes('bold'), isItalic: el.dataset.format.includes('italic')
-        }));
-        Store.update(this.currentId, { title: document.getElementById('edit-title').value, bibleRef: document.getElementById('edit-ref').value, blocks });
-        if(!skip) { const i=document.getElementById('save-indicator'); i.classList.add('visible'); setTimeout(()=>i.classList.remove('visible'),1500); }
-    }
+    resize(el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; }
 };
 
 const Reader = {
     open() {
-        App.saveFromDOM(); const s=Store.get().find(x=>x.id===App.currentId);
-        document.getElementById('reading-overlay').classList.add('active');
-        let h=`<div class="reading-block type-title">${s.title}</div><div class="reading-block type-ref">${s.bibleRef}</div>`;
-        s.blocks.forEach(b=>{
-            const st=Utils.colors(b.color); const tx=b.content.replace(/\n/g,'<br>');
-            let sty=`color:${st.t}; ${b.isBold?'font-weight:bold;':''} ${b.isItalic?'font-style:italic;':''}`;
-            if(b.type==='topic') h+=`<div class="reading-block" style="${sty} font-weight:700; display:flex; gap:10px"><span>•</span><div>${tx}</div></div>`;
-            else if(b.type==='highlight') h+=`<div class="reading-block" style="${sty} background:${st.b}; padding:30px; text-align:center; font-weight:800; font-size:32px; border-radius:8px;">${tx}</div>`;
-            else if(b.type==='scripture') h+=`<div class="reading-block" style="${sty} border-left:5px solid ${st.t}; background:#f9f9f9; padding:20px; font-style:italic;">${tx}</div>`;
-            else if(b.type==='note') h+=`<div class="reading-block" style="${sty} background:#FFFBEB; color:#92400E; padding:15px; border:1px solid #FDE68A; text-align:center; width:80%; margin:20px auto;">${tx}</div>`;
-            else h+=`<div class="reading-block" style="${sty}">${tx}</div>`;
+        App.save(); const s = DB.get().find(x => x.id === App.curr);
+        const box = document.getElementById('read-box');
+        let h = `<h1>${s.title}</h1><p style="color:#666;margin-bottom:40px;border-bottom:1px solid #eee;padding-bottom:20px">${s.ref}</p>`;
+        
+        s.blocks.forEach(b => {
+            let st = `margin-bottom:20px; color:${{gray:'#333',blue:'#1D4ED8',red:'#B91C1C',green:'#047857',amber:'#B45309'}[b.color||'gray']};`;
+            if(b.bold) st += 'font-weight:bold;'; if(b.italic) st += 'font-style:italic;';
+            const txt = (b.content||'').replace(/\n/g,'<br>');
+
+            if(b.type === 'topic') h += `<h2 style="${st}">${txt}</h2>`;
+            else if(b.type === 'highlight') h += `<div style="${st} background:#f3f4f6;padding:30px;text-align:center;font-size:24px;border-radius:8px;font-weight:800">${txt}</div>`;
+            else if(b.type === 'scripture') h += `<blockquote style="${st} border-left:4px solid #ccc;margin:0;padding:10px 20px;font-family:serif;font-style:italic;background:#f9fafb">${txt}</blockquote>`;
+            else if(b.type === 'note') h += `<div style="${st} background:#fffbeb;padding:15px;border:1px solid #fcd34d;color:#92400e;text-align:center;border-radius:4px">${txt}</div>`;
+            else h += `<p style="${st} font-size:18px;line-height:1.6">${txt}</p>`;
         });
-        document.getElementById('reading-container').innerHTML=h;
+        box.innerHTML = h;
+        document.getElementById('reader').classList.add('active');
     },
-    close() { document.getElementById('reading-overlay').classList.remove('active'); }
+    close() { document.getElementById('reader').classList.remove('active'); }
 };
 
 const Exporter = {
-    generatePDF() {
-        App.saveFromDOM(); const s=Store.get().find(x=>x.id===App.currentId);
-        const el=document.createElement('div'); el.style.padding="40px"; el.style.fontFamily="Inter";
-        let h=`<center><h1>${s.title}</h1><p>${s.bibleRef}</p></center>`;
-        s.blocks.forEach(b=>{
-            const st=Utils.colors(b.color); const tx=b.content.replace(/\n/g,'<br>');
-            let sty=`margin-bottom:10px; color:${st.t}; ${b.isBold?'font-weight:bold;':''} ${b.isItalic?'font-style:italic;':''}`;
-            if(b.type==='topic') h+=`<div style="${sty} font-weight:700">• ${tx}</div>`;
-            else if(b.type==='highlight') h+=`<div style="${sty} background:${st.b}; padding:15px; text-align:center; font-weight:bold;">${tx}</div>`;
-            else if(b.type==='scripture') h+=`<div style="${sty} border-left:3px solid ${st.t}; background:#f9f9f9; padding:10px; font-style:italic;">${tx}</div>`;
-            else h+=`<div style="${sty}">${tx}</div>`;
-        });
-        el.innerHTML=h;
-        html2pdf().set({margin:15, filename: s.title+'.pdf', html2canvas:{scale:2}}).from(el).save();
+    pdf() {
+        Reader.open();
+        const el = document.getElementById('read-box');
+        html2pdf().set({margin:10, filename:'esboco.pdf', html2canvas:{scale:2}}).from(el).save();
+        setTimeout(()=>Reader.close(), 1000);
     }
 };
 
-window.startApp = App.init.bind(App); startApp();
+App.init();
 </script>
 </body>
 </html>
