@@ -94,4 +94,304 @@
         .block-wrap:hover { background: #FAFAFA; }
         .block-wrap.focused { background: #F5F5F5; }
         .drag { cursor: grab; color: #DDD; opacity: 0; margin-top: 5px; }
-        .block-wrap:hover .drag { opacity:
+        .block-wrap:hover .drag { opacity: 1; }
+        .block-txt { font-size: 17px; line-height: 1.6; color: #1D1D1F; overflow: hidden; }
+
+        /* ESTILOS DINAMICOS */
+        [data-b="true"] .block-txt { font-weight: 700; }
+        [data-i="true"] .block-txt { font-style: italic; }
+        [data-c="blue"] .block-txt { color: #007AFF; }
+        [data-c="red"] .block-txt { color: #FF3B30; }
+        [data-c="green"] .block-txt { color: #34C759; }
+        [data-c="amber"] .block-txt { color: #FF9500; }
+
+        [data-t="topic"] .block-txt { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; margin-top: 10px; }
+        [data-t="scripture"] .block-txt { font-family: 'Lora', serif; font-style: italic; color: #444; border-left: 3px solid #DDD; padding-left: 15px; }
+        [data-t="highlight"] .block-txt { background: #F2F2F7; padding: 20px; border-radius: 12px; font-size: 24px; font-weight: 800; text-align: center; }
+        [data-t="note"] .block-txt { background: #FFF9E6; color: #8A6D3B; padding: 10px; border-radius: 6px; border: 1px solid #FFEBAA; font-size: 14px; }
+
+        .btn-add { width: 100%; padding: 20px; margin-top: 30px; border: 2px dashed #E5E5EA; border-radius: 8px; color: #AEAEB2; font-weight: 600; background: transparent; cursor: pointer; }
+        .btn-add:hover { border-color: var(--accent); color: var(--accent); background: #F0F8FF; }
+
+        /* --- MODO EXIBIÇÃO (READER) --- */
+        #reader {
+            position: fixed; inset: 0; background: #FFFFFF; 
+            z-index: 9999; /* Garante que fica por cima de tudo */
+            overflow-y: auto; display: none;
+            padding: 0;
+        }
+        #reader.active { display: block; }
+
+        .reader-container {
+            max-width: 900px; margin: 0 auto; padding: 80px 40px; min-height: 100vh;
+        }
+        
+        .btn-close-reader {
+            position: fixed; top: 20px; right: 30px;
+            background: rgba(0,0,0,0.05); border: 1px solid rgba(0,0,0,0.1);
+            padding: 10px 20px; border-radius: 20px;
+            font-weight: 600; cursor: pointer; z-index: 10000;
+            backdrop-filter: blur(10px);
+        }
+        .btn-close-reader:hover { background: #FF3B30; color: white; border-color: #FF3B30; }
+
+    </style>
+</head>
+<body>
+
+<div id="app">
+    <div id="sidebar">
+        <div class="sidebar-head">
+            <div class="brand">PregaFlow <span style="font-weight:400; color:#888">Studio</span></div>
+            <button class="btn-new" onclick="App.create()">+ Novo Esboço</button>
+        </div>
+        <div id="list"></div>
+    </div>
+
+    <div id="main">
+        <div id="toolbar">
+            <button class="tool-btn" onclick="App.setType('text')" title="Texto">Aa</button>
+            <button class="tool-btn" onclick="App.setType('topic')" title="Tópico">H1</button>
+            <button class="tool-btn" onclick="App.setType('scripture')" title="Versículo">“</button>
+            <button class="tool-btn" onclick="App.setType('highlight')" title="Destaque">★</button>
+            <button class="tool-btn" onclick="App.setType('note')" title="Nota">✎</button>
+            <div class="divider"></div>
+            <button class="tool-btn" onclick="App.setFmt('b')"><b>B</b></button>
+            <button class="tool-btn" onclick="App.setFmt('i')"><i>I</i></button>
+            <div class="divider"></div>
+            <div class="dot" style="background:#1D1D1F" onclick="App.setColor('')"></div>
+            <div class="dot" style="background:#007AFF" onclick="App.setColor('blue')"></div>
+            <div class="dot" style="background:#34C759" onclick="App.setColor('green')"></div>
+            <div class="dot" style="background:#FF3B30" onclick="App.setColor('red')"></div>
+            <div class="dot" style="background:#FF9500" onclick="App.setColor('amber')"></div>
+            <div style="flex:1"></div>
+            
+            <button class="tool-btn" onclick="Reader.open()" style="width:auto; padding:0 10px; gap:5px; color:var(--accent); font-weight:600">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 1-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                Exibir
+            </button>
+            
+            <button class="tool-btn" onclick="Exporter.pdf()" title="PDF">PDF</button>
+            <div class="divider"></div>
+            <button class="tool-btn" onclick="App.delBlock()" style="color:#FF3B30">✕</button>
+        </div>
+
+        <div id="scroller">
+            <div id="paper" style="display:none">
+                <textarea id="title-inp" rows="1" placeholder="Título da Mensagem" oninput="App.input(this)"></textarea>
+                <textarea id="ref-inp" rows="1" placeholder="Referência / Data" oninput="App.input(this)"></textarea>
+                
+                <div id="blocks"></div>
+                
+                <button class="btn-add" onclick="App.add()">+ Adicionar Bloco de Texto</button>
+            </div>
+            <div id="empty-msg" style="align-self:center; color:#999;">Selecione ou crie um esboço.</div>
+        </div>
+    </div>
+</div>
+
+<div id="reader">
+    <button class="btn-close-reader" onclick="Reader.close()">✕ Sair do Púlpito</button>
+    <div class="reader-container" id="reader-content"></div>
+</div>
+
+<script>
+/* --- CORE --- */
+const ID = () => Math.random().toString(36).substr(2, 9);
+const DB = {
+    get: () => JSON.parse(localStorage.getItem('pf_apple_v2') || '[]'),
+    set: (d) => localStorage.setItem('pf_apple_v2', JSON.stringify(d))
+};
+
+const App = {
+    curr: null, focus: null,
+
+    init() {
+        this.renderList();
+        new Sortable(document.getElementById('blocks'), { handle: '.drag', animation: 150, onEnd: () => this.save() });
+        const list = DB.get();
+        if(list.length) this.open(list[0].id);
+    },
+
+    renderList() {
+        const list = DB.get();
+        document.getElementById('list').innerHTML = list.map(s => `
+            <div class="item ${this.curr === s.id ? 'active' : ''}" onclick="App.open('${s.id}')">
+                <div style="font-weight:600">${s.title || 'Sem Título'}</div>
+                <div class="item-date">${new Date(s.date).toLocaleDateString('pt-BR')}</div>
+                <button class="btn-del" onclick="App.delSermon(event, '${s.id}')">Apagar</button>
+            </div>
+        `).join('');
+    },
+
+    create() {
+        const s = { id: ID(), title: '', ref: '', date: Date.now(), blocks: [{id:ID(), type:'text', content:''}] };
+        const l = DB.get(); l.unshift(s); DB.set(l);
+        this.renderList(); this.open(s.id);
+    },
+
+    delSermon(e, id) {
+        e.stopPropagation();
+        if(!confirm('Apagar este esboço?')) return;
+        const l = DB.get().filter(x => x.id !== id);
+        DB.set(l);
+        if(this.curr === id) {
+            this.curr = null;
+            document.getElementById('paper').style.display = 'none';
+            document.getElementById('empty-msg').style.display = 'block';
+        }
+        this.renderList();
+    },
+
+    open(id) {
+        if(this.curr) this.save();
+        this.curr = id;
+        const s = DB.get().find(x => x.id === id);
+        if(!s) return;
+
+        document.getElementById('paper').style.display = 'block';
+        document.getElementById('empty-msg').style.display = 'none';
+        
+        document.getElementById('title-inp').value = s.title;
+        document.getElementById('ref-inp').value = s.ref;
+        this.resize(document.getElementById('title-inp'));
+        this.resize(document.getElementById('ref-inp'));
+
+        const box = document.getElementById('blocks'); box.innerHTML = '';
+        s.blocks.forEach(b => box.appendChild(this.buildBlock(b)));
+        
+        this.renderList(); 
+    },
+
+    buildBlock(b) {
+        const d = document.createElement('div'); 
+        d.className = 'block-wrap'; d.id = 'b-'+b.id;
+        d.dataset.id = b.id; 
+        d.dataset.t = b.type || 'text'; 
+        d.dataset.c = b.color || '';
+        d.dataset.b = b.bold || 'false';
+        d.dataset.i = b.italic || 'false';
+
+        d.innerHTML = `
+            <div class="drag">⠿</div>
+            <textarea class="block-txt" rows="1" onfocus="App.setFocus('${b.id}')" oninput="App.input(this)">${b.content || ''}</textarea>
+        `;
+        setTimeout(()=>this.resize(d.querySelector('textarea')),0);
+        return d;
+    },
+
+    add() {
+        const b = { id:ID(), type:'text', content:'' };
+        const el = this.buildBlock(b);
+        document.getElementById('blocks').appendChild(el);
+        el.querySelector('textarea').focus();
+        el.scrollIntoView({behavior:'smooth', block:'center'});
+        this.save();
+    },
+
+    save() {
+        if(!this.curr) return;
+        const blocks = [];
+        document.querySelectorAll('.block-wrap').forEach(el => {
+            blocks.push({
+                id: el.dataset.id,
+                type: el.dataset.t,
+                color: el.dataset.c,
+                bold: el.dataset.b === 'true',
+                italic: el.dataset.i === 'true',
+                content: el.querySelector('textarea').value
+            });
+        });
+        
+        const title = document.getElementById('title-inp').value;
+        const list = DB.get();
+        const idx = list.findIndex(x => x.id === this.curr);
+        if(idx > -1) {
+            list[idx] = { ...list[idx], title, ref: document.getElementById('ref-inp').value, blocks };
+            DB.set(list);
+        }
+    },
+
+    // TOOLS
+    setFocus(id) { 
+        this.focus = id; 
+        document.querySelectorAll('.block-wrap').forEach(e=>e.classList.remove('focused'));
+        const el = document.getElementById('b-'+id);
+        if(el) { el.classList.add('focused'); this.updateToolbar(el); }
+    },
+    
+    updateToolbar(el) {
+        document.querySelectorAll('.tool-btn, .dot').forEach(b => b.classList.remove('active'));
+        // Simples feedback visual
+        const t = el.dataset.t; const c = el.dataset.c;
+        if(t) document.querySelector(`button[onclick*="'${t}'"]`)?.classList.add('active');
+        if(c) document.querySelector(`.dot[onclick*="'${c}'"]`)?.classList.add('active');
+    },
+
+    mod(fn) { if(!this.focus) return; const el = document.getElementById('b-'+this.focus); if(el){ fn(el); this.save(); this.updateToolbar(el); } },
+    setType(t) { this.mod(e => e.dataset.t = t); },
+    setColor(c) { this.mod(e => e.dataset.c = c); },
+    setFmt(f) { this.mod(e => { const curr = e.dataset[f] === 'true'; e.dataset[f] = !curr; }); },
+    delBlock() { if(this.focus) { document.getElementById('b-'+this.focus).remove(); this.save(); } },
+
+    input(el) {
+        this.resize(el);
+        clearTimeout(this.tm); 
+        this.tm = setTimeout(() => { this.save(); if(el.id==='title-inp') this.renderList(); }, 500);
+    },
+    resize(el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; }
+};
+
+const Reader = {
+    open() {
+        // 1. Salvar antes de abrir
+        if(App.curr) App.save();
+        
+        // 2. Buscar dados
+        const s = DB.get().find(x => x.id === App.curr);
+        if(!s) return alert("Selecione um esboço para exibir.");
+
+        // 3. Gerar HTML
+        let h = `<h1 style="font-size:56px; margin-bottom:10px; line-height:1.1; letter-spacing:-1px">${s.title}</h1>
+                 <p style="font-size:24px; color:#888; margin-bottom:60px; border-bottom:1px solid #eee; padding-bottom:20px">${s.ref}</p>`;
+
+        s.blocks.forEach(b => {
+            const txt = (b.content||'').replace(/\n/g,'<br>');
+            
+            // Cores
+            const colors = { blue:'#007AFF', red:'#FF3B30', green:'#34C759', amber:'#FF9500' };
+            const c = colors[b.color] || '#1D1D1F';
+            
+            let st = `color:${c}; margin-bottom:24px; line-height:1.5; font-size:24px;`;
+            if(b.bold) st += 'font-weight:700;';
+            if(b.italic) st += 'font-style:italic;';
+
+            if(b.type === 'topic') h += `<h2 style="${st} font-size:32px; margin-top:40px; font-weight:800; letter-spacing:-0.5px;">${txt}</h2>`;
+            else if(b.type === 'highlight') h += `<div style="${st} background:#F2F2F7; color:#000; padding:40px; border-radius:16px; font-size:32px; font-weight:800; text-align:center;">${txt}</div>`;
+            else if(b.type === 'scripture') h += `<div style="${st} font-family:'Lora',serif; color:#444; border-left:4px solid #CCC; padding:10px 30px;">${txt}</div>`;
+            else if(b.type === 'note') h += `<div style="${st} background:#FFF9E6; color:#B78A00; font-size:18px; padding:15px; border-radius:8px; text-align:center;">${txt}</div>`;
+            else h += `<p style="${st}">${txt}</p>`;
+        });
+
+        document.getElementById('reader-content').innerHTML = h;
+        
+        // 4. Mostrar Overlay
+        document.getElementById('reader').classList.add('active');
+    },
+    close() {
+        document.getElementById('reader').classList.remove('active');
+    }
+};
+
+const Exporter = {
+    pdf() {
+        Reader.open();
+        const el = document.getElementById('reader-content');
+        html2pdf().set({ margin:15, filename:'esboco.pdf', html2canvas:{scale:2} }).from(el).save();
+    }
+};
+
+App.init();
+</script>
+</body>
+</html>
