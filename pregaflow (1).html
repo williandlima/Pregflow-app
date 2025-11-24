@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>PregaFlow Ultra</title>
+    <title>PregaFlow Ultimate</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,54 +14,65 @@
 
     <style>
         :root {
-            /* Cores Modernas */
+            /* TEMA CLARO (Padrão) */
             --bg-body: #F9FAFB;
             --bg-surface: #FFFFFF;
-            --bg-toolbar: rgba(255, 255, 255, 0.9);
+            --bg-toolbar: rgba(255, 255, 255, 0.95);
+            --bg-block-highlight: #FEF3C7;
+            --bg-block-scripture: #F3F4F6;
             
             --txt-primary: #1F2937;
             --txt-secondary: #6B7280;
-            --txt-accent: #4F46E5; /* Indigo */
-            
+            --txt-accent: #4F46E5;
             --border: #E5E7EB;
-            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-            --shadow-float: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            --shadow-float: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
             
             --radius: 12px;
-            
-            /* Tipografia */
             --font-ui: 'Inter', sans-serif;
             --font-reading: 'Merriweather', serif;
+        }
+
+        /* TEMA ESCURO */
+        body.dark {
+            --bg-body: #111827;
+            --bg-surface: #1F2937;
+            --bg-toolbar: rgba(31, 41, 55, 0.95);
+            --bg-block-highlight: #3D3418;
+            --bg-block-scripture: #374151;
+            
+            --txt-primary: #F3F4F6;
+            --txt-secondary: #9CA3AF;
+            --txt-accent: #818CF8;
+            --border: #374151;
+            
+            --shadow: 0 4px 6px -1px rgba(0,0,0,0.5);
         }
 
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
         
         body {
-            background: var(--bg-body);
-            color: var(--txt-primary);
-            font-family: var(--font-ui);
-            margin: 0;
-            height: 100dvh;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
+            background: var(--bg-body); color: var(--txt-primary);
+            font-family: var(--font-ui); margin: 0; height: 100dvh;
+            overflow: hidden; display: flex; flex-direction: column;
+            transition: background 0.3s, color 0.3s;
         }
 
         /* --- UTILITÁRIOS --- */
         .hidden { display: none !important; }
         .flex { display: flex; }
-        .items-center { align-items: center; }
-        .justify-between { justify-content: space-between; }
         .gap-2 { gap: 8px; }
         .btn { 
             background: none; border: none; cursor: pointer; padding: 8px; border-radius: 8px; 
             color: var(--txt-secondary); transition: all 0.2s; display: flex; align-items: center; justify-content: center;
         }
-        .btn:hover { background: #F3F4F6; color: var(--txt-primary); }
-        .btn.active { background: #E0E7FF; color: var(--txt-accent); }
+        .btn:hover { background: var(--border); color: var(--txt-primary); }
+        .btn.active { background: var(--txt-accent); color: white; }
+        
         .btn-primary {
-            background: var(--txt-primary); color: white; padding: 10px 20px; font-weight: 500;
-            border-radius: var(--radius); width: 100%; justify-content: center; gap: 8px;
+            background: var(--txt-primary); color: var(--bg-surface); padding: 12px;
+            border-radius: var(--radius); width: 100%; font-weight: 600; display: flex; justify-content: center; gap: 8px;
         }
 
         /* --- HEADER --- */
@@ -69,20 +80,20 @@
             height: 60px; padding: 0 16px; background: var(--bg-surface);
             border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; z-index: 10;
         }
-        .brand { font-weight: 700; font-size: 18px; display: flex; align-items: center; gap: 8px; }
+        .brand { font-weight: 700; font-size: 18px; display: flex; align-items: center; gap: 8px; color: var(--txt-primary); }
         .logo-box { width: 32px; height: 32px; background: var(--txt-accent); color: white; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
 
-        /* --- LISTA DE ESBOÇOS --- */
+        /* --- VIEW: LISTA --- */
         #view-list { flex: 1; overflow-y: auto; padding: 20px; max-width: 800px; margin: 0 auto; width: 100%; }
         .card {
             background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius);
-            padding: 16px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s; position: relative;
+            padding: 16px; margin-bottom: 12px; cursor: pointer; transition: transform 0.2s;
         }
-        .card:hover { transform: translateY(-2px); box-shadow: var(--shadow); border-color: var(--txt-accent); }
-        .card h3 { margin: 0 0 4px 0; font-size: 16px; }
+        .card:hover { transform: translateY(-2px); border-color: var(--txt-accent); }
+        .card h3 { margin: 0 0 4px 0; font-size: 16px; color: var(--txt-primary); }
         .card p { margin: 0; color: var(--txt-secondary); font-size: 13px; }
 
-        /* --- EDITOR --- */
+        /* --- VIEW: EDITOR --- */
         #view-editor { flex: 1; display: flex; flex-direction: column; position: relative; background: var(--bg-surface); }
         
         .editor-content {
@@ -91,76 +102,93 @@
         }
 
         .meta-area { margin-bottom: 30px; border-bottom: 1px solid var(--border); padding-bottom: 20px; }
-        .input-title { font-size: 32px; font-weight: 800; width: 100%; border: none; margin-bottom: 10px; color: #111; }
-        .input-ref { font-size: 16px; color: var(--txt-secondary); width: 100%; border: none; }
+        .input-title { font-size: 28px; font-weight: 800; width: 100%; border: none; margin-bottom: 10px; background: transparent; color: var(--txt-primary); }
+        .input-ref { font-size: 16px; color: var(--txt-secondary); width: 100%; border: none; background: transparent; }
         
-        /* BLOCOS RICH TEXT */
+        /* BLOCOS */
         .block {
             position: relative; padding: 4px 0; margin-bottom: 8px;
             border-left: 3px solid transparent; padding-left: 12px;
-            transition: border-color 0.2s;
         }
-        .block:hover, .block:focus-within { border-color: var(--border); }
         .block.focused { border-color: var(--txt-accent); }
-        
         .editable {
             min-height: 24px; outline: none; font-size: 17px; line-height: 1.6;
-            empty-cells: show; color: var(--txt-primary);
+            color: var(--txt-primary);
         }
-        .editable:empty:before { content: attr(placeholder); color: #9CA3AF; pointer-events: none; display: block; }
+        .editable:empty:before { content: attr(placeholder); color: var(--txt-secondary); opacity: 0.5; pointer-events: none; display: block; }
 
-        /* Estilos de Bloco */
+        /* Estilos Específicos */
         .block[data-type="h1"] .editable { font-size: 24px; font-weight: 700; }
-        .block[data-type="h2"] .editable { font-size: 20px; font-weight: 600; color: #374151; }
-        .block[data-type="scripture"] { background: #F9FAFB; border-radius: 8px; padding: 16px; border-left: 4px solid var(--txt-accent); }
-        .block[data-type="scripture"] .editable { font-family: var(--font-reading); font-style: italic; color: #4B5563; }
-        .block[data-type="highlight"] { background: #FEF3C7; padding: 20px; border-radius: 8px; text-align: center; }
-        .block[data-type="highlight"] .editable { font-weight: 700; font-size: 18px; color: #92400E; }
-        
+        .block[data-type="h2"] .editable { font-size: 20px; font-weight: 600; color: var(--txt-primary); opacity: 0.9; }
+        .block[data-type="scripture"] { background: var(--bg-block-scripture); border-radius: 8px; padding: 16px; border-left: 4px solid var(--txt-accent); }
+        .block[data-type="scripture"] .editable { font-family: var(--font-reading); font-style: italic; }
+        .block[data-type="highlight"] { background: var(--bg-block-highlight); padding: 20px; border-radius: 8px; text-align: center; }
+        .block[data-type="highlight"] .editable { font-weight: 700; font-size: 18px; color: #B45309; }
+        body.dark .block[data-type="highlight"] .editable { color: #FCD34D; }
+
         /* Alinhamentos */
         .align-center .editable { text-align: center; }
         .align-right .editable { text-align: right; }
 
-        /* --- TOOLBAR INFERIOR --- */
+        /* --- TOOLBAR --- */
         .toolbar {
             position: fixed; bottom: 0; left: 0; right: 0;
             background: var(--bg-toolbar); backdrop-filter: blur(10px);
             border-top: 1px solid var(--border); padding: 10px;
             display: flex; gap: 8px; align-items: center;
-            overflow-x: auto; z-index: 50;
-            box-shadow: 0 -4px 20px rgba(0,0,0,0.05);
+            overflow-x: auto; z-index: 50; box-shadow: 0 -4px 20px rgba(0,0,0,0.1);
         }
         .v-sep { width: 1px; height: 24px; background: var(--border); margin: 0 4px; flex-shrink: 0; }
         
+        /* Cores Popover */
+        .color-popover {
+            position: fixed; bottom: 70px; left: 50%; transform: translateX(-50%);
+            background: var(--bg-surface); border: 1px solid var(--border);
+            border-radius: 12px; padding: 10px; display: none; gap: 10px;
+            box-shadow: var(--shadow-float); z-index: 60;
+        }
+        .color-popover.open { display: flex; animation: slideUp 0.2s; }
+        .color-dot { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--border); cursor: pointer; }
+
         /* --- MODAL DA BÍBLIA --- */
         .modal-overlay {
-            position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100;
-            display: none; justify-content: center; align-items: flex-end;
+            position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100;
+            display: none; justify-content: center; align-items: flex-end; backdrop-filter: blur(2px);
         }
         .modal-overlay.open { display: flex; animation: fadeIn 0.2s; }
         .modal-card {
-            background: white; width: 100%; max-width: 600px; height: 85vh;
+            background: var(--bg-surface); width: 100%; max-width: 600px; height: 85vh;
             border-radius: 20px 20px 0 0; display: flex; flex-direction: column;
-            box-shadow: var(--shadow-float); animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: var(--shadow-float); animation: slideUp 0.3s;
         }
-        
         .bible-header { padding: 16px; border-bottom: 1px solid var(--border); display: flex; gap: 10px; }
-        .bible-select { flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--border); font-size: 16px; background: #F9FAFB; }
+        .bible-select { flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-body); color: var(--txt-primary); }
         .bible-content { flex: 1; overflow-y: auto; padding: 16px; }
+        .verse-item { padding: 14px; border-bottom: 1px solid var(--border); display: flex; gap: 10px; align-items: flex-start; }
+        .verse-actions { display: flex; gap: 8px; margin-left: auto; }
+        .btn-small { font-size: 11px; padding: 6px 10px; background: var(--border); border-radius: 4px; color: var(--txt-primary); cursor: pointer; border: none; }
+        .btn-small.accent { background: var(--txt-accent); color: white; }
+
+        /* --- MODO PÚLPITO (DISPLAY) --- */
+        #view-reading {
+            position: fixed; inset: 0; background: #000; color: #fff;
+            z-index: 200; padding: 40px 20px; overflow-y: auto;
+            display: none; font-size: 28px; line-height: 1.6;
+        }
+        #view-reading.active { display: block; }
+        .reading-block { margin-bottom: 30px; max-width: 900px; margin-left: auto; margin-right: auto; }
+        .reading-block[data-type="scripture"] { color: #A7F3D0; font-family: var(--font-reading); font-style: italic; border-left: 5px solid #A7F3D0; padding-left: 20px; }
+        .reading-block[data-type="highlight"] { color: #FCD34D; font-weight: bold; text-align: center; font-size: 1.2em; }
+        .reading-h1 { font-size: 1.5em; font-weight: 800; color: #60A5FA; margin-bottom: 20px; border-bottom: 2px solid #333; }
         
-        .verse-item { padding: 12px; border-bottom: 1px solid #F3F4F6; cursor: pointer; transition: background 0.2s; }
-        .verse-item:hover { background: #F0FDFA; }
-        .verse-num { font-weight: 700; color: var(--txt-accent); margin-right: 6px; font-size: 12px; }
-        .verse-text { font-family: var(--font-reading); line-height: 1.6; }
+        .exit-reading {
+            position: fixed; top: 20px; right: 20px; background: rgba(255,255,255,0.2);
+            color: white; padding: 10px 20px; border-radius: 30px; border: none; font-weight: bold; cursor: pointer;
+        }
 
         @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
-        /* Mobile Adjustments */
-        @media(min-width: 768px) {
-            .modal-overlay { align-items: center; }
-            .modal-card { height: 70vh; border-radius: 20px; }
-        }
+        @media(min-width: 768px) { .modal-overlay { align-items: center; } .modal-card { height: 70vh; border-radius: 20px; } }
     </style>
 </head>
 <body>
@@ -169,8 +197,9 @@
         <header style="position: sticky; top: 0; margin: -20px -20px 20px -20px; padding: 0 20px;">
             <div class="brand">
                 <div class="logo-box"><i data-lucide="book-open" width="18"></i></div>
-                PregaFlow Ultra
+                PregaFlow
             </div>
+            <button class="btn" onclick="App.toggleTheme()"><i data-lucide="moon"></i></button>
         </header>
         <button class="btn-primary" onclick="App.createSermon()">
             <i data-lucide="plus-circle" width="20"></i> Novo Esboço
@@ -180,12 +209,12 @@
 
     <div id="view-editor" class="hidden">
         <header>
-            <button class="btn" onclick="App.showList()"><i data-lucide="arrow-left"></i> Voltar</button>
-            <div class="brand" style="font-size: 14px; color: var(--txt-secondary);">
-                <span id="save-status">Salvo</span>
-            </div>
+            <button class="btn" onclick="App.showList()"><i data-lucide="arrow-left"></i></button>
             <div class="flex gap-2">
-                <button class="btn" onclick="Bible.open()" title="Bíblia"><i data-lucide="book" style="color:var(--txt-accent)"></i></button>
+                <button class="btn" onclick="App.toggleTheme()"><i data-lucide="moon"></i></button>
+                <div class="v-sep"></div>
+                <button class="btn" onclick="App.enterReadingMode()" title="Modo Púlpito"><i data-lucide="monitor-play"></i></button>
+                <button class="btn" onclick="Bible.open()" title="Bíblia"><i data-lucide="book"></i></button>
                 <button class="btn" onclick="App.exportPDF()" title="PDF"><i data-lucide="download"></i></button>
             </div>
         </header>
@@ -193,10 +222,12 @@
         <div class="editor-content" id="editor-canvas">
             <div class="meta-area">
                 <input type="text" id="meta-title" class="input-title" placeholder="Título da Mensagem" oninput="App.save()">
-                <input type="text" id="meta-ref" class="input-ref" placeholder="Texto base (ex: João 3:16)" oninput="App.save()">
+                <div class="flex items-center gap-2">
+                    <input type="text" id="meta-ref" class="input-ref" placeholder="Texto base (ex: João 3:16)" oninput="App.save()">
+                </div>
             </div>
             <div id="blocks-container"></div>
-            <div style="height: 100px; display: flex; align-items: center; justify-content: center; opacity: 0.3; font-size: 12px;">
+            <div style="height: 100px; display: flex; align-items: center; justify-content: center; opacity: 0.3; font-size: 12px; color: var(--txt-primary);">
                 Fim do Esboço
             </div>
         </div>
@@ -204,26 +235,29 @@
         <div class="toolbar">
             <button class="btn" onclick="App.addBlock('text')"><i data-lucide="plus"></i></button>
             <div class="v-sep"></div>
-            
             <button class="btn" onclick="App.setBlockType('h1')">H1</button>
-            <button class="btn" onclick="App.setBlockType('h2')">H2</button>
             <button class="btn" onclick="App.setBlockType('scripture')"><i data-lucide="quote"></i></button>
             <button class="btn" onclick="App.setBlockType('highlight')"><i data-lucide="highlighter"></i></button>
-            
             <div class="v-sep"></div>
-            
             <button class="btn" onmousedown="event.preventDefault(); App.format('bold')"><i data-lucide="bold"></i></button>
             <button class="btn" onmousedown="event.preventDefault(); App.format('italic')"><i data-lucide="italic"></i></button>
-            <button class="btn" onmousedown="event.preventDefault(); App.format('underline')"><i data-lucide="underline"></i></button>
-            
-            <div class="v-sep"></div>
-
-            <button class="btn" onclick="App.toggleAlign('left')"><i data-lucide="align-left"></i></button>
-            <button class="btn" onclick="App.toggleAlign('center')"><i data-lucide="align-center"></i></button>
-            
+            <button class="btn" onmousedown="event.preventDefault(); App.toggleColors()"><i data-lucide="palette"></i></button>
             <div class="v-sep"></div>
             <button class="btn" onclick="App.deleteBlock()" style="color: #EF4444;"><i data-lucide="trash-2"></i></button>
         </div>
+
+        <div id="color-popover" class="color-popover">
+            <div class="color-dot" style="background:var(--txt-primary)" onclick="App.setColor('inherit')"></div>
+            <div class="color-dot" style="background:#EF4444" onclick="App.setColor('#EF4444')"></div>
+            <div class="color-dot" style="background:#3B82F6" onclick="App.setColor('#3B82F6')"></div>
+            <div class="color-dot" style="background:#10B981" onclick="App.setColor('#10B981')"></div>
+            <div class="color-dot" style="background:#F59E0B" onclick="App.setColor('#F59E0B')"></div>
+        </div>
+    </div>
+
+    <div id="view-reading">
+        <button class="exit-reading" onclick="App.exitReadingMode()">Sair</button>
+        <div id="reading-content"></div>
     </div>
 
     <div id="bible-modal" class="modal-overlay">
@@ -234,21 +268,18 @@
                 <button class="btn" onclick="Bible.close()"><i data-lucide="x"></i></button>
             </div>
             <div id="bible-results" class="bible-content">
-                <div style="text-align: center; color: #999; margin-top: 40px;">Selecione um livro e capítulo</div>
+                <div style="text-align: center; color: var(--txt-secondary); margin-top: 40px;">Selecione um livro e capítulo</div>
             </div>
         </div>
     </div>
 
     <script>
-        // --- ÍCONES ---
         lucide.createIcons();
-
-        // --- ESTADO ---
-        const DB_KEY = 'pregaflow_ultra_db';
+        const DB_KEY = 'pregaflow_ult_db';
         let currentSermonId = null;
         let focusedBlock = null;
+        let wakeLock = null;
 
-        // --- SISTEMA DE DADOS ---
         const Store = {
             getAll: () => JSON.parse(localStorage.getItem(DB_KEY) || '[]'),
             saveAll: (data) => localStorage.setItem(DB_KEY, JSON.stringify(data)),
@@ -263,17 +294,16 @@
             }
         };
 
-        // --- APP CONTROLLER ---
         const App = {
             init: () => {
                 App.renderList();
-                // Inicializa Drag and Drop
-                new Sortable(document.getElementById('blocks-container'), {
-                    animation: 150,
-                    handle: '.block',
-                    ghostClass: 'sortable-ghost',
-                    onEnd: () => App.save()
-                });
+                if(localStorage.getItem('theme') === 'dark') document.body.classList.add('dark');
+                new Sortable(document.getElementById('blocks-container'), { animation: 150, handle: '.block', onEnd: () => App.save() });
+            },
+
+            toggleTheme: () => {
+                document.body.classList.toggle('dark');
+                localStorage.setItem('theme', document.body.classList.contains('dark') ? 'dark' : 'light');
             },
 
             renderList: () => {
@@ -284,7 +314,7 @@
                         <h3>${s.title || 'Sem Título'}</h3>
                         <p>${s.bibleRef || 'Sem referência'} • ${new Date(s.updatedAt).toLocaleDateString()}</p>
                     </div>
-                `).join('') : '<div style="text-align:center; padding: 40px; color:#aaa">Nenhum esboço criado.</div>';
+                `).join('') : '<div style="text-align:center; padding:40px; color:var(--txt-secondary)">Nenhum esboço criado.</div>';
             },
 
             createSermon: () => {
@@ -301,10 +331,8 @@
                 const s = Store.get(id);
                 document.getElementById('view-list').classList.add('hidden');
                 document.getElementById('view-editor').classList.remove('hidden');
-                
                 document.getElementById('meta-title').value = s.title;
                 document.getElementById('meta-ref').value = s.bibleRef;
-                
                 const container = document.getElementById('blocks-container');
                 container.innerHTML = '';
                 s.blocks.forEach(b => App.renderBlock(b));
@@ -315,36 +343,27 @@
                 div.className = `block ${data.align ? 'align-'+data.align : ''}`;
                 div.dataset.id = data.id;
                 div.dataset.type = data.type || 'text';
+                div.innerHTML = `<div class="editable" contenteditable="true" placeholder="Escreva...">${data.content}</div>`;
                 
-                div.innerHTML = `<div class="editable" contenteditable="true" placeholder="Digite algo...">${data.content}</div>`;
-                
-                // Eventos
                 const edit = div.querySelector('.editable');
                 edit.onfocus = () => App.setFocus(div);
                 edit.onblur = () => { div.classList.remove('focused'); App.save(); };
-                edit.onkeydown = (e) => App.handleKey(e, div);
+                edit.onkeydown = (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        App.addBlock('text', div);
+                    }
+                };
 
                 const container = document.getElementById('blocks-container');
                 if (afterElement) container.insertBefore(div, afterElement.nextSibling);
                 else container.appendChild(div);
             },
 
-            handleKey: (e, blockDiv) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    App.addBlock('text', blockDiv);
-                }
-                if (e.key === 'Backspace' && blockDiv.innerText.trim() === '') {
-                    // Lógica para deletar blocos vazios poderia vir aqui
-                }
-            },
-
             addBlock: (type = 'text', afterBlock = null) => {
                 const newId = 'b_' + Date.now();
                 const ref = afterBlock || focusedBlock || document.getElementById('blocks-container').lastElementChild;
                 App.renderBlock({id: newId, type, content: ''}, ref);
-                
-                // Focar no novo
                 setTimeout(() => {
                     const el = document.querySelector(`[data-id="${newId}"] .editable`);
                     if(el) el.focus();
@@ -355,27 +374,26 @@
                 document.querySelectorAll('.block').forEach(b => b.classList.remove('focused'));
                 div.classList.add('focused');
                 focusedBlock = div;
+                document.getElementById('color-popover').classList.remove('open');
             },
 
-            // --- FORMATAÇÃO AVANÇADA ---
+            // --- FORMATAÇÃO & CORES ---
             format: (cmd) => {
                 document.execCommand(cmd, false, null);
                 if(focusedBlock) focusedBlock.querySelector('.editable').focus();
             },
-
+            toggleColors: () => {
+                document.getElementById('color-popover').classList.toggle('open');
+            },
+            setColor: (color) => {
+                document.execCommand('foreColor', false, color);
+                document.getElementById('color-popover').classList.remove('open');
+            },
             setBlockType: (type) => {
                 if(!focusedBlock) return;
                 focusedBlock.dataset.type = type;
                 App.save();
             },
-
-            toggleAlign: (align) => {
-                if(!focusedBlock) return;
-                focusedBlock.classList.remove('align-left', 'align-center', 'align-right');
-                focusedBlock.classList.add('align-' + align);
-                App.save();
-            },
-
             deleteBlock: () => {
                 if(focusedBlock && confirm('Apagar bloco?')) {
                     focusedBlock.remove();
@@ -384,13 +402,41 @@
                 }
             },
 
+            // --- MODO PÚLPITO ---
+            enterReadingMode: async () => {
+                if(!currentSermonId) return;
+                App.save();
+                const s = Store.get(currentSermonId);
+                const view = document.getElementById('view-reading');
+                const content = document.getElementById('reading-content');
+                
+                let html = `<div style="font-size:1.8em; font-weight:800; margin-bottom:10px; line-height:1.2">${s.title}</div>`;
+                html += `<div style="color:#aaa; font-size:0.8em; margin-bottom:40px; border-bottom:1px solid #333; padding-bottom:20px;">${s.bibleRef}</div>`;
+                
+                s.blocks.forEach(b => {
+                    let cls = 'reading-block';
+                    if(b.type === 'h1') html += `<div class="reading-h1">${b.content}</div>`;
+                    else html += `<div class="${cls}" data-type="${b.type}">${b.content}</div>`;
+                });
+                
+                content.innerHTML = html;
+                view.classList.add('active');
+                
+                // Wake Lock (Manter tela ligada)
+                try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } 
+                catch (err) { console.log('Wake Lock error', err); }
+            },
+
+            exitReadingMode: () => {
+                document.getElementById('view-reading').classList.remove('active');
+                if (wakeLock) { wakeLock.release(); wakeLock = null; }
+            },
+
             save: () => {
                 if(!currentSermonId) return;
-                
                 const title = document.getElementById('meta-title').value;
                 const ref = document.getElementById('meta-ref').value;
                 const blocks = [];
-                
                 document.querySelectorAll('.block').forEach(el => {
                     blocks.push({
                         id: el.dataset.id,
@@ -399,35 +445,23 @@
                         content: el.querySelector('.editable').innerHTML
                     });
                 });
-
                 Store.update(currentSermonId, { title, bibleRef: ref, blocks });
-                
-                const status = document.getElementById('save-status');
-                status.innerText = 'Salvando...';
-                setTimeout(() => status.innerText = 'Salvo', 800);
             },
 
             showList: () => {
                 document.getElementById('view-editor').classList.add('hidden');
                 document.getElementById('view-list').classList.remove('hidden');
                 App.renderList();
-                currentSermonId = null;
             },
             
             exportPDF: () => {
                 const element = document.getElementById('editor-canvas');
-                const opt = {
-                    margin: 10,
-                    filename: document.getElementById('meta-title').value + '.pdf',
-                    image: { type: 'jpeg', quality: 0.98 },
-                    html2canvas: { scale: 2 },
-                    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-                };
+                const title = document.getElementById('meta-title').value || 'esboco';
+                const opt = { margin: 10, filename: title + '.pdf', image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
                 html2pdf().set(opt).from(element).save();
             }
         };
 
-        // --- BÍBLIA API ---
         const Bible = {
             books: ["Gênesis","Êxodo","Levítico","Números","Deuteronômio","Josué","Juízes","Rute","1 Samuel","2 Samuel","1 Reis","2 Reis","1 Crônicas","2 Crônicas","Esdras","Neemias","Ester","Jó","Salmos","Provérbios","Eclesiastes","Cânticos","Isaías","Jeremias","Lamentações","Ezequiel","Daniel","Oséias","Joel","Amós","Obadias","Jonas","Miquéias","Naum","Habacuque","Sofonias","Ageu","Zacarias","Malaquias","Mateus","Marcos","Lucas","João","Atos","Romanos","1 Coríntios","2 Coríntios","Gálatas","Efésios","Filipenses","Colossenses","1 Tessalonicenses","2 Tessalonicenses","1 Timóteo","2 Timóteo","Tito","Filemom","Hebreus","Tiago","1 Pedro","2 Pedro","1 João","2 João","3 João","Judas","Apocalipse"],
             
@@ -436,25 +470,17 @@
                 const sel = document.getElementById('bible-book');
                 if(sel.options.length === 0) {
                     Bible.books.forEach(b => {
-                        const opt = document.createElement('option');
-                        opt.value = b; opt.innerText = b;
-                        sel.appendChild(opt);
+                        const opt = document.createElement('option'); opt.value = b; opt.innerText = b; sel.appendChild(opt);
                     });
                     Bible.loadChapters();
                 }
             },
-            
             close: () => document.getElementById('bible-modal').classList.remove('open'),
             
             loadChapters: () => {
-                // Simulação simples de capítulos (50 genéricos) para evitar complexidade excessiva de mapeamento
-                // Numa versão de produção, mapearíamos a quantidade exata por livro
-                const sel = document.getElementById('bible-chapter');
-                sel.innerHTML = '';
+                const sel = document.getElementById('bible-chapter'); sel.innerHTML = '';
                 for(let i=1; i<=150; i++) {
-                    const opt = document.createElement('option');
-                    opt.value = i; opt.innerText = i;
-                    sel.appendChild(opt);
+                    const opt = document.createElement('option'); opt.value = i; opt.innerText = i; sel.appendChild(opt);
                 }
                 Bible.loadVerses();
             },
@@ -463,51 +489,50 @@
                 const book = document.getElementById('bible-book').value;
                 const chapter = document.getElementById('bible-chapter').value;
                 const container = document.getElementById('bible-results');
-                
                 container.innerHTML = '<div style="text-align:center; padding:20px;">Carregando...</div>';
                 
-                // Usando API Pública (Bible-API.com) - Versão Almeida
                 try {
-                    // Mapeamento simples de nomes para inglês se necessário, ou tentar direto
-                    // A API aceita "Genesis", "John" etc. Vamos tentar passar direto, pode falhar com acentos
-                    // Tratamento básico de acentos
                     const safeBook = book.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-                    
                     const res = await fetch(`https://bible-api.com/${safeBook}+${chapter}?translation=almeida`);
                     const data = await res.json();
                     
-                    if(data.error) {
-                        container.innerHTML = '<div style="text-align:center; color:red">Livro não encontrado na API.</div>';
-                        return;
-                    }
+                    if(data.error) throw new Error();
 
                     container.innerHTML = '';
                     data.verses.forEach(v => {
                         const el = document.createElement('div');
                         el.className = 'verse-item';
-                        el.innerHTML = `<span class="verse-num">${v.verse}</span> <span class="verse-text">${v.text}</span>`;
-                        el.onclick = () => Bible.insert(book, chapter, v.verse, v.text);
+                        // Botões de Ação Inteligentes
+                        el.innerHTML = `
+                            <div style="flex:1">
+                                <span style="font-weight:bold; color:var(--txt-accent); font-size:0.8em; margin-right:5px">${v.verse}</span>
+                                <span style="font-family:serif; line-height:1.4">${v.text}</span>
+                            </div>
+                            <div class="verse-actions">
+                                <button class="btn-small accent" onclick="Bible.insert('${book} ${chapter}:${v.verse}', '${v.text.replace(/'/g, "\\'")}')">Inserir</button>
+                                <button class="btn-small" onclick="Bible.copy('${v.text.replace(/'/g, "\\'")}', '${book} ${chapter}:${v.verse}')">Copiar</button>
+                            </div>
+                        `;
                         container.appendChild(el);
                     });
-
-                } catch (e) {
-                    container.innerHTML = '<div style="text-align:center; color:red">Erro de conexão.</div>';
-                }
+                } catch (e) { container.innerHTML = '<div style="text-align:center; color:#EF4444">Erro ao carregar ou livro não suportado na API pública.</div>'; }
             },
 
-            insert: (book, chapter, verse, text) => {
-                const content = `"${text}" (${book} ${chapter}:${verse})`;
+            insert: (ref, text) => {
+                const content = `"${text}" (${ref})`;
                 App.addBlock('scripture');
-                // Pequeno delay para garantir que o bloco foi criado
                 setTimeout(() => {
-                    const blocks = document.querySelectorAll('.block');
-                    const last = blocks[blocks.length-1];
-                    if(last) {
-                        last.querySelector('.editable').innerText = content;
-                        App.save();
-                        Bible.close();
-                    }
+                    const last = document.querySelector('.block:last-child .editable');
+                    if(last) { last.innerText = content; App.save(); Bible.close(); }
                 }, 100);
+            },
+
+            copy: (text, ref) => {
+                navigator.clipboard.writeText(`"${text}" (${ref})`);
+                const btn = event.target;
+                const original = btn.innerText;
+                btn.innerText = "Copiado!";
+                setTimeout(() => btn.innerText = original, 1000);
             }
         };
 
