@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>PregaFlow — Apple Design (Melhorado)</title>
+  <title>PregaFlow — Apple Design (2025)</title>
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -22,8 +22,11 @@
       font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
     }
 
+    /* Dark mode vars (will be toggled by [data-theme="dark"]) */
+    [data-theme="dark"]{ --bg-body:#0B0B0D; --glass: rgba(255,255,255,0.04); --panel:#0F1113; --muted:#A6A6AA; --accent:#4EA9FF; --sep:rgba(255,255,255,0.06); --shadow:0 12px 40px rgba(2,4,6,0.6); color:#EEE }
+
     *{box-sizing:border-box}
-    html,body{height:100%;margin:0;background:var(--bg-body);color:#111}
+    html,body{height:100%;margin:0;background:var(--bg-body);color:var(--text, #111)}
     button{font-family:inherit}
 
     /* APP LAYOUT */
@@ -63,8 +66,8 @@
 
     .paper-wrap{flex:1;overflow:auto}
     .paper{background:var(--panel);max-width:var(--max-width);margin:18px auto;padding:56px;border-radius:18px;box-shadow:var(--shadow);border:1px solid rgba(0,0,0,0.03)}
-    #title{font-size:36px;font-weight:800;border:none;outline:none;width:100%;display:block;margin-bottom:8px}
-    #ref{font-size:16px;color:var(--muted);border:none;outline:none;width:100%;display:block;margin-bottom:30px}
+    #title{font-size:36px;font-weight:800;border:none;outline:none;width:100%;display:block;margin-bottom:8px;background:transparent}
+    #ref{font-size:16px;color:var(--muted);border:none;outline:none;width:100%;display:block;margin-bottom:30px;background:transparent}
 
     .blocks{display:flex;flex-direction:column;gap:12px}
     .block{display:flex;gap:12px;padding:12px;border-radius:12px;border:1px solid transparent;align-items:flex-start}
@@ -72,16 +75,24 @@
     .drag{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:#AAB;cursor:grab}
     .block textarea{flex:1;border:none;resize:none;font-size:17px;line-height:1.6;background:transparent}
 
+    .block-controls{display:flex;flex-direction:column;gap:8px;align-items:flex-end}
+    .color-preview{width:28px;height:28px;border-radius:6px;border:1px solid var(--sep);cursor:pointer}
+    .format-btn{padding:6px 8px;border-radius:8px;border:none;background:transparent;cursor:pointer}
+
     .block-type{display:flex;flex-direction:column;gap:6px}
     .small{font-size:12px;color:var(--muted)}
 
     .add-block{margin-top:18px;padding:16px;border-radius:12px;border:2px dashed #E8E8ED;background:transparent;color:var(--muted);cursor:pointer}
 
     /* READER overlay */
-    #reader{position:fixed;inset:0;background:#fff;display:none;z-index:2000;overflow:auto}
+    #reader{position:fixed;inset:0;background:var(--panel);display:none;z-index:2000;overflow:auto}
     #reader.open{display:block}
     .reader-inner{max-width:900px;margin:0 auto;padding:80px}
     .reader-close{position:fixed;right:28px;top:20px;padding:10px 14px;border-radius:20px;border:none;background:#fff;box-shadow:var(--shadow);cursor:pointer}
+
+    /* modal */
+    .modal{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:var(--panel);padding:18px;border-radius:12px;box-shadow:var(--shadow);z-index:3000;border:1px solid var(--sep);min-width:320px}
+    .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.3);z-index:2999}
 
     /* small responsive */
     @media (max-width:900px){
@@ -96,7 +107,7 @@
 
   </style>
 </head>
-<body>
+<body data-theme="light">
 
 <div id="app">
   <aside class="sidebar">
@@ -119,6 +130,11 @@
 
     <div class="list" id="list"></div>
 
+    <div style="margin-top:12px;display:flex;gap:8px">
+      <button class="btn" id="toggleTheme">Modo Noturno</button>
+      <button class="btn" id="openBible">Copiar NVI</button>
+    </div>
+
     <div style="margin-top:auto;font-size:12px;color:var(--muted);text-align:center;padding-top:14px">Auto-save • Drag & drop • Export PDF / JSON</div>
   </aside>
 
@@ -137,6 +153,15 @@
       <div class="toolset" id="fmt">
         <button class="tool-btn" data-fmt="b"><b>B</b></button>
         <button class="tool-btn" data-fmt="i"><i>I</i></button>
+        <button class="tool-btn" data-fmt="u">U</button>
+        <button class="tool-btn" data-fmt="s">S</button>
+      </div>
+
+      <div style="width:1px;height:36px;background:var(--sep);margin-left:8px;margin-right:8px"></div>
+
+      <div class="toolset">
+        <button class="tool-btn" id="aiAssist">AI</button>
+        <button class="tool-btn" id="copyBible">NVI</button>
       </div>
 
       <div style="flex:1"></div>
@@ -170,29 +195,55 @@
   <div class="reader-inner" id="readerContent"></div>
 </div>
 
+<!-- MODALS -->
+<div id="overlay" style="display:none"></div>
+
+<!-- Bible Modal -->
+<div id="modalBible" class="modal" style="display:none">
+  <h3>Copiar texto bíblico (NVI)</h3>
+  <p class="small">Cole uma referência (ex: João 3:16). O app tentará buscar via APIs públicas ou abrirá uma janela para você colar o texto.</p>
+  <input id="bRef" placeholder="Ex: João 3:16" style="width:100%;padding:8px;margin-top:8px;border-radius:8px;border:1px solid var(--sep)" />
+  <div style="display:flex;gap:8px;margin-top:10px">
+    <button class="btn primary" id="fetchBibleBtn">Buscar NVI</button>
+    <button class="btn" id="pasteBibleBtn">Colar manualmente</button>
+    <button class="btn" id="closeBible">Fechar</button>
+  </div>
+  <textarea id="bibleResult" style="width:100%;height:120px;margin-top:10px;padding:8px;border-radius:8px;border:1px solid var(--sep);"></textarea>
+  <div style="display:flex;justify-content:flex-end;margin-top:8px"><button class="btn primary" id="insertBible">Inserir no bloco</button></div>
+</div>
+
+<!-- AI Modal -->
+<div id="modalAI" class="modal" style="display:none">
+  <h3>Assistente AI</h3>
+  <p class="small">Peça ajuda para estruturar ideias, criar introdução, ilustrações ou resumo. (Opcional: cole sua chave OpenAI para que o cliente faça a chamada diretamente.)</p>
+  <textarea id="aiPrompt" placeholder="Ex: Me ajude a criar uma introdução sobre identidade em Cristo..." style="width:100%;height:120px;padding:8px;border-radius:8px;border:1px solid var(--sep);"></textarea>
+  <input id="aiKey" placeholder="(opcional) Cole sua chave OpenAI aqui" style="width:100%;padding:8px;margin-top:8px;border-radius:8px;border:1px solid var(--sep)" />
+  <div style="display:flex;gap:8px;margin-top:10px">
+    <button class="btn primary" id="runAI">Executar</button>
+    <button class="btn" id="closeAI">Fechar</button>
+  </div>
+  <textarea id="aiResult" style="width:100%;height:140px;margin-top:10px;padding:8px;border-radius:8px;border:1px solid var(--sep);"></textarea>
+  <div style="display:flex;justify-content:flex-end;margin-top:8px"><button class="btn primary" id="insertAI">Inserir no bloco</button></div>
+</div>
+
 <div class="toast" id="toast">Salvo</div>
 
 <script>
 // --- Simple DB wrapper ---
-const KEY = 'pf_improved_v1';
-const DB = {
-  all(){return JSON.parse(localStorage.getItem(KEY)||'[]')},
-  set(list){localStorage.setItem(KEY, JSON.stringify(list))}
-}
-
-// utils
+const KEY = 'pf_improved_v2';
+const DB = { all(){return JSON.parse(localStorage.getItem(KEY)||'[]')}, set(list){localStorage.setItem(KEY, JSON.stringify(list))} }
 const ID = ()=>Math.random().toString(36).slice(2,9);
 const fmtDate = ts => new Date(ts).toLocaleString('pt-BR');
+
+// Theme
+function setTheme(t){ document.body.setAttribute('data-theme', t); localStorage.setItem('pf_theme', t); document.getElementById('toggleTheme').textContent = t==='dark' ? 'Modo Claro' : 'Modo Noturno'; }
+(function(){ const t = localStorage.getItem('pf_theme')||'light'; setTheme(t); })();
 
 // app state
 const App = {
   curr:null, focus:null, tm:null,
-  init(){
-    this.bind();
-    this.renderList();
-    if(DB.all().length) this.open(DB.all()[0].id);
-  },
-  bind(){
+  init(){ this.bind(); this.renderList(); if(DB.all().length) this.open(DB.all()[0].id); }
+  ,bind(){
     document.getElementById('btnNew').onclick = ()=>this.create();
     document.getElementById('btnDup').onclick = ()=>this.duplicate();
     document.getElementById('q').oninput = ()=>this.renderList();
@@ -204,20 +255,34 @@ const App = {
     document.getElementById('title').oninput = e=>this.onInput(e);
     document.getElementById('ref').oninput = e=>this.onInput(e);
 
+    document.getElementById('toggleTheme').onclick = ()=>{ const t = document.body.getAttribute('data-theme')==='dark'?'light':'dark'; setTheme(t); };
+    document.getElementById('openBible').onclick = ()=>openModal('modalBible');
+
+    document.getElementById('fetchBibleBtn').onclick = fetchBible;
+    document.getElementById('pasteBibleBtn').onclick = ()=>{ document.getElementById('bibleResult').focus(); };
+    document.getElementById('insertBible').onclick = ()=>{ insertBibleToBlock(); closeModal('modalBible'); };
+    document.getElementById('closeBible').onclick = ()=>closeModal('modalBible');
+
+    // AI
+    document.getElementById('aiAssist').onclick = ()=>openModal('modalAI');
+    document.getElementById('closeAI').onclick = ()=>closeModal('modalAI');
+    document.getElementById('runAI').onclick = runAI;
+    document.getElementById('insertAI').onclick = ()=>{ insertAIToBlock(); closeModal('modalAI'); };
+
     // toolbar short actions
     document.querySelectorAll('.tool-btn').forEach(b=>b.onclick = (ev)=>{
       const act = b.dataset.act; if(act) return App.setType(act);
       const f = b.dataset.fmt; if(f) return App.setFmt(f);
     });
 
-    // global keyboard shortcuts: Ctrl+N new, Ctrl+S save, Ctrl+D duplicate
+    // keyboard shortcuts
     window.addEventListener('keydown', e=>{
       if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='n'){ e.preventDefault(); this.create(); }
       if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='s'){ e.preventDefault(); this.save(); toast('Salvo'); }
       if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='d'){ e.preventDefault(); this.duplicate(); }
     });
-  },
-  renderList(){
+  }
+  ,renderList(){
     const q = document.getElementById('q').value.toLowerCase();
     const list = DB.all().filter(s=>!q|| (s.title||'').toLowerCase().includes(q) || (s.ref||'').toLowerCase().includes(q));
     const el = document.getElementById('list'); el.innerHTML = '';
@@ -232,52 +297,102 @@ const App = {
       div.appendChild(actions);
       el.appendChild(div);
     });
-  },
-  create(){
-    const s = { id:ID(), title:'', ref:'', date:Date.now(), blocks:[{id:ID(),type:'text',content:''}] };
+  }
+  ,create(){
+    const s = { id:ID(), title:'', ref:'', date:Date.now(), blocks:[{id:ID(),type:'text',content:'', color:'#111111', bold:false, italic:false, underline:false, strike:false}] };
     const all = DB.all(); all.unshift(s); DB.set(all); this.renderList(); this.open(s.id); toast('Novo esboço criado');
-  },
-  duplicate(){ if(!this.curr) return toast('Selecione um esboço'); const s = DB.all().find(x=>x.id===this.curr); if(!s) return; const copy = JSON.parse(JSON.stringify(s)); copy.id = ID(); copy.date = Date.now(); copy.title = (copy.title||'') + ' (cópia)'; DB.set([copy,...DB.all()]); this.renderList(); toast('Duplicado'); },
-  del(id){ if(!confirm('Apagar este esboço?')) return; const keep = DB.all().filter(x=>x.id!==id); DB.set(keep); if(this.curr===id){ this.curr=null; document.getElementById('paper').style.display='none'; document.getElementById('empty').style.display='block'; } this.renderList(); toast('Removido'); },
-  open(id){ if(this.curr) this.save(); this.curr = id; const s = DB.all().find(x=>x.id===id); if(!s) return; document.getElementById('paper').style.display='block'; document.getElementById('empty').style.display='none'; document.getElementById('title').value = s.title; document.getElementById('ref').value = s.ref; const box = document.getElementById('blocks'); box.innerHTML=''; s.blocks.forEach(b=> box.appendChild(this.renderBlock(b))); new Sortable(box,{handle:'.drag',animation:150,onEnd:()=>this.save()}); this.renderList(); },
-  renderBlock(b){ const wrap = document.createElement('div'); wrap.className='block'; wrap.id='b-'+b.id; wrap.dataset.id=b.id; wrap.dataset.type=b.type||'text'; wrap.innerHTML = `<div class='drag' title='arrastar'>⠿</div><div style='flex:1'><textarea rows=1 placeholder='Digite aqui...' spellcheck='true'>${escapeHtml(b.content||'')}</textarea></div>`; const ta = wrap.querySelector('textarea'); ta.onfocus = ()=>{ this.focus = b.id; document.querySelectorAll('.block').forEach(x=>x.classList.remove('focus')); wrap.classList.add('focus'); this.updateToolbar(wrap); }
+  }
+  ,duplicate(){ if(!this.curr) return toast('Selecione um esboço'); const s = DB.all().find(x=>x.id===this.curr); if(!s) return; const copy = JSON.parse(JSON.stringify(s)); copy.id = ID(); copy.date = Date.now(); copy.title = (copy.title||'') + ' (cópia)'; DB.set([copy,...DB.all()]); this.renderList(); toast('Duplicado'); }
+  ,del(id){ if(!confirm('Apagar este esboço?')) return; const keep = DB.all().filter(x=>x.id!==id); DB.set(keep); if(this.curr===id){ this.curr=null; document.getElementById('paper').style.display='none'; document.getElementById('empty').style.display='block'; } this.renderList(); toast('Removido'); }
+  ,open(id){ if(this.curr) this.save(); this.curr = id; const s = DB.all().find(x=>x.id===id); if(!s) return; document.getElementById('paper').style.display='block'; document.getElementById('empty').style.display='none'; document.getElementById('title').value = s.title; document.getElementById('ref').value = s.ref; const box = document.getElementById('blocks'); box.innerHTML=''; s.blocks.forEach(b=> box.appendChild(this.renderBlock(b))); new Sortable(box,{handle:'.drag',animation:150,onEnd:()=>this.save()}); this.renderList(); }
+  ,renderBlock(b){ const wrap = document.createElement('div'); wrap.className='block'; wrap.id='b-'+b.id; wrap.dataset.id=b.id; wrap.dataset.type=b.type||'text'; wrap.dataset.color = b.color || '#111111'; wrap.dataset.bold = b.bold || false; wrap.dataset.italic = b.italic || false; wrap.dataset.underline = b.underline || false; wrap.dataset.strike = b.strike || false;
+    wrap.innerHTML = `<div class='drag' title='arrastar'>⠿</div><div style='flex:1'><textarea rows=1 placeholder='Digite aqui...' spellcheck='true'>${escapeHtml(b.content||'')}</textarea></div><div class='block-controls'><div class='color-preview' title='Mudar cor'></div><div style='display:flex;flex-direction:column;gap:6px;align-items:flex-end'><button class='format-btn' data-type='inc'>T+</button><button class='format-btn' data-type='dec'>T-</button></div></div>`;
+    const ta = wrap.querySelector('textarea'); const colorPreview = wrap.querySelector('.color-preview');
+    ta.onfocus = ()=>{ this.focus = b.id; document.querySelectorAll('.block').forEach(x=>x.classList.remove('focus')); wrap.classList.add('focus'); this.updateToolbar(wrap); }
     ta.oninput = (e)=>{ this.resize(ta); this.onInput(e); };
+    colorPreview.style.background = wrap.dataset.color;
+    colorPreview.onclick = ()=>{ const c = prompt('Insira cor HEX (ex: #007AFF) ou nome: ', wrap.dataset.color||'#111'); if(c){ wrap.dataset.color = c; colorPreview.style.background = c; ta.style.color = c; this.save(); } };
+    // apply color & formats visually
+    ta.style.color = wrap.dataset.color;
+    if(wrap.dataset.bold==='true') ta.style.fontWeight = 700; if(wrap.dataset.italic==='true') ta.style.fontStyle = 'italic'; if(wrap.dataset.underline==='true') ta.style.textDecoration = 'underline'; if(wrap.dataset.strike==='true') ta.style.textDecoration = (ta.style.textDecoration? ta.style.textDecoration + ' line-through':'line-through');
+    // format buttons
+    wrap.querySelectorAll('.format-btn').forEach(b=>b.onclick = ()=>{ if(b.dataset.type==='inc'){ ta.style.fontSize = (parseInt(window.getComputedStyle(ta).fontSize)||17) + 2 + 'px' } else { ta.style.fontSize = Math.max(12, (parseInt(window.getComputedStyle(ta).fontSize)||17) - 2) + 'px' } });
     setTimeout(()=>this.resize(ta),0);
-    return wrap; },
-  add(){ if(!this.curr) return toast('Crie ou abra um esboço'); const b = {id:ID(),type:'text',content:''}; const box = document.getElementById('blocks'); const el = this.renderBlock(b); box.appendChild(el); el.querySelector('textarea').focus(); this.save(); },
-  save(){ if(!this.curr) return; const list = DB.all(); const idx = list.findIndex(x=>x.id===this.curr); if(idx===-1) return; const blocks = []; document.querySelectorAll('.block').forEach(el=>{ blocks.push({ id: el.dataset.id, type: el.dataset.type, content: el.querySelector('textarea').value }); }); list[idx].title = document.getElementById('title').value; list[idx].ref = document.getElementById('ref').value; list[idx].blocks = blocks; list[idx].date = list[idx].date || Date.now(); DB.set(list); },
-  onInput(e){ this.resize(e.target||e); clearTimeout(this.tm); this.tm = setTimeout(()=>{ this.save(); toast('Salvo'); this.renderList(); },700); },
-  resize(el){ el.style.height = 'auto'; el.style.height = (el.scrollHeight) + 'px'; },
-  setType(t){ if(!this.focus) return toast('Selecione um bloco'); const el = document.getElementById('b-'+this.focus); if(!el) return; el.dataset.type = t; this.save(); this.updateToolbar(el); },
-  setFmt(f){ if(!this.focus) return toast('Selecione um bloco'); const el = document.getElementById('b-'+this.focus); if(!el) return; // simple toggle stored in dataset
-    el.dataset[f] = el.dataset[f]==='true' ? 'false' : 'true'; this.save(); this.updateToolbar(el);
-  },
-  updateToolbar(el){ document.querySelectorAll('.tool-btn').forEach(b=>b.classList.remove('active')); const t = el.dataset.type; document.querySelectorAll(`.tool-btn[data-act='${t}']`).forEach(x=>x.classList.add('active'));
-  },
-  exportJSON(){ const s = DB.all().find(x=>x.id===this.curr); if(!s) return toast('Abra um esboço'); const data = JSON.stringify(s,null,2); const blob = new Blob([data],{type:'application/json'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download = (s.title||'esboco') + '.json'; a.click(); URL.revokeObjectURL(url); },
-  importJSON(){ const inp = document.createElement('input'); inp.type='file'; inp.accept='application/json'; inp.onchange = e=>{ const f = e.target.files[0]; if(!f) return; const r = new FileReader(); r.onload = ev=>{ try{ const obj = JSON.parse(ev.target.result); obj.id = ID(); obj.date = Date.now(); DB.set([obj,...DB.all()]); this.renderList(); toast('Importado'); }catch(err){ toast('Arquivo inválido') } } ; r.readAsText(f); }; inp.click(); }
+    return wrap; }
+  ,add(){ if(!this.curr) return toast('Crie ou abra um esboço'); const b = {id:ID(),type:'text',content:'', color:'#111111', bold:false, italic:false, underline:false, strike:false}; const box = document.getElementById('blocks'); const el = this.renderBlock(b); box.appendChild(el); el.querySelector('textarea').focus(); this.save(); }
+  ,save(){ if(!this.curr) return; const list = DB.all(); const idx = list.findIndex(x=>x.id===this.curr); if(idx===-1) return; const blocks = []; document.querySelectorAll('.block').forEach(el=>{ const ta = el.querySelector('textarea'); blocks.push({ id: el.dataset.id, type: el.dataset.type, content: ta.value, color: el.dataset.color||'#111111', bold: el.dataset.bold==='true', italic: el.dataset.italic==='true', underline: el.dataset.underline==='true', strike: el.dataset.strike==='true' }); }); list[idx].title = document.getElementById('title').value; list[idx].ref = document.getElementById('ref').value; list[idx].blocks = blocks; list[idx].date = list[idx].date || Date.now(); DB.set(list); }
+  ,onInput(e){ this.resize(e.target||e); clearTimeout(this.tm); this.tm = setTimeout(()=>{ this.save(); toast('Salvo'); this.renderList(); },700); }
+  ,resize(el){ el.style.height = 'auto'; el.style.height = (el.scrollHeight) + 'px'; }
+  ,setType(t){ if(!this.focus) return toast('Selecione um bloco'); const el = document.getElementById('b-'+this.focus); if(!el) return; el.dataset.type = t; this.save(); this.updateToolbar(el); }
+  ,setFmt(f){ if(!this.focus) return toast('Selecione um bloco'); const el = document.getElementById('b-'+this.focus); if(!el) return; // toggle format
+    const cur = el.dataset[f]==='true'; el.dataset[f] = (!cur).toString(); const ta = el.querySelector('textarea'); if(f==='b') ta.style.fontWeight = (!cur)?700:400; if(f==='i') ta.style.fontStyle = (!cur)?'italic':'normal'; if(f==='u') ta.style.textDecoration = (!cur)?'underline':(ta.dataset.strike==='true'?'line-through':'none'); if(f==='s') { if(!cur){ ta.style.textDecoration = 'line-through'; } else { ta.style.textDecoration = (el.dataset.underline==='true')?'underline':'none'; } } this.save(); this.updateToolbar(el);
+  }
+  ,updateToolbar(el){ document.querySelectorAll('.tool-btn').forEach(b=>b.classList.remove('active')); const t = el.dataset.type; document.querySelectorAll(`.tool-btn[data-act='${t}']`).forEach(x=>x.classList.add('active'));
+  }
+  ,exportJSON(){ const s = DB.all().find(x=>x.id===this.curr); if(!s) return toast('Abra um esboço'); const data = JSON.stringify(s,null,2); const blob = new Blob([data],{type:'application/json'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download = (s.title||'esboco') + '.json'; a.click(); URL.revokeObjectURL(url); }
+  ,importJSON(){ const inp = document.createElement('input'); inp.type='file'; inp.accept='application/json'; inp.onchange = e=>{ const f = e.target.files[0]; if(!f) return; const r = new FileReader(); r.onload = ev=>{ try{ const obj = JSON.parse(ev.target.result); obj.id = ID(); obj.date = Date.now(); DB.set([obj,...DB.all()]); this.renderList(); toast('Importado'); }catch(err){ toast('Arquivo inválido') } } ; r.readAsText(f); }; inp.click(); }
 }
 
 // Reader & Exporter
 const Reader = {
-  open(){ if(App.curr) App.save(); const s = DB.all().find(x=>x.id===App.curr); if(!s) return toast('Selecione um esboço'); let html = `<h1 style="font-size:56px;margin-bottom:10px;line-height:1.05;">${escapeHtml(s.title)}</h1><p style="color:#888;margin-bottom:40px;border-bottom:1px solid #eee;padding-bottom:18px">${escapeHtml(s.ref)}</p>`; s.blocks.forEach(b=>{ const txt = escapeHtml(b.content||'').replace(/\n/g,'<br>'); if(b.type==='topic') html += `<h2 style="font-size:32px;margin-top:30px">${txt}</h2>`; else if(b.type==='highlight') html += `<div style="background:#F2F2F7;padding:30px;border-radius:12px;font-weight:800;font-size:28px;text-align:center;margin:18px 0">${txt}</div>`; else if(b.type==='scripture') html += `<blockquote style="font-family: 'Lora', serif;color:#444;border-left:4px solid #DDD;padding-left:18px;margin:12px 0">${txt}</blockquote>`; else if(b.type==='note') html += `<div style="background:#FFF9E6;padding:14px;border-radius:10px;color:#8A6D3B;margin:12px 0">${txt}</div>`; else html += `<p style="font-size:20px;line-height:1.6;margin:12px 0">${txt}</p>`; }); document.getElementById('readerContent').innerHTML = html; document.getElementById('reader').classList.add('open'); document.getElementById('reader').setAttribute('aria-hidden','false'); },
-  close(){ document.getElementById('reader').classList.remove('open'); document.getElementById('reader').setAttribute('aria-hidden','true'); }
+  open(){ if(App.curr) App.save(); const s = DB.all().find(x=>x.id===App.curr); if(!s) return toast('Selecione um esboço'); let html = `<h1 style="font-size:56px;margin-bottom:10px;line-height:1.05;">${escapeHtml(s.title)}</h1><p style="color:#888;margin-bottom:40px;border-bottom:1px solid #eee;padding-bottom:18px">${escapeHtml(s.ref)}</p>`; s.blocks.forEach(b=>{ const txt = escapeHtml(b.content||'').replace(/
+/g,'<br>'); const color = b.color || '#111'; let style = `color:${color};margin-bottom:18px;line-height:1.6;font-size:20px;`; if(b.bold) style += 'font-weight:700;'; if(b.italic) style += 'font-style:italic;'; if(b.underline) style += 'text-decoration:underline;'; if(b.strike) style += 'text-decoration:line-through;'; if(b.type==='topic') html += `<h2 style="${style}font-size:32px;margin-top:30px">${txt}</h2>`; else if(b.type==='highlight') html += `<div style="${style}background:#F2F2F7;padding:30px;border-radius:12px;font-weight:800;font-size:28px;text-align:center;margin:18px 0">${txt}</div>`; else if(b.type==='scripture') html += `<blockquote style="font-family: 'Lora', serif;color:#444;border-left:4px solid #DDD;padding-left:18px;margin:12px 0">${txt}</blockquote>`; else if(b.type==='note') html += `<div style="${style}background:#FFF9E6;padding:14px;border-radius:10px;color:#8A6D3B;margin:12px 0">${txt}</div>`; else html += `<p style="${style}">${txt}</p>`; }); document.getElementById('readerContent').innerHTML = html; document.getElementById('reader').classList.add('open'); document.getElementById('reader').setAttribute('aria-hidden','false'); }
+  ,close(){ document.getElementById('reader').classList.remove('open'); document.getElementById('reader').setAttribute('aria-hidden','true'); }
 };
 
 const Exporter = { pdf(){ Reader.open(); const el = document.getElementById('readerContent'); html2pdf().set({margin:18,filename:'esboco.pdf',html2canvas:{scale:2}}).from(el).save(); } };
 
+// Bible fetch: Try bible-api.com as fallback; many APIs require keys. We keep this client-side and inform user.
+async function fetchBible(){ const ref = document.getElementById('bRef').value.trim(); if(!ref) return toast('Informe a referência'); document.getElementById('bibleResult').value = 'Buscando...';
+  try{
+    // Try bible-api.com (may return different translation); user should verify copyright
+    const resp = await fetch('https://bible-api.com/' + encodeURIComponent(ref) + '?translation=nvi').then(r=>r.json());
+    if(resp && resp.text){ document.getElementById('bibleResult').value = resp.text; return; }
+    document.getElementById('bibleResult').value = 'Não encontrado via API pública. Cole o texto manualmente.';
+  }catch(err){ document.getElementById('bibleResult').value = 'Erro ao buscar. Cole o texto manualmente.'; }
+}
+function insertBibleToBlock(){ const txt = document.getElementById('bibleResult').value; if(!txt) return toast('Nenhum texto'); if(!App.focus) return toast('Selecione um bloco para inserir'); const el = document.getElementById('b-'+App.focus); const ta = el.querySelector('textarea'); ta.value = ta.value + '
+' + txt; App.resize(ta); App.save(); toast('Versículo inserido'); }
+
+// AI assistant: uses user's OpenAI key (optional). If no key provided, outputs a simple local suggestion (fallback)
+async function runAI(){ const prompt = document.getElementById('aiPrompt').value.trim(); const key = document.getElementById('aiKey').value.trim(); if(!prompt) return toast('Digite um prompt'); document.getElementById('aiResult').value = 'Processando...';
+  if(key){
+    try{
+      const res = await fetch('https://api.openai.com/v1/chat/completions',{
+        method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+        body: JSON.stringify({ model: 'gpt-4o-mini', messages:[{role:'user',content:prompt}], max_tokens:800 })
+      });
+      if(!res.ok) throw new Error(await res.text());
+      const j = await res.json(); const text = j.choices?.[0]?.message?.content || JSON.stringify(j);
+      document.getElementById('aiResult').value = text;
+    }catch(err){ document.getElementById('aiResult').value = 'Erro na chamada AI: '+err.message; }
+  } else {
+    // Fallback local helper: short structured response
+    const out = 'Estrutura sugerida:
+
+1) Abertura (1-2 minutos) — uma ilustração breve.
+2) Leitura do texto e explicação (5-8 minutos).
+3) Aplicação prática (3-4 minutos).
+4) Chamado/Conclusão (1-2 minutos).
+
+Sugestão de abertura: ' + (prompt.slice(0,200)) + '...';
+    document.getElementById('aiResult').value = out;
+  }
+}
+function insertAIToBlock(){ const txt = document.getElementById('aiResult').value; if(!txt) return toast('Nenhum texto gerado'); if(!App.focus) return toast('Selecione um bloco'); const el = document.getElementById('b-'+App.focus); const ta = el.querySelector('textarea'); ta.value = ta.value + '
+' + txt; App.resize(ta); App.save(); toast('Texto AI inserido'); }
+
+// Modal helpers
+function openModal(id){ document.getElementById('overlay').style.display='block'; document.getElementById('overlay').className='overlay'; document.getElementById(id).style.display='block'; }
+function closeModal(id){ document.getElementById('overlay').style.display='none'; document.getElementById(id).style.display='none'; }
+
 // helpers
-function toast(msg){ const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1400); }
+function toast(msg){ const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1600); }
 function escapeHtml(s){ if(!s) return ''; return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-// wire reader close
 document.getElementById('closeReader').onclick = ()=>Reader.close();
 
-// autosave on load + init app
 App.init();
-
-// expose App for debugging in console (optional)
-window.App = App; window.DB = DB;
 </script>
 </body>
 </html>
