@@ -2,250 +2,260 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PregFlow Pro – Desktop</title>
 
+<!-- Desktop-first -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>PregFlow Pro v3.4 – Desktop Edition</title>
+
+<!-- Fontes -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&family=Merriweather:ital,wght@0,300;0,400;0,700;1,400&display=swap" rel="stylesheet">
 
 <style>
-    :root {
-        --bg: #f5f5f7;
-        --text: #222;
-        --panel: #fff;
-        --border: #ccc;
-        --accent: #0057ff;
-    }
+/* ============================================================
+   SISTEMA DE DESIGN – VERSÃO DESKTOP
+   ============================================================ */
+:root {
+    --bg: #F4F4F6;
+    --surface: #FFFFFF;
 
-    [data-theme="dark"] {
-        --bg: #121212;
-        --text: #eee;
-        --panel: #1e1e1e;
-        --border: #444;
-        --accent: #4c8dff;
-    }
+    --text: #111827;
+    --text-secondary: #4B5563;
+    --text-muted: #9CA3AF;
+    
+    --border: #E5E7EB;
+    --border-hover: #C7CBD4;
 
-    body {
-        margin: 0;
-        display: flex;
-        height: 100vh;
-        font-family: Inter, sans-serif;
-        background: var(--bg);
-        color: var(--text);
-    }
+    --primary: #7C3AED;
+    --primary-hover: #6D28D9;
+    --primary-soft: #F5F3FF;
 
-    /* Sidebar */
-    .sidebar {
-        width: 280px;
-        background: var(--panel);
-        border-right: 1px solid var(--border);
-        display: flex;
-        flex-direction: column;
-    }
+    --danger: #EF4444;
+    --danger-bg: #FEE2E2;
 
-    .sidebar h2 {
-        padding: 20px;
-        margin: 0;
-        font-size: 20px;
-        border-bottom: 1px solid var(--border);
-    }
+    --shadow-xs: 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-sm: 0 4px 8px rgba(0,0,0,0.08);
+    --shadow-lg: 0 12px 24px rgba(0,0,0,0.12);
 
-    .notes-list {
-        flex: 1;
-        overflow-y: auto;
-    }
+    --radius: 12px;
+    --radius-sm: 8px;
 
-    .note-item {
-        padding: 15px;
-        border-bottom: 1px solid var(--border);
-        cursor: pointer;
-    }
-    .note-item:hover {
-        background: var(--accent);
-        color: white;
-    }
+    --font-ui: "Inter", sans-serif;
+    --font-body: "Merriweather", serif;
 
-    .new-btn {
-        padding: 15px;
-        text-align: center;
-        background: var(--accent);
-        color: white;
-        cursor: pointer;
-        font-weight: bold;
-    }
+    /* Desktop refinamentos */
+    --screen-max: 1020px;
+}
 
-    /* Editor */
-    .editor-area {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-    }
+/* ============================================================
+   DARK MODE
+   ============================================================ */
+body.dark {
+    --bg: #0f0f12;
+    --surface: #1a1a1e;
+    --text: #ffffff;
+    --text-secondary: #b3b3b9;
+    --text-muted: #6f6f75;
+    --border: #2a2a32;
+    --border-hover: #3c3c44;
+    --primary: #b69cff;
+    --primary-soft: #301b78;
+    --danger-bg: #3b0f0f;
+}
 
-    .toolbar {
-        background: var(--panel);
-        padding: 10px;
-        border-bottom: 1px solid var(--border);
-        display: flex;
-        gap: 10px;
-    }
+/* ============================================================
+   RESET / BASE
+   ============================================================ */
+* {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
 
-    .toolbar button {
-        padding: 8px 12px;
-        border: 1px solid var(--border);
-        background: var(--panel);
-        cursor: pointer;
-        border-radius: 5px;
-        font-size: 14px;
-    }
-    .toolbar button:hover {
-        background: var(--accent);
-        color: white;
-    }
+body {
+    margin: 0;
+    background: var(--bg);
+    font-family: var(--font-ui);
+    color: var(--text);
+    height: 100vh;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+}
 
-    #editor {
-        flex: 1;
-        width: 100%;
-        padding: 25px;
-        border: none;
-        outline: none;
-        resize: none;
-        background: var(--bg);
-        color: var(--text);
-        font-size: 20px;
-        font-family: Inter, sans-serif;
-    }
+/* ============================================================
+   DESKTOP LAYOUT AJUSTADO
+   ============================================================ */
+.screen {
+    max-width: var(--screen-max);
+    margin: 0 auto;
+    padding: 32px 40px;
+    min-height: 100vh;
+    display: none;
+}
+.screen.active {
+    display: block;
+    animation: fadeSlide 0.35s ease;
+}
 
-    /* Scrollbars */
-    *::-webkit-scrollbar {
-        width: 8px;
-    }
-    *::-webkit-scrollbar-thumb {
-        background: var(--border);
-        border-radius: 4px;
-    }
+@keyframes fadeSlide {
+    from { opacity: 0; transform: translateY(15px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ============================================================
+   INTERAÇÕES DE DESKTOP (hover mais forte)
+   ============================================================ */
+.sermon-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-sm);
+    border-color: var(--primary);
+}
+
+/* ============================================================
+   INÍCIO DO BODY
+   ============================================================ */
 </style>
 </head>
 
 <body>
 
-<!-- SIDEBAR -->
-<div class="sidebar">
-    <h2>PregFlow Pro</h2>
-    <div class="notes-list" id="notesList"></div>
-    <div class="new-btn" onclick="newNote()">+ Nova Mensagem</div>
+<!-- SPLASH SCREEN -->
+<div id="splash">
+    <div class="logo-container">PF</div>
 </div>
 
-<!-- EDITOR -->
-<div class="editor-area">
+<!-- SCREENS -->
+<div id="homeScreen" class="screen active">
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <!-- Toolbar -->
-    <div class="toolbar">
-        <button onclick="execCmd('bold')"><b>B</b></button>
-        <button onclick="execCmd('italic')"><i>I</i></button>
-        <button onclick="execCmd('underline')"><u>U</u></button>
-        <button onclick="execCmd('insertUnorderedList')">• Lista</button>
-        <button onclick="saveNote()">💾 Salvar</button>
-        <button onclick="deleteNote()">🗑 Excluir</button>
-        <button onclick="toggleTheme()">🌓 Tema</button>
+<title>PregFlow Pro – Desktop</title>
+
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        background: #f4f4f4;
+        color: #222;
+    }
+
+    header {
+        background: #2d3436;
+        color: white;
+        padding: 20px;
+        text-align: center;
+        font-size: 28px;
+        font-weight: bold;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    }
+
+    .container {
+        padding: 25px;
+        max-width: 1100px;
+        margin: auto;
+    }
+
+    textarea {
+        width: 100%;
+        height: 450px;
+        padding: 18px;
+        font-size: 18px;
+        border: 2px solid #ccc;
+        border-radius: 12px;
+        resize: none;
+        outline: none;
+        background: white;
+    }
+
+    .buttons {
+        margin-top: 20px;
+        display: flex;
+        gap: 15px;
+    }
+
+    button {
+        padding: 14px 22px;
+        font-size: 18px;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: 0.2s;
+    }
+
+    .save { background: #0984e3; color: white; }
+    .save:hover { background: #74b9ff; }
+
+    .load { background: #00b894; color: white; }
+    .load:hover { background: #55efc4; }
+
+    .delete { background: #d63031; color: white; }
+    .delete:hover { background: #ff7675; }
+
+    .toggle { background: #636e72; color: white; }
+    .toggle:hover { background: #b2bec3; }
+
+    /* Dark Mode */
+    body.dark {
+        background: #1e272e;
+        color: white;
+    }
+
+    body.dark textarea {
+        background: #2f3640;
+        color: white;
+        border-color: #444;
+    }
+
+    body.dark header {
+        background: #0f1315;
+        box-shadow: 0 3px 10px rgba(255,255,255,0.05);
+    }
+</style>
+
+</head>
+<body>
+
+<header>PregFlow Pro – Desktop</header>
+
+<div class="container">
+    <textarea id="editor" placeholder="Escreva sua mensagem aqui..."></textarea>
+
+    <div class="buttons">
+        <button class="save" onclick="saveMessage()">💾 Salvar</button>
+        <button class="load" onclick="loadMessage()">📂 Carregar</button>
+        <button class="delete" onclick="deleteMessage()">🗑️ Deletar</button>
+        <button class="toggle" onclick="toggleDark()">🌙 Modo Escuro</button>
     </div>
-
-    <!-- Editor -->
-    <div id="editor" contenteditable="true"></div>
 </div>
 
 <script>
-/* ============================
-   VARIÁVEIS GERAIS
-============================ */
-let notes = JSON.parse(localStorage.getItem("pregflow_notes") || "[]");
-let currentNoteId = null;
-
-/* ============================
-   INICIALIZAÇÃO
-============================ */
-renderNotesList();
-
-/* ============================
-   FUNÇÕES DE NOTAS
-============================ */
-function renderNotesList() {
-    const list = document.getElementById("notesList");
-    list.innerHTML = "";
-
-    notes.forEach(n => {
-        const div = document.createElement("div");
-        div.className = "note-item";
-        div.innerText = n.title;
-        div.onclick = () => openNote(n.id);
-        list.appendChild(div);
-    });
+function saveMessage() {
+    const text = document.getElementById("editor").value;
+    localStorage.setItem("pregflow_desktop", text);
+    alert("Mensagem salva!");
 }
 
-function newNote() {
-    const id = Date.now();
-    const newN = {
-        id,
-        title: "Nova Mensagem " + new Date().toLocaleString(),
-        content: ""
-    };
-    notes.push(newN);
-    saveToStorage();
-    openNote(id);
+function loadMessage() {
+    const text = localStorage.getItem("pregflow_desktop");
+    if (!text) return alert("Nenhuma mensagem salva.");
+    document.getElementById("editor").value = text;
 }
 
-function openNote(id) {
-    const note = notes.find(n => n.id === id);
-    if (!note) return;
-
-    currentNoteId = id;
-    document.getElementById("editor").innerHTML = note.content;
+function deleteMessage() {
+    localStorage.removeItem("pregflow_desktop");
+    document.getElementById("editor").value = "";
+    alert("Mensagem deletada.");
 }
 
-function saveNote() {
-    if (currentNoteId === null) return;
-
-    const note = notes.find(n => n.id === currentNoteId);
-    note.content = document.getElementById("editor").innerHTML;
-
-    // Primeiro título da mensagem como título da nota
-    const firstLine = note.content.replace(/<[^>]+>/g, "").trim().split("\n")[0];
-    if (firstLine.length > 0) note.title = firstLine;
-
-    saveToStorage();
-    renderNotesList();
-}
-
-function deleteNote() {
-    if (!currentNoteId) return;
-
-    notes = notes.filter(n => n.id !== currentNoteId);
-    saveToStorage();
-
-    document.getElementById("editor").innerHTML = "";
-    currentNoteId = null;
-    renderNotesList();
-}
-
-function saveToStorage() {
-    localStorage.setItem("pregflow_notes", JSON.stringify(notes));
-}
-
-/* ============================
-   EDITOR DE TEXTO
-============================ */
-function execCmd(cmd) {
-    document.execCommand(cmd, false, null);
-}
-
-/* ============================
-   TEMA
-============================ */
-function toggleTheme() {
-    const current = document.body.getAttribute("data-theme");
-    document.body.setAttribute("data-theme", current === "dark" ? "light" : "dark");
+function toggleDark() {
+    document.body.classList.toggle("dark");
 }
 </script>
 
 </body>
 </html>
+    
