@@ -1,261 +1,540 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PregFlow Pro — Desktop</title>
 
-<!-- Desktop-first -->
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>PregFlow Pro v3.4 – Desktop Edition</title>
-
-<!-- Fontes -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&family=Merriweather:ital,wght@0,300;0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Merriweather:ital,wght@0,300;0,400;0,700&display=swap" rel="stylesheet">
 
 <style>
-/* ============================================================
-   SISTEMA DE DESIGN – VERSÃO DESKTOP
-   ============================================================ */
-:root {
-    --bg: #F4F4F6;
-    --surface: #FFFFFF;
-
+  /* ---------- DESIGN SYSTEM (desktop-first) ---------- */
+  :root{
+    --bg: #f7f7fb;
+    --surface: #ffffff;
     --text: #111827;
-    --text-secondary: #4B5563;
-    --text-muted: #9CA3AF;
-    
-    --border: #E5E7EB;
-    --border-hover: #C7CBD4;
-
+    --muted: #6b7280;
     --primary: #7C3AED;
-    --primary-hover: #6D28D9;
-    --primary-soft: #F5F3FF;
-
-    --danger: #EF4444;
-    --danger-bg: #FEE2E2;
-
-    --shadow-xs: 0 1px 2px rgba(0,0,0,0.04);
-    --shadow-sm: 0 4px 8px rgba(0,0,0,0.08);
-    --shadow-lg: 0 12px 24px rgba(0,0,0,0.12);
-
+    --primary-2: #6D28D9;
+    --border: #e6e9ee;
+    --danger: #ef4444;
     --radius: 12px;
-    --radius-sm: 8px;
+    --maxw: 1200px;
+    --shadow-sm: 0 6px 18px rgba(16,24,40,0.06);
+  }
 
-    --font-ui: "Inter", sans-serif;
-    --font-body: "Merriweather", serif;
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    background:var(--bg); color:var(--text);
+    -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+  }
 
-    /* Desktop refinamentos */
-    --screen-max: 1020px;
-}
-
-/* ============================================================
-   DARK MODE
-   ============================================================ */
-body.dark {
-    --bg: #0f0f12;
-    --surface: #1a1a1e;
-    --text: #ffffff;
-    --text-secondary: #b3b3b9;
-    --text-muted: #6f6f75;
-    --border: #2a2a32;
-    --border-hover: #3c3c44;
-    --primary: #b69cff;
-    --primary-soft: #301b78;
-    --danger-bg: #3b0f0f;
-}
-
-/* ============================================================
-   RESET / BASE
-   ============================================================ */
-* {
-    box-sizing: border-box;
-    -webkit-tap-highlight-color: transparent;
-}
-
-body {
-    margin: 0;
-    background: var(--bg);
-    font-family: var(--font-ui);
-    color: var(--text);
-    height: 100vh;
-    overflow-x: hidden;
-    -webkit-font-smoothing: antialiased;
-}
-
-/* ============================================================
-   DESKTOP LAYOUT AJUSTADO
-   ============================================================ */
-.screen {
-    max-width: var(--screen-max);
-    margin: 0 auto;
-    padding: 32px 40px;
-    min-height: 100vh;
-    display: none;
-}
-.screen.active {
-    display: block;
-    animation: fadeSlide 0.35s ease;
-}
-
-@keyframes fadeSlide {
-    from { opacity: 0; transform: translateY(15px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-/* ============================================================
-   INTERAÇÕES DE DESKTOP (hover mais forte)
-   ============================================================ */
-.sermon-card:hover {
-    transform: translateY(-4px);
+  /* Container central */
+  .app {
+    max-width: var(--maxw);
+    margin: 22px auto;
+    padding: 26px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.6), rgba(255,255,255,0.95));
+    border-radius: 18px;
     box-shadow: var(--shadow-sm);
-    border-color: var(--primary);
-}
+    border: 1px solid var(--border);
+  }
 
-/* ============================================================
-   INÍCIO DO BODY
-   ============================================================ */
+  header{
+    display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px;
+  }
+  .brand { display:flex; gap:14px; align-items:center; }
+  .logo{
+    width:56px;height:56px;border-radius:12px;background:var(--primary);display:flex;align-items:center;justify-content:center;
+    color:white;font-weight:700;font-size:20px;box-shadow:0 8px 24px rgba(124,58,237,0.12);
+  }
+  h1{margin:0;font-size:20px;font-weight:700}
+  .subtitle{color:var(--muted);font-size:13px}
+
+  /* Layout two-column */
+  .layout {
+    display:grid;
+    grid-template-columns: 360px 1fr;
+    gap:22px;
+    align-items:start;
+  }
+
+  /* Left column (list) */
+  .panel {
+    background:var(--surface);border-radius:12px;padding:16px;border:1px solid var(--border);
+  }
+  .left .controls { display:flex; gap:8px; margin-bottom:12px; }
+  .btn {
+    border: none; padding:10px 12px; border-radius:10px; cursor:pointer; font-weight:600;
+    background: #f3f4f6; color:var(--text);
+  }
+  .btn.primary { background:var(--primary); color:#fff; }
+  .btn.ghost { background:transparent; border:1px solid var(--border); }
+  .search {
+    width:100%; padding:10px;border-radius:10px;border:1px solid var(--border); margin-bottom:12px;
+  }
+
+  .list { display:flex;flex-direction:column; gap:10px; max-height:64vh; overflow:auto; padding-right:6px; }
+  .card {
+    display:flex; justify-content:space-between; align-items:center; gap:12px; padding:12px; border-radius:10px;
+    background:linear-gradient(180deg,#fff,#fbfbfd); border:1px solid var(--border); cursor:pointer;
+  }
+  .card:hover{transform:translateY(-4px); box-shadow:0 10px 30px rgba(16,24,40,0.06)}
+  .card .meta { color:var(--muted); font-size:13px; }
+
+  /* Right column (editor) */
+  .editor {
+    background:var(--surface); border-radius:12px; padding:18px; border:1px solid var(--border);
+    display:flex; flex-direction:column; gap:12px;
+  }
+  .title-row { display:flex; gap:12px; align-items:center; }
+  .title { font-size:22px; font-weight:700; border:none; outline:none; width:100%; padding:6px 8px; background:transparent; }
+  .ref { font-size:13px; color:var(--muted); border:none; outline:none; width:280px; padding:6px 8px; background:transparent; }
+
+  .toolbar { display:flex; gap:8px; align-items:center; padding:8px 0; border-top:1px solid var(--border); border-bottom:1px solid var(--border); margin-top:6px; }
+  .tool { padding:8px 10px; border-radius:8px; background:#fafafa; border:1px solid transparent; cursor:pointer; font-weight:600; }
+  .tool:hover { background:#fff; box-shadow: 0 6px 18px rgba(16,24,40,0.04) }
+  .tool.active { background:var(--primary); color:white; }
+
+  /* Blocks editor */
+  #blocks { padding:10px 4px; min-height:56vh; overflow:auto; }
+  .block {
+    padding:12px 14px; border-radius:10px; margin-bottom:10px; background:transparent; outline:none;
+    font-family: "Merriweather", serif; font-size:17px; line-height:1.6; color:var(--text);
+    border-left:4px solid transparent;
+  }
+  .block[contenteditable="true"]:focus { border-left-color:var(--primary); background: #fff; box-shadow: 0 6px 18px rgba(16,24,40,0.04); }
+
+  .block.h1 { font-weight:800; font-size:20px; font-family:Inter, sans-serif; }
+  .block.h2 { font-weight:700; color:var(--primary); font-size:16px; }
+  .quote { font-style:italic; background:#fbf7ff; border-left:4px solid var(--primary); padding:14px 16px; }
+  .warn { background:#fff7f7; border-left:4px solid var(--danger); padding:12px 14px; color:#6b1b1b; }
+  .box { border:1px solid var(--primary); border-radius:10px; padding:14px; background:linear-gradient(180deg,#fff,#fbfbff) }
+
+  /* Preach mode overlay */
+  #preach {
+    position:fixed; inset:0; background: #0b0b0c; color:white; display:none; z-index:9999; padding:56px 80px; overflow:auto;
+  }
+  #preach .content { max-width:960px; margin:0 auto; font-family:Merriweather, serif; font-size:28px; line-height:1.6; }
+  .hud {
+    position:fixed; left:50%; transform:translateX(-50%); bottom:24px; background:rgba(0,0,0,0.6); padding:10px 14px; border-radius:14px;
+    display:flex; gap:8px; align-items:center;
+  }
+  .hud button { background:transparent; border:1px solid rgba(255,255,255,0.08); color:white; padding:8px 10px; border-radius:10px; cursor:pointer; }
+
+  /* Responsive-ish: desktop-min */
+  @media (max-width: 980px){
+    .layout { grid-template-columns: 1fr; }
+    .left { order:2 }
+    .editor { order:1 }
+    .app{ padding:18px }
+  }
+
+  /* Print tweaks when exporting */
+  @media print{
+    body * { visibility: visible; }
+    #preach { position: static; display:block; padding:0; }
+    .app, header, .layout, .panel, .editor { display:none !important; }
+  }
 </style>
 </head>
-
 <body>
 
-<!-- SPLASH SCREEN -->
-<div id="splash">
-    <div class="logo-container">PF</div>
+<div class="app" role="application" aria-label="PregFlow Pro desktop">
+  <header>
+    <div class="brand">
+      <div class="logo">PF</div>
+      <div>
+        <h1>PregFlow Pro</h1>
+        <div class="subtitle">Desktop — Chrome / Windows</div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px;align-items:center">
+      <div style="color:var(--muted);font-size:13px">Atalhos: <strong>Ctrl+N</strong> Nova • <strong>Ctrl+S</strong> Salvar • <strong>Ctrl+P</strong> Preach</div>
+      <button class="btn" id="btnDark" title="Alternar modo escuro" style="margin-left:10px">🌓</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <!-- LEFT: LIST -->
+    <aside class="panel left">
+      <div class="controls">
+        <button class="btn primary" id="newBtn">+ Novo</button>
+        <button class="btn ghost" id="downloadBtn" title="Backup (JSON)">Backup</button>
+      </div>
+
+      <input id="search" class="search" placeholder="Pesquisar mensagens..." />
+
+      <div class="list" id="list"></div>
+      <div id="empty" style="text-align:center;color:var(--muted);padding:14px;display:none">Sem mensagens — clique em Novo</div>
+    </aside>
+
+    <!-- RIGHT: EDITOR -->
+    <section class="editor">
+      <div class="title-row">
+        <input id="title" class="title" placeholder="Título da mensagem" />
+        <input id="ref" class="ref" placeholder="Referência (ex: Romanos 8:28)" />
+        <div style="margin-left:8px"></div>
+      </div>
+
+      <div class="toolbar" role="toolbar" aria-label="Editor">
+        <button class="tool" data-action="new-block">Novo bloco</button>
+        <button class="tool" data-action="h1">H1</button>
+        <button class="tool" data-action="h2">H2</button>
+        <button class="tool" data-action="quote">Citação</button>
+        <button class="tool" data-action="warn">Aviso</button>
+        <button class="tool" data-action="box">Destaque</button>
+        <div style="flex:1"></div>
+        <button class="tool" id="saveBtn" title="Salvar (Ctrl+S)">Salvar</button>
+        <button class="tool" id="preachBtn" title="Modo pregação (Ctrl+P)">Preachar</button>
+        <button class="tool" id="deleteBtn" style="border-color:transparent;color:var(--danger)">Excluir</button>
+      </div>
+
+      <div id="blocks" tabindex="0" aria-label="Editor de blocos"></div>
+    </section>
+  </div>
 </div>
 
-<!-- SCREENS -->
-<div id="homeScreen" class="screen active">
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>PregFlow Pro – Desktop</title>
-
-<style>
-    body {
-        font-family: Arial, sans-serif;
-        margin: 0;
-        background: #f4f4f4;
-        color: #222;
-    }
-
-    header {
-        background: #2d3436;
-        color: white;
-        padding: 20px;
-        text-align: center;
-        font-size: 28px;
-        font-weight: bold;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-    }
-
-    .container {
-        padding: 25px;
-        max-width: 1100px;
-        margin: auto;
-    }
-
-    textarea {
-        width: 100%;
-        height: 450px;
-        padding: 18px;
-        font-size: 18px;
-        border: 2px solid #ccc;
-        border-radius: 12px;
-        resize: none;
-        outline: none;
-        background: white;
-    }
-
-    .buttons {
-        margin-top: 20px;
-        display: flex;
-        gap: 15px;
-    }
-
-    button {
-        padding: 14px 22px;
-        font-size: 18px;
-        border: none;
-        border-radius: 10px;
-        cursor: pointer;
-        transition: 0.2s;
-    }
-
-    .save { background: #0984e3; color: white; }
-    .save:hover { background: #74b9ff; }
-
-    .load { background: #00b894; color: white; }
-    .load:hover { background: #55efc4; }
-
-    .delete { background: #d63031; color: white; }
-    .delete:hover { background: #ff7675; }
-
-    .toggle { background: #636e72; color: white; }
-    .toggle:hover { background: #b2bec3; }
-
-    /* Dark Mode */
-    body.dark {
-        background: #1e272e;
-        color: white;
-    }
-
-    body.dark textarea {
-        background: #2f3640;
-        color: white;
-        border-color: #444;
-    }
-
-    body.dark header {
-        background: #0f1315;
-        box-shadow: 0 3px 10px rgba(255,255,255,0.05);
-    }
-</style>
-
-</head>
-<body>
-
-<header>PregFlow Pro – Desktop</header>
-
-<div class="container">
-    <textarea id="editor" placeholder="Escreva sua mensagem aqui..."></textarea>
-
-    <div class="buttons">
-        <button class="save" onclick="saveMessage()">💾 Salvar</button>
-        <button class="load" onclick="loadMessage()">📂 Carregar</button>
-        <button class="delete" onclick="deleteMessage()">🗑️ Deletar</button>
-        <button class="toggle" onclick="toggleDark()">🌙 Modo Escuro</button>
-    </div>
+<!-- PREACH MODE -->
+<div id="preach" role="dialog" aria-modal="true">
+  <div class="content" id="preachContent"></div>
+  <div class="hud" id="hud">
+    <button id="fontMinus">A-</button>
+    <div id="timer" style="min-width:72px;text-align:center;font-family:monospace">00:00</div>
+    <button id="timerToggle">▶</button>
+    <button id="fontPlus">A+</button>
+    <button style="margin-left:10px;border:1px solid #b91c1c;background:#b91c1c;color:white" id="exitPreach">Sair</button>
+  </div>
 </div>
 
 <script>
-function saveMessage() {
-    const text = document.getElementById("editor").value;
-    localStorage.setItem("pregflow_desktop", text);
-    alert("Mensagem salva!");
+/* ---------- STATE ---------- */
+const STATE = { sermons: [], current: null, timer: null, seconds: 0, running:false };
+
+/* ---------- ELEMENTS ---------- */
+const listEl = document.getElementById('list');
+const emptyEl = document.getElementById('empty');
+const newBtn = document.getElementById('newBtn');
+const saveBtn = document.getElementById('saveBtn');
+const deleteBtn = document.getElementById('deleteBtn');
+const titleEl = document.getElementById('title');
+const refEl = document.getElementById('ref');
+const blocksEl = document.getElementById('blocks');
+const preachEl = document.getElementById('preach');
+const preachContent = document.getElementById('preachContent');
+const preachBtn = document.getElementById('preachBtn');
+const btnDark = document.getElementById('btnDark');
+const searchEl = document.getElementById('search');
+const downloadBtn = document.getElementById('downloadBtn');
+
+/* ---------- INIT ---------- */
+window.addEventListener('DOMContentLoaded', init);
+
+function init(){
+  loadFromStorage();
+  renderList();
+  bindUI();
+  if(STATE.sermons.length===0) showEmpty();
+  else hideEmpty();
+  // create initial block if empty
+  if(!STATE.current) {
+    // select first if exists
+    if(STATE.sermons.length) openSermon(STATE.sermons[0].id);
+  }
 }
 
-function loadMessage() {
-    const text = localStorage.getItem("pregflow_desktop");
-    if (!text) return alert("Nenhuma mensagem salva.");
-    document.getElementById("editor").value = text;
+/* ---------- STORAGE ---------- */
+function loadFromStorage(){
+  try{
+    const raw = localStorage.getItem('pregflow_db');
+    if(raw) STATE.sermons = JSON.parse(raw);
+    else STATE.sermons = [];
+  }catch(e){ STATE.sermons = [] }
+}
+function saveToStorage(){
+  localStorage.setItem('pregflow_db', JSON.stringify(STATE.sermons));
 }
 
-function deleteMessage() {
-    localStorage.removeItem("pregflow_desktop");
-    document.getElementById("editor").value = "";
-    alert("Mensagem deletada.");
+/* ---------- UI BINDINGS ---------- */
+function bindUI(){
+  newBtn.addEventListener('click', createNew);
+  saveBtn.addEventListener('click', saveCurrent);
+  deleteBtn.addEventListener('click', deleteCurrent);
+  preachBtn.addEventListener('click', startPreach);
+  btnDark.addEventListener('click', toggleDark);
+  searchEl.addEventListener('input', renderListFiltered);
+  downloadBtn.addEventListener('click', downloadBackup);
+
+  // keyboard shortcuts
+  window.addEventListener('keydown', (e)=>{
+    if(e.ctrlKey && e.key.toLowerCase()==='s'){ e.preventDefault(); saveCurrent(); }
+    if(e.ctrlKey && e.key.toLowerCase()==='n'){ e.preventDefault(); createNew(); }
+    if(e.ctrlKey && e.key.toLowerCase()==='p'){ e.preventDefault(); startPreach(); }
+  });
+
+  // toolbar actions
+  document.querySelectorAll('.tool').forEach(btn=>{
+    btn.addEventListener('click', ()=> {
+      const act = btn.dataset.action;
+      if(act==='new-block') addBlock('p','');
+      if(act==='h1') formatFocused('h1');
+      if(act==='h2') formatFocused('h2');
+      if(act==='quote') formatFocused('quote');
+      if(act==='warn') formatFocused('warn');
+      if(act==='box') formatFocused('box');
+    });
+  });
 }
 
-function toggleDark() {
-    document.body.classList.toggle("dark");
+/* ---------- LIST / CRUD ---------- */
+function renderList(){
+  const q = searchEl.value.trim().toLowerCase();
+  listEl.innerHTML = '';
+  const arr = STATE.sermons.slice().sort((a,b)=>b.updated-a.updated).filter(s => !q || (s.title && s.title.toLowerCase().includes(q)) || (s.ref && s.ref.toLowerCase().includes(q)));
+  arr.forEach(s => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `<div style="flex:1"><strong>${escapeHTML(s.title || 'Sem título')}</strong><div class="meta">${escapeHTML(s.ref || 'Rascunho')} • ${new Date(s.updated).toLocaleString()}</div></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn" style="padding:8px 10px" onclick="openSermon(${s.id})">Abrir</button>
+        <button class="btn" style="padding:8px 10px" onclick="duplicateSermon(event, ${s.id})">Dup</button>
+      </div>`;
+    listEl.appendChild(card);
+  });
+  hideEmpty();
+  if(arr.length===0) showEmpty();
 }
-</script>
+function renderListFiltered(){ renderList(); }
 
-</body>
-</html>
-    
+function showEmpty(){ emptyEl.style.display='block'; }
+function hideEmpty(){ emptyEl.style.display='none'; }
+
+function createNew(){
+  const id = Date.now();
+  const obj = { id, title:'', ref:'', content:[{type:'p', text:''}], updated: Date.now() };
+  STATE.sermons.push(obj);
+  saveToStorage();
+  renderList();
+  openSermon(id);
+}
+
+function openSermon(id){
+  // stop timer if preaching
+  exitPreach();
+  const s = STATE.sermons.find(x=>x.id===id);
+  if(!s) return;
+  STATE.current = id;
+  titleEl.value = s.title || '';
+  refEl.value = s.ref || '';
+  blocksEl.innerHTML = '';
+  (s.content.length ? s.content : [{type:'p',text:''}]).forEach(b => createBlockNode(b.type, b.text));
+  // bind inputs
+  titleEl.oninput = debounce(()=>{ triggerSaveHint(); }, 400);
+  refEl.oninput = debounce(()=>{ triggerSaveHint(); }, 400);
+}
+
+function deleteCurrent(){
+  if(!STATE.current) return alert('Nada selecionado.');
+  if(!confirm('Excluir essa mensagem?')) return;
+  STATE.sermons = STATE.sermons.filter(s=>s.id!==STATE.current);
+  saveToStorage();
+  STATE.current = null;
+  blocksEl.innerHTML = '';
+  titleEl.value = ''; refEl.value = '';
+  renderList();
+  showEmpty();
+}
+
+function duplicateSermon(e,id){
+  e.stopPropagation();
+  const s = STATE.sermons.find(x=>x.id===id); if(!s) return;
+  const copy = JSON.parse(JSON.stringify(s)); copy.id = Date.now(); copy.title = (copy.title||'') + ' (cópia)'; copy.updated = Date.now();
+  STATE.sermons.push(copy);
+  saveToStorage(); renderList();
+}
+
+/* ---------- BLOCKS EDITOR ---------- */
+function createBlockNode(type='p', text=''){
+  const d = document.createElement('div');
+  d.className = 'block';
+  if(type==='h1') d.classList.add('h1');
+  if(type==='h2') d.classList.add('h2');
+  if(type==='quote') { d.classList.add('quote'); d.setAttribute('role','note'); }
+  if(type==='warn') { d.classList.add('warn'); }
+  if(type==='box') { d.classList.add('box'); }
+  d.contentEditable = true;
+  d.dataset.type = type;
+  d.innerText = text || '';
+  d.addEventListener('input', debounce(triggerSave, 600));
+  d.addEventListener('keydown', (e)=>{
+    if(e.key==='Enter' && e.shiftKey){ e.preventDefault(); addBlock('p',''); }
+    if(e.key==='Backspace' && !d.innerText.trim()){ // merge or remove
+      const prev = d.previousElementSibling;
+      if(prev){ prev.focus(); d.remove(); triggerSave(); }
+    }
+  });
+  blocksEl.appendChild(d);
+  return d;
+}
+
+function addBlock(type='p', text=''){
+  const node = createBlockNode(type, text);
+  node.focus();
+  // scroll into view on desktop
+  setTimeout(()=> node.scrollIntoView({behavior:'smooth', block:'center'}), 120);
+  triggerSave();
+}
+
+function formatFocused(type){
+  const sel = window.getSelection();
+  let node = sel.anchorNode;
+  if(!node){ // no selection -> last block
+    node = blocksEl.lastElementChild || createBlockNode('p','');
+  }
+  while(node && node!==blocksEl && node.nodeType!==1) node = node.parentNode;
+  if(node && node.classList && node.classList.contains('block')){
+    node.className = 'block';
+    node.dataset.type = type;
+    if(type==='h1') node.classList.add('h1');
+    if(type==='h2') node.classList.add('h2');
+    if(type==='quote') node.classList.add('quote');
+    if(type==='warn') node.classList.add('warn');
+    if(type==='box') node.classList.add('box');
+    node.focus();
+    triggerSave();
+  }
+}
+
+/* ---------- SAVE / PERFORM ---------- */
+function performSave(){
+  if(!STATE.current) return;
+  const s = STATE.sermons.find(x=>x.id===STATE.current);
+  if(!s) return;
+  s.title = titleEl.value.trim();
+  s.ref = refEl.value.trim();
+  s.updated = Date.now();
+  // collect blocks
+  const blocks = Array.from(blocksEl.querySelectorAll('.block')).map(b => ({ type: b.dataset.type || 'p', text: b.innerText }));
+  s.content = blocks.length ? blocks : [{type:'p',text:''}];
+  saveToStorage();
+  renderList();
+}
+
+function saveCurrent(){ performSave(); visualSaved(); }
+function triggerSave(){ performSave(); }
+
+function triggerSaveHint(){ // small hint (visual)
+  saveBtn.innerText = 'Salvar*';
+  clearTimeout(saveBtn._t);
+  saveBtn._t = setTimeout(()=> saveBtn.innerText='Salvar', 1200);
+}
+
+function visualSaved(){
+  saveBtn.innerText = 'Salvo ✓';
+  clearTimeout(saveBtn._t2);
+  saveBtn._t2 = setTimeout(()=> saveBtn.innerText='Salvar', 1400);
+}
+
+/* ---------- PREACH MODE ---------- */
+function startPreach(){
+  if(!STATE.current) { alert('Abra ou crie uma mensagem antes de entrar em modo pregação.'); return; }
+  performSave();
+  const s = STATE.sermons.find(x=>x.id===STATE.current);
+  // build HTML
+  let html = `<div style="text-align:center;margin-bottom:30px;opacity:0.9">
+    <h1 style="font-family:Inter, sans-serif;font-size:2.2em;margin:0">${escapeHTML(s.title||'Sem título')}</h1>
+    <div style="color:#cbb7ff;font-weight:700;margin-top:6px">${escapeHTML(s.ref||'')}</div>
+  </div>`;
+  s.content.forEach(b=>{
+    const txt = escapeHTML(b.text || '');
+    if(b.type==='h1') html += `<h2 style="font-family:Inter, sans-serif;font-size:1.6em;margin-top:32px">${txt}</h2>`;
+    else if(b.type==='h2') html += `<h3 style="color:${getComputedStyle(document.documentElement).getPropertyValue('--primary')};margin-top:20px">${txt}</h3>`;
+    else if(b.type==='quote') html += `<div style="font-style:italic;background:rgba(245,243,255,0.6);padding:18px;border-left:6px solid var(--primary);margin:18px 0">${txt}</div>`;
+    else if(b.type==='warn') html += `<div style="background:#fff2f2;padding:14px;border-left:6px solid ${getComputedStyle(document.documentElement).getPropertyValue('--danger')};margin:18px 0">${txt}</div>`;
+    else if(b.type==='box') html += `<div style="border:2px solid rgba(124,58,237,0.14);padding:14px;border-radius:10px;margin:18px 0">${txt}</div>`;
+    else html += `<p style="margin-bottom:18px">${txt}</p>`;
+  });
+  preachContent.innerHTML = html;
+  preachEl.style.display = 'block';
+  document.body.style.overflow = 'hidden';
+  resetTimer();
+}
+
+/* Preach helpers */
+document.getElementById('exitPreach').addEventListener('click', exitPreach);
+document.getElementById('fontPlus').addEventListener('click', ()=> adjustFont(2));
+document.getElementById('fontMinus').addEventListener('click', ()=> adjustFont(-2));
+document.getElementById('timerToggle').addEventListener('click', toggleTimer);
+
+function exitPreach(){
+  clearInterval(STATE.timer);
+  STATE.running = false;
+  STATE.seconds = 0;
+  document.getElementById('timer').innerText = '00:00';
+  preachEl.style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+function adjustFont(delta){
+  const el = preachContent;
+  const size = parseFloat(window.getComputedStyle(el).fontSize) || 28;
+  el.style.fontSize = (size + delta) + 'px';
+}
+
+function toggleTimer(){
+  if(STATE.running){ clearInterval(STATE.timer); STATE.running = false; document.getElementById('timerToggle').innerText = '▶'; }
+  else {
+    STATE.running = true;
+    document.getElementById('timerToggle').innerText = '⏸';
+    STATE.timer = setInterval(()=> {
+      STATE.seconds++;
+      const m = String(Math.floor(STATE.seconds/60)).padStart(2,'0');
+      const s = String(STATE.seconds%60).padStart(2,'0');
+      document.getElementById('timer').innerText = `${m}:${s}`;
+    }, 1000);
+  }
+}
+function resetTimer(){ clearInterval(STATE.timer); STATE.running=false; STATE.seconds=0; document.getElementById('timer').innerText='00:00'; }
+
+/* ---------- UTIL ---------- */
+function escapeHTML(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+/* debounce helper */
+function debounce(fn, wait=300){
+  let t;
+  return function(...args){ clearTimeout(t); t=setTimeout(()=> fn.apply(this,args), wait); };
+}
+
+/* create initial block(s) when opening */
+function ensureBlocks(){
+  if(!blocksEl.querySelector('.block')) addBlock('p','');
+}
+
+/* small UI helpers */
+function openSermonPublic(id){
+  openSermon(id);
+}
+
+/* perform open when clicking 'Abrir' button uses global openSermon; we need safe exposure */
+window.openSermon = function(id){ openSermon(id); };
+
+/* add initial block if none */
+blocksEl.addEventListener('focus', ensureBlocks);
+
+/* ---------- Save on unload ---------- */
+window.addEventListener('beforeunload', ()=> {
+  performSave();
+});
+
+/* ---------- Other helpers and bindings ---------- */
+function triggerSave(){ performSave(); }
+function downloadBackup(){
+  performSave();
+  const data = JSON.stringify(STATE.sermons, null, 2);
+  const a = document.createElement('a');
+  a.href
