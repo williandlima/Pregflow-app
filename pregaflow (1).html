@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -316,7 +315,7 @@
 </svg>
 
 <div id="splash">
-    <div class="logo-container"> </div>
+    <div class="logo-container"></div>
     <div style="font-weight:700; font-size:24px; letter-spacing:-0.5px; color:var(--text);">PregFlow Pro</div>
 </div>
 
@@ -331,7 +330,7 @@
     <div id="sermonList" class="sermon-list"></div>
     
     <div id="emptyState" style="text-align: center; margin-top: 100px; display: none;">
-        <div style="font-size: 48px; margin-bottom: 20px; opacity: 0.2;"> </div>
+        <div style="font-size: 48px; margin-bottom: 20px; opacity: 0.2;"></div>
         <p style="color:var(--text-muted);">Comece a escrever sua primeira mensagem.</p>
     </div>
 
@@ -386,8 +385,8 @@
         <button class="tool-chip" onmousedown="applyFormat(event, 'h1')">H1</button>
         <button class="tool-chip" onmousedown="applyFormat(event, 'h2')">H2</button>
         <button class="tool-chip" onmousedown="applyFormat(event, 'quote')">“ ”</button>
-        <button class="tool-chip" onmousedown="applyFormat(event, 'warn')">  </button>
-        <button class="tool-chip" onmousedown="applyFormat(event, 'box')"> </button>
+        <button class="tool-chip" onmousedown="applyFormat(event, 'warn')"></button>
+        <button class="tool-chip" onmousedown="applyFormat(event, 'box')"></button>
     </div>
 
     <div id="editorBlocks"></div>
@@ -399,7 +398,7 @@
     <div id="hud" class="hud-float">
         <button class="hud-btn btn" onclick="adjustFont(-4)">A-</button>
         <div id="timerDisplay" style="font-family:monospace; font-size: 20px; font-weight: bold; min-width: 60px; text-align: center;">00:00</div>
-        <button class="hud-btn btn" onclick="toggleTimer()"> </button>
+        <button class="hud-btn btn" onclick="toggleTimer()"></button>
         <button class="hud-btn btn" onclick="adjustFont(4)">A+</button>
         <div style="width:1px; height:20px; background:#444; margin: 0 8px;"></div>
         <button class="hud-btn btn hud-exit" onclick="exitPreach()">Sair</button>
@@ -412,7 +411,7 @@
     <div class="modal-sheet">
         <div class="modal-header">
             <h3 class="modal-title">Bíblia (Almeida)</h3>
-            <button class="icon-btn" onclick="toggleBible(false)"> </button>
+            <button class="icon-btn" onclick="toggleBible(false)"></button>
         </div>
         
         <div class="bible-controls">
@@ -432,12 +431,12 @@
     <div class="modal-sheet">
         <div class="modal-header">
             <h3 class="modal-title">Configurações</h3>
-            <button class="icon-btn" onclick="toggleSettings(false)"> </button>
+            <button class="icon-btn" onclick="toggleSettings(false)"></button>
         </div>
         
         <div class="settings-row">
             <span>Modo Escuro</span>
-            <button class="icon-btn" onclick="toggleTheme()"> </button>
+            <button class="icon-btn" onclick="toggleTheme()"></button>
         </div>
 
         <div class="settings-row">
@@ -724,7 +723,7 @@
             if(b.type === 'h1') html += `<h2 style="font-size:1.6em; margin-top:40px; line-height:1.2; font-weight:800; font-family:var(--font-ui)">${txt}</h2>`;
             else if(b.type === 'h2') html += `<h3 style="color:var(--primary); margin-top:30px; font-size:1.3em; font-family:var(--font-ui)">${txt}</h3>`;
             else if(b.type === 'quote') html += `<div class="preach-quote">${txt}</div>`;
-            else if(b.type === 'warn') html += `<div class="preach-warn">   ${txt}</div>`;
+            else if(b.type === 'warn') html += `<div class="preach-warn"> ${txt}</div>`;
             else if(b.type === 'box') html += `<div class="preach-box">${txt}</div>`;
             else html += `<p style="margin-bottom:20px">${txt}</p>`;
         });
@@ -841,5 +840,3 @@
 </script>
 </body>
 </html>
-pregflow.html
-Exibindo pregflow.html.
