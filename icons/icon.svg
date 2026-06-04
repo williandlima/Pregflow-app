@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Fundo roxo com cantos arredondados -->
+  <rect width="512" height="512" rx="96" fill="#6D28D9"/>
+
+  <!-- Brilho do fogo (halo) -->
+  <ellipse cx="256" cy="390" rx="110" ry="45" fill="#F97316" opacity="0.25"/>
+
+  <!-- Chama externa (laranja) -->
+  <path d="
+    M256,445
+    C195,428 148,372 165,295
+    C174,254 197,234 197,234
+    C197,270 212,286 226,262
+    C234,246 234,218 248,192
+    C250,218 254,238 256,250
+    C258,238 262,218 264,192
+    C278,218 278,246 286,262
+    C300,286 315,270 315,234
+    C315,234 338,254 347,295
+    C364,372 317,428 256,445Z"
+    fill="#F97316"/>
+
+  <!-- Chama interna (amarela) -->
+  <path d="
+    M256,420
+    C215,406 190,362 204,306
+    C212,274 228,258 228,258
+    C228,284 238,296 249,278
+    C253,264 254,248 256,234
+    C258,248 259,264 263,278
+    C274,296 284,284 284,258
+    C284,258 300,274 308,306
+    C322,362 297,406 256,420Z"
+    fill="#FCD34D"/>
+
+  <!-- Cruz branca - vertical -->
+  <rect x="232" y="82" width="48" height="210" rx="14" fill="white"/>
+  <!-- Cruz branca - horizontal -->
+  <rect x="148" y="148" width="216" height="48" rx="14" fill="white"/>
+
+  <!-- Brilho sutil no topo da cruz -->
+  <rect x="232" y="82" width="48" height="60" rx="14" fill="white" opacity="0.5"/>
+</svg>
