@@ -139,23 +139,53 @@
     </div>
 </div>
 
-<!-- BARRA FLUTUANTE — acompanha o bloco em foco -->
+<!-- BARRA FLUTUANTE — acompanha o bloco em foco, opções completas -->
 <div id="floatingBar" class="floating-bar hidden" onmousedown="event.preventDefault()">
+    <!-- Novo bloco -->
+    <button class="ftool" id="fbt-new" title="Novo bloco">+ Novo</button>
+    <div class="ftool-div"></div>
+
+    <!-- Inline -->
+    <button class="ftool" id="fbt-bold" title="Negrito"><strong>B</strong></button>
+    <button class="ftool" id="fbt-italic" title="Itálico"><em style="font-style:italic">I</em></button>
+    <button class="ftool" id="fbt-underline" title="Sublinhado"><span style="text-decoration:underline">U</span></button>
+    <button class="ftool" id="fbt-strike" title="Tachado"><span style="text-decoration:line-through">S</span></button>
+    <div class="ftool-div"></div>
+
+    <!-- Cores de texto -->
+    <button class="ftool fcolor" data-color="#7C3AED" title="Roxo"><span style="font-weight:800;color:#7C3AED;border-bottom:2px solid #7C3AED;padding-bottom:1px">A</span></button>
+    <button class="ftool fcolor" data-color="#EF4444" title="Vermelho"><span style="font-weight:800;color:#EF4444;border-bottom:2px solid #EF4444;padding-bottom:1px">A</span></button>
+    <button class="ftool fcolor" data-color="#F59E0B" title="Laranja"><span style="font-weight:800;color:#F59E0B;border-bottom:2px solid #F59E0B;padding-bottom:1px">A</span></button>
+    <button class="ftool fcolor" data-color="#16A34A" title="Verde"><span style="font-weight:800;color:#16A34A;border-bottom:2px solid #16A34A;padding-bottom:1px">A</span></button>
+    <button class="ftool" id="fbt-highlight" title="Realçar"><span style="background:#FEF08A;padding:1px 4px;border-radius:2px;color:#111;font-weight:700;font-size:11px">A</span></button>
+    <button class="ftool" id="fbt-clear" title="Limpar formatação" style="font-size:11px">↻ Fmt</button>
+    <div class="ftool-div"></div>
+
+    <!-- Tipo de bloco -->
     <button class="ftool" data-format="topic" title="Tópico">1.</button>
     <button class="ftool" data-format="subtopic" title="Subtópico">1.1</button>
     <button class="ftool" data-format="bullet" title="Ponto">→</button>
     <button class="ftool" data-format="p" title="Parágrafo">Aa</button>
+    <button class="ftool" data-format="h1" title="Título H1">H1</button>
+    <button class="ftool" data-format="h2" title="Subtítulo H2">H2</button>
     <div class="ftool-div"></div>
-    <button class="ftool" id="fbt-bold" title="Negrito"><strong>B</strong></button>
-    <button class="ftool" id="fbt-italic" title="Itálico"><em style="font-style:italic">I</em></button>
-    <button class="ftool" id="fbt-underline" title="Sublinhado"><span style="text-decoration:underline">U</span></button>
+
+    <!-- Blocos especiais -->
+    <button class="ftool" data-format="quote" title="Citação">" "</button>
+    <button class="ftool" data-format="warn" title="Aviso">⚠</button>
+    <button class="ftool" data-format="box" title="Caixa destaque">★</button>
     <div class="ftool-div"></div>
-    <button class="ftool fcolor" data-color="#7C3AED" title="Roxo"><span style="font-weight:800;color:#7C3AED;border-bottom:2px solid #7C3AED;padding-bottom:1px">A</span></button>
-    <button class="ftool fcolor" data-color="#EF4444" title="Vermelho"><span style="font-weight:800;color:#EF4444;border-bottom:2px solid #EF4444;padding-bottom:1px">A</span></button>
-    <button class="ftool fcolor" data-color="#16A34A" title="Verde"><span style="font-weight:800;color:#16A34A;border-bottom:2px solid #16A34A;padding-bottom:1px">A</span></button>
-    <div class="ftool-div"></div>
-    <button class="ftool" id="fbt-new" title="Novo bloco">+ Novo</button>
+
+    <!-- Ações de bloco -->
+    <button class="ftool" id="fbt-done" title="Marcar ministrado">✓</button>
+    <button class="ftool" id="fbt-up" title="Mover para cima">↑</button>
+    <button class="ftool" id="fbt-down" title="Mover para baixo">↓</button>
+    <button class="ftool" id="fbt-undo" title="Desfazer">↺</button>
     <button class="ftool" id="fbt-del" title="Deletar bloco" style="color:var(--danger)">✕</button>
+    <div class="ftool-div"></div>
+
+    <!-- IA -->
+    <button class="ftool" id="fbt-ai" title="Assistente IA" style="color:var(--primary)">🤖 IA</button>
 </div>
 
 <!-- EDITOR SCREEN -->

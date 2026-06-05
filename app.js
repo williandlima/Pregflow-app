@@ -167,11 +167,11 @@ function bindEvents() {
         });
     });
 
-    // Barra flutuante — formatação de bloco
+    // Barra flutuante — tipo de bloco
     document.querySelectorAll('#floatingBar [data-format]').forEach(btn => {
         btn.addEventListener('mousedown', (e) => { saveSnapshot(); applyFormat(e, btn.dataset.format); });
     });
-    // Barra flutuante — cores
+    // Barra flutuante — cores de texto
     document.querySelectorAll('#floatingBar .fcolor').forEach(btn => {
         btn.addEventListener('mousedown', (e) => { e.preventDefault(); document.execCommand('foreColor', false, btn.dataset.color); });
     });
@@ -179,9 +179,17 @@ function bindEvents() {
     document.getElementById('fbt-bold').addEventListener('mousedown', (e) => { e.preventDefault(); formatText('bold'); });
     document.getElementById('fbt-italic').addEventListener('mousedown', (e) => { e.preventDefault(); formatText('italic'); });
     document.getElementById('fbt-underline').addEventListener('mousedown', (e) => { e.preventDefault(); formatText('underline'); });
-    // Barra flutuante — ações
+    document.getElementById('fbt-strike').addEventListener('mousedown', (e) => { e.preventDefault(); formatText('strikeThrough'); });
+    document.getElementById('fbt-highlight').addEventListener('mousedown', (e) => { e.preventDefault(); document.execCommand('backColor', false, '#FEF08A'); });
+    document.getElementById('fbt-clear').addEventListener('mousedown', (e) => { e.preventDefault(); formatText('removeFormat'); });
+    // Barra flutuante — ações de bloco
     document.getElementById('fbt-new').addEventListener('mousedown', addNewBlock);
+    document.getElementById('fbt-done').addEventListener('mousedown', (e) => { e.preventDefault(); toggleBlockDone(); });
+    document.getElementById('fbt-up').addEventListener('mousedown', (e) => { e.preventDefault(); saveSnapshot(); moveBlock(-1); });
+    document.getElementById('fbt-down').addEventListener('mousedown', (e) => { e.preventDefault(); saveSnapshot(); moveBlock(1); });
+    document.getElementById('fbt-undo').addEventListener('mousedown', (e) => { e.preventDefault(); undoAction(); });
     document.getElementById('fbt-del').addEventListener('mousedown', (e) => { e.preventDefault(); deleteCurrentBlock(); });
+    document.getElementById('fbt-ai').addEventListener('mousedown', (e) => { e.preventDefault(); toggleAIStudy(true); });
 
     // Scroll do editor: reposicionar barra flutuante
     document.getElementById('editorScreen').addEventListener('scroll', () => {
