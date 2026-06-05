@@ -1,1326 +1,1189 @@
 'use strict';
 
-const DB_KEY = 'pregflow_db';
-const THEME_KEY = 'pregflow_theme';
-const API_KEY_STORAGE = 'pregflow_api_key';
-const DB_VERSION = 1;
-
-// ---- UNDO STACK ----
-const undoStack = [];
-
-const STATE = {
-    sermons: [],
-    currentId: null,
-    timer: null,
-    seconds: 0,
-    isRunning: false
-};
-
-// Rastreia o bloco em foco
-let focusedBlock = null;
-
-// ---- INIT ----
-
-document.addEventListener('DOMContentLoaded', () => {
-    loadDB();
-    applyTheme();
-    initBibleData();
-    bindEvents();
-
-    // Pré-carregar API key salva no campo de configurações
-    const savedKey = localStorage.getItem(API_KEY_STORAGE);
-    if (savedKey) {
-        const apiInput = document.getElementById('apiKeyInput');
-        if (apiInput) apiInput.value = savedKey;
-    }
-
-    setTimeout(() => {
-        const splash = document.getElementById('splash');
-        splash.style.opacity = '0';
-        setTimeout(() => { splash.style.display = 'none'; showScreen('homeScreen'); }, 500);
-    }, 1200);
-
-    renderList();
-
-    window.addEventListener('beforeunload', performSave);
-
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/service-worker.js').catch(() => {});
-    }
-});
-
-function loadDB() {
-    try {
-        const saved = localStorage.getItem(DB_KEY);
-        if (saved) {
-            const parsed = JSON.parse(saved);
-            if (Array.isArray(parsed)) STATE.sermons = parsed;
-        }
-    } catch {
-        STATE.sermons = [];
-    }
-}
-
-function applyTheme() {
-    if (localStorage.getItem(THEME_KEY) === 'dark') document.body.classList.add('dark');
-}
-
-// ---- EVENT BINDING ----
-
-function bindEvents() {
-    // Home
-    document.getElementById('btn-settings').addEventListener('click', () => toggleSettings(true));
-    document.getElementById('btn-new-sermon').addEventListener('click', createNewSermon);
-
-    // Editor nav
-    document.getElementById('btn-back').addEventListener('click', goHome);
-    document.getElementById('btn-pdf').addEventListener('click', exportPDF);
-    document.getElementById('btn-bible').addEventListener('click', () => toggleBible(true));
-    document.getElementById('btn-preach').addEventListener('click', startPreachMode);
-
-    // Toolbar: Novo bloco
-    document.getElementById('btn-new-block').addEventListener('mousedown', addNewBlock);
-
-    // Toolbar: Mover blocos
-    document.getElementById('btn-move-up').addEventListener('mousedown', (e) => { e.preventDefault(); saveSnapshot(); moveBlock(-1); });
-    document.getElementById('btn-move-down').addEventListener('mousedown', (e) => { e.preventDefault(); saveSnapshot(); moveBlock(1); });
-
-    // Toolbar: Formato de bloco
-    document.querySelectorAll('[data-format]').forEach(btn => {
-        btn.addEventListener('mousedown', (e) => { saveSnapshot(); applyFormat(e, btn.dataset.format); });
-    });
-
-    // Toolbar: Formatação inline
-    document.getElementById('btn-fmt-bold').addEventListener('mousedown', (e) => { e.preventDefault(); formatText('bold'); });
-    document.getElementById('btn-fmt-italic').addEventListener('mousedown', (e) => { e.preventDefault(); formatText('italic'); });
-    document.getElementById('btn-fmt-underline').addEventListener('mousedown', (e) => { e.preventDefault(); formatText('underline'); });
-    document.getElementById('btn-fmt-strike').addEventListener('mousedown', (e) => { e.preventDefault(); formatText('strikeThrough'); });
-    document.getElementById('btn-highlight').addEventListener('mousedown', (e) => { e.preventDefault(); document.execCommand('backColor', false, '#FEF08A'); });
-    document.getElementById('btn-fmt-clear').addEventListener('mousedown', (e) => { e.preventDefault(); formatText('removeFormat'); });
-
-    // Cores de texto
-    document.querySelectorAll('.color-btn').forEach(btn => {
-        btn.addEventListener('mousedown', (e) => {
-            e.preventDefault();
-            document.execCommand('foreColor', false, btn.dataset.color);
-        });
-    });
-
-    // Toolbar: Ações
-    document.getElementById('btn-done').addEventListener('mousedown', (e) => { e.preventDefault(); toggleBlockDone(); });
-    document.getElementById('btn-delete-block').addEventListener('mousedown', (e) => { e.preventDefault(); deleteCurrentBlock(); });
-    document.getElementById('btn-undo').addEventListener('mousedown', (e) => { e.preventDefault(); undoAction(); });
-
-    // Toolbar: IA
-    document.getElementById('btn-ai-study').addEventListener('mousedown', (e) => { e.preventDefault(); toggleAIStudy(true); });
-
-    // Preach HUD
-    document.getElementById('btn-font-dec').addEventListener('click', () => adjustFont(-4));
-    document.getElementById('btn-timer').addEventListener('click', toggleTimer);
-    document.getElementById('btn-font-inc').addEventListener('click', () => adjustFont(4));
-    document.getElementById('btn-exit-preach').addEventListener('click', exitPreach);
-    document.getElementById('hud-tap-zone').addEventListener('click', toggleHud);
-    document.getElementById('btn-ministrado').addEventListener('click', markCurrentPreachBlockDone);
-
-    // Bible modal
-    document.getElementById('bibleModal').addEventListener('click', (e) => {
-        if (e.target === e.currentTarget) toggleBible(false);
-    });
-    document.getElementById('btn-bible-close').addEventListener('click', () => toggleBible(false));
-    document.getElementById('bibleBook').addEventListener('change', loadChapters);
-    document.getElementById('bibleChapter').addEventListener('change', fetchBibleText);
-
-    // Bible search com debounce
-    let bibleSearchTimer;
-    document.getElementById('bibleSearch').addEventListener('input', (e) => {
-        clearTimeout(bibleSearchTimer);
-        bibleSearchTimer = setTimeout(() => handleBibleSearch(e.target.value.trim()), 600);
-    });
-
-    // Settings modal
-    document.getElementById('settingsModal').addEventListener('click', (e) => {
-        if (e.target === e.currentTarget) toggleSettings(false);
-    });
-    document.getElementById('btn-settings-close').addEventListener('click', () => toggleSettings(false));
-    document.getElementById('btn-theme').addEventListener('click', toggleTheme);
-    document.getElementById('btn-backup-dl').addEventListener('click', downloadBackup);
-    document.getElementById('btn-backup-restore').addEventListener('click', () => document.getElementById('fileInput').click());
-    document.getElementById('fileInput').addEventListener('change', (e) => restoreBackup(e.target));
-
-    // API Key
-    document.getElementById('btn-save-api-key').addEventListener('click', saveApiKey);
-    document.getElementById('apiKeyInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') saveApiKey(); });
-
-    // AI Study modal
-    document.getElementById('aiStudyModal').addEventListener('click', (e) => {
-        if (e.target === e.currentTarget) toggleAIStudy(false);
-    });
-    document.getElementById('btn-ai-close').addEventListener('click', () => toggleAIStudy(false));
-    document.getElementById('btn-generate-study').addEventListener('click', generateAIContent);
-    document.getElementById('btn-export-study').addEventListener('click', exportAIStudyPDF);
-
-    // AI type tabs
-    document.querySelectorAll('.ai-type-tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-            document.querySelectorAll('.ai-type-tab').forEach(t => t.classList.toggle('active', t === tab));
-            aiCurrentMode = tab.dataset.mode;
-        });
-    });
-
-    // Barra flutuante — tipo de bloco
-    document.querySelectorAll('#floatingBar [data-format]').forEach(btn => {
-        btn.addEventListener('mousedown', (e) => { saveSnapshot(); applyFormat(e, btn.dataset.format); });
-    });
-    // Barra flutuante — cores de texto
-    document.querySelectorAll('#floatingBar .fcolor').forEach(btn => {
-        btn.addEventListener('mousedown', (e) => { e.preventDefault(); document.execCommand('foreColor', false, btn.dataset.color); });
-    });
-    // Barra flutuante — inline
-    document.getElementById('fbt-bold').addEventListener('mousedown', (e) => { e.preventDefault(); formatText('bold'); });
-    document.getElementById('fbt-italic').addEventListener('mousedown', (e) => { e.preventDefault(); formatText('italic'); });
-    document.getElementById('fbt-underline').addEventListener('mousedown', (e) => { e.preventDefault(); formatText('underline'); });
-    document.getElementById('fbt-strike').addEventListener('mousedown', (e) => { e.preventDefault(); formatText('strikeThrough'); });
-    document.getElementById('fbt-highlight').addEventListener('mousedown', (e) => { e.preventDefault(); document.execCommand('backColor', false, '#FEF08A'); });
-    document.getElementById('fbt-clear').addEventListener('mousedown', (e) => { e.preventDefault(); formatText('removeFormat'); });
-    // Barra flutuante — ações de bloco
-    document.getElementById('fbt-new').addEventListener('mousedown', addNewBlock);
-    document.getElementById('fbt-done').addEventListener('mousedown', (e) => { e.preventDefault(); toggleBlockDone(); });
-    document.getElementById('fbt-up').addEventListener('mousedown', (e) => { e.preventDefault(); saveSnapshot(); moveBlock(-1); });
-    document.getElementById('fbt-down').addEventListener('mousedown', (e) => { e.preventDefault(); saveSnapshot(); moveBlock(1); });
-    document.getElementById('fbt-undo').addEventListener('mousedown', (e) => { e.preventDefault(); undoAction(); });
-    document.getElementById('fbt-del').addEventListener('mousedown', (e) => { e.preventDefault(); deleteCurrentBlock(); });
-    document.getElementById('fbt-ai').addEventListener('mousedown', (e) => { e.preventDefault(); toggleAIStudy(true); });
-
-    // Scroll do editor: reposicionar barra flutuante
-    document.getElementById('editorScreen').addEventListener('scroll', () => {
-        if (focusedBlock) updateFloatingBar(focusedBlock);
-    });
-
-    // Event delegation for dynamic sermon cards
-    document.getElementById('sermonList').addEventListener('click', (e) => {
-        const deleteBtn = e.target.closest('[data-delete-id]');
-        if (deleteBtn) { deleteSermon(parseInt(deleteBtn.dataset.deleteId)); return; }
-        const card = e.target.closest('[data-sermon-id]');
-        if (card) openSermon(parseInt(card.dataset.sermonId));
-    });
-
-}
-
-// ---- PERSISTENCE ----
-
-function saveDB() {
-    localStorage.setItem(DB_KEY, JSON.stringify(STATE.sermons));
-    updateSaveStatus('Salvo');
-}
-
-let saveTimer;
-
-function updateSaveStatus(msg) {
-    const el = document.getElementById('saveStatus');
-    if (!el) return;
-    el.textContent = msg;
-    el.classList.toggle('saving', msg === 'Salvando...');
-}
-
-function triggerSave() {
-    updateSaveStatus('Salvando...');
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(performSave, 800);
-}
-
-function performSave() {
-    if (!STATE.currentId) return;
-    const s = STATE.sermons.find(x => x.id === STATE.currentId);
-    if (!s) return;
-    s.title = document.getElementById('docTitle').value;
-    s.ref = document.getElementById('docRef').value;
-    s.updated = Date.now();
-    const domBlocks = document.querySelectorAll('#editorBlocks .block');
-    s.content = Array.from(domBlocks).map(b => ({
-        type: b.dataset.type,
-        text: b.innerText,
-        done: b.dataset.done === 'true'
-    }));
-    saveDB();
-}
-
-// ---- UNDO ----
-
-function saveSnapshot() {
-    const domBlocks = document.querySelectorAll('#editorBlocks .block');
-    const snapshot = Array.from(domBlocks).map(b => ({
-        type: b.dataset.type,
-        text: b.innerText,
-        done: b.dataset.done === 'true'
-    }));
-    undoStack.push(JSON.stringify(snapshot));
-    if (undoStack.length > 30) undoStack.shift();
-}
-
-function undoAction() {
-    if (undoStack.length === 0) { showToast('Nada para desfazer'); return; }
-    const snapshot = JSON.parse(undoStack.pop());
-    const container = document.getElementById('editorBlocks');
-    container.innerHTML = '';
-    snapshot.forEach(b => createBlockUI(b.type, b.text, null, b.done));
-    updateOutlineNumbers();
-    triggerSave();
-}
-
-// ---- SCREENS ----
-
-function showScreen(id) {
-    document.querySelectorAll('.screen, #preachScreen').forEach(el => {
-        el.classList.remove('active');
-        el.id === 'preachScreen' ? el.classList.add('hidden') : el.style.display = 'none';
-    });
-    const target = document.getElementById(id);
-    if (id === 'preachScreen') {
-        target.classList.remove('hidden');
-    } else {
-        target.style.display = 'block';
-        setTimeout(() => target.classList.add('active'), 10);
-    }
-}
-
-// ---- SERMONS ----
-
-function renderList() {
-    const list = document.getElementById('sermonList');
-    const empty = document.getElementById('emptyState');
-    list.innerHTML = '';
-    if (STATE.sermons.length === 0) { empty.style.display = 'block'; return; }
-    empty.style.display = 'none';
-
-    STATE.sermons.sort((a, b) => b.updated - a.updated).forEach(s => {
-        const div = document.createElement('div');
-        div.className = 'sermon-card';
-        div.dataset.sermonId = s.id;
-        div.innerHTML = `
-            <div class="card-info" style="flex-grow:1;">
-                <h3>${escapeHtml(s.title || 'Sem Título')}</h3>
-                <p>${escapeHtml(s.ref || 'Rascunho')} &bull; ${new Date(s.updated).toLocaleDateString('pt-BR')}</p>
-            </div>
-            <button class="icon-btn" data-delete-id="${s.id}" title="Excluir">
-                <svg class="icon" style="stroke:var(--danger)"><use href="#icon-trash"></use></svg>
-            </button>
-        `;
-        list.appendChild(div);
-    });
-}
-
-function openSermon(id) {
-    STATE.currentId = id;
-    undoStack.length = 0;
-    const s = STATE.sermons.find(x => x.id === id);
-    document.getElementById('docTitle').value = s.title;
-    document.getElementById('docRef').value = s.ref;
-    document.getElementById('docTitle').addEventListener('input', triggerSave, { once: false });
-    document.getElementById('docRef').addEventListener('input', triggerSave, { once: false });
-
-    const container = document.getElementById('editorBlocks');
-    container.innerHTML = '';
-    const blocks = s.content.length ? s.content : [{ type: 'p', text: '', done: false }];
-    blocks.forEach(b => createBlockUI(b.type, b.text, null, b.done));
-    updateOutlineNumbers();
-    setEditorHeader(true);
-    showScreen('editorScreen');
-}
-
-function createNewSermon() {
-    const id = Date.now();
-    STATE.sermons.push({ id, title: '', ref: '', content: [{ type: 'p', text: '', done: false }], updated: id });
-    openSermon(id);
-}
-
-function deleteSermon(id) {
-    if (!confirm('Tem certeza que deseja excluir esta mensagem?')) return;
-    STATE.sermons = STATE.sermons.filter(s => s.id !== id);
-    saveDB();
-    renderList();
-}
-
-function setEditorHeader(show) {
-    const h = document.querySelector('.editor-header');
-    if (h) h.style.display = show ? 'block' : 'none';
-}
-
-function updateFloatingBar(block) {
-    const bar = document.getElementById('floatingBar');
-    if (!bar || !block) return;
-    const rect = block.getBoundingClientRect();
-    const headerH = 120;
-    const barH = 40;
-    const gap = 6;
-    let top = rect.top - barH - gap;
-    if (top < headerH + 4) top = rect.bottom + gap;
-    top = Math.min(top, window.innerHeight - barH - 8);
-    bar.style.top = top + 'px';
-    bar.classList.remove('hidden');
-}
-
-function hideFloatingBar() {
-    const bar = document.getElementById('floatingBar');
-    if (bar) bar.classList.add('hidden');
-}
-
-function goHome() { performSave(); setEditorHeader(false); hideFloatingBar(); renderList(); showScreen('homeScreen'); }
-
-// ---- EDITOR BLOCKS ----
-
-function createBlockUI(type, text, after = null, done = false) {
-    const div = document.createElement('div');
-    div.className = 'block';
-    if (type === 'quote') div.classList.add('preach-quote');
-    if (type === 'warn') div.classList.add('preach-warn');
-    if (type === 'box') div.classList.add('preach-box');
-
-    div.contentEditable = 'true';
-    div.dataset.type = type;
-    div.innerText = text;
-    div.setAttribute('placeholder', getPlaceholder(type));
-
-    if (done) div.dataset.done = 'true';
-
-    div.addEventListener('focus', () => {
-        focusedBlock = div;
-        setTimeout(() => {
-            div.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            updateFloatingBar(div);
-        }, 300);
-    });
-
-    div.addEventListener('blur', () => {
-        setTimeout(() => {
-            if (!document.activeElement || !document.activeElement.classList.contains('block')) {
-                hideFloatingBar();
-            }
-        }, 150);
-    });
-
-    div.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            if (e.shiftKey) {
-                // Shift+Enter: criar novo bloco abaixo
-                saveSnapshot();
-                const newBlock = createBlockUI('p', '');
-                const c = document.getElementById('editorBlocks');
-                c.insertBefore(newBlock, div.nextSibling);
-                updateOutlineNumbers();
-                newBlock.focus();
-            } else {
-                // Enter: quebra de linha dentro do bloco
-                document.execCommand('insertLineBreak');
-            }
-            triggerSave();
-        }
-        if (e.key === 'Backspace' && !e.target.innerText.trim()) {
-            const prev = e.target.previousElementSibling;
-            if (prev) { e.preventDefault(); e.target.remove(); prev.focus(); updateOutlineNumbers(); triggerSave(); }
-        }
-    });
-    div.addEventListener('input', triggerSave);
-
-    const c = document.getElementById('editorBlocks');
-    if (after) c.insertBefore(div, after.nextSibling);
-    else c.appendChild(div);
-    return div;
-}
-
-function updateOutlineNumbers() {
-    const blocks = document.querySelectorAll('#editorBlocks .block');
-    let topicNum = 0, subNum = 1;
-    blocks.forEach(b => {
-        const type = b.dataset.type;
-        if (type === 'topic') {
-            topicNum++;
-            subNum = 1;
-            b.dataset.number = `${topicNum}.`;
-        } else if (type === 'subtopic') {
-            b.dataset.number = `${Math.max(1, topicNum)}.${subNum++}`;
-        } else {
-            delete b.dataset.number;
-        }
-    });
-}
-
-function addNewBlock(e) {
-    e.preventDefault();
-    const focused = getFocusedBlock();
-    const container = document.getElementById('editorBlocks');
-    const newBlock = createBlockUI('p', '');
-    if (focused && focused.parentNode === container) {
-        container.insertBefore(newBlock, focused.nextSibling);
-    } else {
-        container.appendChild(newBlock);
-    }
-    updateOutlineNumbers();
-    newBlock.focus();
-    triggerSave();
-}
-
-function getFocusedBlock() {
-    // Tenta via selection primeiro, depois cai para focusedBlock
-    const sel = window.getSelection();
-    if (sel && sel.rangeCount) {
-        let node = sel.anchorNode;
-        while (node && node !== document.body) {
-            if (node.classList && node.classList.contains('block')) return node;
-            node = node.parentNode;
-        }
-    }
-    return focusedBlock;
-}
-
-function deleteCurrentBlock() {
-    const allBlocks = document.querySelectorAll('#editorBlocks .block');
-    if (allBlocks.length <= 1) { showToast('Mantenha pelo menos 1 bloco'); return; }
-    const block = getFocusedBlock();
-    if (!block) { showToast('Selecione um bloco para deletar'); return; }
-    saveSnapshot();
-    const prev = block.previousElementSibling || block.nextElementSibling;
-    block.remove();
-    updateOutlineNumbers();
-    if (prev) prev.focus();
-    triggerSave();
-}
-
-function moveBlock(direction) {
-    const node = getFocusedBlock();
-    if (!node) return;
-    if (direction === -1 && node.previousElementSibling) {
-        node.parentNode.insertBefore(node, node.previousElementSibling);
-        node.focus();
-    } else if (direction === 1 && node.nextElementSibling) {
-        node.parentNode.insertBefore(node.nextElementSibling, node);
-        node.focus();
-    }
-    updateOutlineNumbers();
-    triggerSave();
-}
-
-function getPlaceholder(type) {
-    const map = {
-        p: 'Comece a escrever...',
-        h1: 'Título Principal',
-        h2: 'Subtítulo',
-        h3: 'Subtópico...',
-        topic: 'Primeiro ponto...',
-        subtopic: 'Aprofundamento...',
-        bullet: 'Detalhe...',
-        quote: 'Citação...',
-        warn: 'Aviso...',
-        box: 'Destaque...'
-    };
-    return map[type] || '...';
-}
-
-function applyFormat(e, type) {
-    e.preventDefault();
-    const node = getFocusedBlock() || (() => {
-        const blocks = document.querySelectorAll('.block');
-        return blocks.length > 0 ? blocks[blocks.length - 1] : createBlockUI('p', '');
-    })();
-    if (!node) return;
-
-    node.className = 'block';
-    node.dataset.type = type;
-    node.setAttribute('placeholder', getPlaceholder(type));
-    if (type === 'quote') node.classList.add('preach-quote');
-    if (type === 'warn') node.classList.add('preach-warn');
-    if (type === 'box') node.classList.add('preach-box');
-    if (node.dataset.done === 'true') node.dataset.done = 'true';
-
-    document.querySelectorAll('.tool-chip').forEach(b => b.classList.remove('active'));
-    const btn = e.target.closest('.tool-chip');
-    if (btn && !btn.classList.contains('action')) btn.classList.add('active');
-
-    updateOutlineNumbers();
-    triggerSave();
-    node.focus();
-}
-
-// ---- INLINE FORMATTING ----
-
-function formatText(command) {
-    document.execCommand(command, false, null);
-}
-
-// ---- DONE (MINISTRADO) ----
-
-function toggleBlockDone() {
-    const block = getFocusedBlock();
-    if (!block) { showToast('Selecione um bloco'); return; }
-    const isDone = block.dataset.done === 'true';
-    block.dataset.done = isDone ? 'false' : 'true';
-    triggerSave();
-}
-
-// ---- BIBLE ----
-
-const bibleBooks = [
-    { n: 'Gênesis', c: 50 }, { n: 'Êxodo', c: 40 }, { n: 'Levítico', c: 27 }, { n: 'Números', c: 36 }, { n: 'Deuteronômio', c: 34 },
-    { n: 'Josué', c: 24 }, { n: 'Juízes', c: 21 }, { n: 'Rute', c: 4 }, { n: '1 Samuel', c: 31 }, { n: '2 Samuel', c: 24 },
-    { n: '1 Reis', c: 22 }, { n: '2 Reis', c: 25 }, { n: '1 Crônicas', c: 29 }, { n: '2 Crônicas', c: 36 }, { n: 'Esdras', c: 10 },
-    { n: 'Neemias', c: 13 }, { n: 'Ester', c: 10 }, { n: 'Jó', c: 42 }, { n: 'Salmos', c: 150 }, { n: 'Provérbios', c: 31 },
-    { n: 'Eclesiastes', c: 12 }, { n: 'Cânticos', c: 8 }, { n: 'Isaías', c: 66 }, { n: 'Jeremias', c: 52 }, { n: 'Lamentações', c: 5 },
-    { n: 'Ezequiel', c: 48 }, { n: 'Daniel', c: 12 }, { n: 'Oseias', c: 14 }, { n: 'Joel', c: 3 }, { n: 'Amós', c: 9 },
-    { n: 'Obadias', c: 1 }, { n: 'Jonas', c: 4 }, { n: 'Miqueias', c: 7 }, { n: 'Naum', c: 3 }, { n: 'Habacuque', c: 3 },
-    { n: 'Sofonias', c: 3 }, { n: 'Ageu', c: 2 }, { n: 'Zacarias', c: 14 }, { n: 'Malaquias', c: 4 },
-    { n: 'Mateus', c: 28 }, { n: 'Marcos', c: 16 }, { n: 'Lucas', c: 24 }, { n: 'João', c: 21 }, { n: 'Atos', c: 28 },
-    { n: 'Romanos', c: 16 }, { n: '1 Coríntios', c: 16 }, { n: '2 Coríntios', c: 13 }, { n: 'Gálatas', c: 6 }, { n: 'Efésios', c: 6 },
-    { n: 'Filipenses', c: 4 }, { n: 'Colossenses', c: 4 }, { n: '1 Tessalonicenses', c: 5 }, { n: '2 Tessalonicenses', c: 3 },
-    { n: '1 Timóteo', c: 6 }, { n: '2 Timóteo', c: 4 }, { n: 'Tito', c: 3 }, { n: 'Filemom', c: 1 }, { n: 'Hebreus', c: 13 },
-    { n: 'Tiago', c: 5 }, { n: '1 Pedro', c: 5 }, { n: '2 Pedro', c: 3 }, { n: '1 João', c: 5 }, { n: '2 João', c: 1 },
-    { n: '3 João', c: 1 }, { n: 'Judas', c: 1 }, { n: 'Apocalipse', c: 22 }
+// =============================================
+// CONSTANTES
+// =============================================
+const STORAGE_KEY = 'financeflow_v1';
+
+const CATEGORIES = [
+  { id: 'salary',    emoji: '💰', label: 'Salário',      color: '#10B981', bg: 'rgba(16,185,129,0.15)', type: 'income' },
+  { id: 'advance',   emoji: '💳', label: 'Adiantamento', color: '#3B82F6', bg: 'rgba(59,130,246,0.15)',  type: 'income' },
+  { id: 'extra',     emoji: '🎁', label: 'Extra',        color: '#8B5CF6', bg: 'rgba(139,92,246,0.15)',  type: 'income' },
+  { id: 'food',      emoji: '🍔', label: 'Alimentação',  color: '#F97316', bg: 'rgba(249,115,22,0.15)',  type: 'expense' },
+  { id: 'transport', emoji: '🚗', label: 'Transporte',   color: '#06B6D4', bg: 'rgba(6,182,212,0.15)',   type: 'expense' },
+  { id: 'home',      emoji: '🏠', label: 'Moradia',      color: '#84CC16', bg: 'rgba(132,204,22,0.15)',  type: 'expense' },
+  { id: 'health',    emoji: '💊', label: 'Saúde',        color: '#EC4899', bg: 'rgba(236,72,153,0.15)',  type: 'expense' },
+  { id: 'edu',       emoji: '📚', label: 'Educação',     color: '#A78BFA', bg: 'rgba(167,139,250,0.15)', type: 'expense' },
+  { id: 'fun',       emoji: '🎭', label: 'Lazer',        color: '#FBBF24', bg: 'rgba(251,191,36,0.15)',  type: 'expense' },
+  { id: 'clothes',   emoji: '👕', label: 'Vestuário',    color: '#F43F5E', bg: 'rgba(244,63,94,0.15)',   type: 'expense' },
+  { id: 'bills',     emoji: '💡', label: 'Contas',       color: '#0EA5E9', bg: 'rgba(14,165,233,0.15)',  type: 'expense' },
+  { id: 'other',     emoji: '📦', label: 'Outros',       color: '#6B7280', bg: 'rgba(107,114,128,0.15)', type: 'both' },
 ];
 
-function initBibleData() {
-    const sel = document.getElementById('bibleBook');
-    bibleBooks.forEach((b, i) => {
-        const opt = document.createElement('option');
-        opt.value = i;
-        opt.textContent = b.n;
-        sel.appendChild(opt);
-    });
-    loadChapters();
-}
+const GOAL_EMOJIS = ['🎯','✈️','🏖️','🚗','🏠','💻','💍','📱','🎓','👶','🐶','🌍','💪','🎸','⛵'];
+const GOAL_COLORS = ['#7C3AED','#10B981','#3B82F6','#F97316','#EC4899','#FBBF24','#06B6D4','#EF4444','#84CC16','#8B5CF6'];
+const MONTH_NAMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
-function loadChapters() {
-    const bookIdx = parseInt(document.getElementById('bibleBook').value);
-    const chapSel = document.getElementById('bibleChapter');
-    chapSel.innerHTML = '';
-    for (let i = 1; i <= bibleBooks[bookIdx].c; i++) {
-        const opt = document.createElement('option');
-        opt.value = i;
-        opt.textContent = i;
-        chapSel.appendChild(opt);
-    }
-    fetchBibleText();
-}
-
-// ---- BIBLE SEARCH ----
-
-// Índice de temas, personagens e palavras-chave → referências bíblicas
-const VERSE_INDEX = {
-    // Temas principais
-    'amor': ['1 João 4:8','João 3:16','1 Coríntios 13:4-7','Romanos 8:38-39','João 15:13','1 João 4:16'],
-    'fé': ['Hebreus 11:1','Romanos 10:17','Gálatas 2:20','Tiago 2:17','Marcos 11:22','2 Coríntios 5:7'],
-    'esperança': ['Romanos 5:5','Jeremias 29:11','Romanos 15:13','1 Pedro 1:3','Hebreus 6:19','Salmos 33:18'],
-    'graça': ['Efésios 2:8-9','João 1:17','2 Coríntios 12:9','Romanos 5:20','Tito 2:11'],
-    'salvação': ['João 3:16','Atos 4:12','Romanos 10:9-10','Efésios 2:8','Tito 3:5','Atos 16:31'],
-    'perdão': ['Salmos 103:12','Efésios 4:32','1 João 1:9','Mateus 6:14-15','Colossenses 3:13'],
-    'paz': ['João 14:27','Filipenses 4:7','Isaías 26:3','Romanos 5:1','Salmos 29:11','João 16:33'],
-    'oração': ['Mateus 6:9-13','Filipenses 4:6','1 Tessalonicenses 5:17','Tiago 5:16','Jeremias 33:3'],
-    'cura': ['Isaías 53:5','1 Pedro 2:24','Salmos 103:3','Êxodo 15:26','Tiago 5:14-15'],
-    'bênção': ['Números 6:24-26','Salmos 1:1','Efésios 1:3','Malaquias 3:10','João 1:16'],
-    'adoração': ['João 4:23-24','Salmos 100:1-4','Romanos 12:1','Salmos 95:6','Apocalipse 4:11'],
-    'louvor': ['Salmos 150:1-6','Salmos 34:1','Efésios 5:19','Salmos 113:1','Atos 16:25'],
-    'poder': ['Filipenses 4:13','2 Timóteo 1:7','Atos 1:8','Efésios 3:20','Isaías 40:31'],
-    'força': ['Filipenses 4:13','Isaías 40:31','Salmos 28:7','Efésios 6:10','Neemias 8:10'],
-    'vitória': ['1 Coríntios 15:57','Romanos 8:37','1 João 5:4','2 Coríntios 2:14'],
-    'humildade': ['Filipenses 2:3-4','Tiago 4:10','Provérbios 22:4','Mateus 23:12','1 Pedro 5:6'],
-    'santidade': ['1 Pedro 1:16','Levítico 11:44','Hebreus 12:14','1 Tessalonicenses 4:3'],
-    'sabedoria': ['Provérbios 1:7','Tiago 1:5','Provérbios 3:5-6','Colossenses 2:3','1 Reis 3:9'],
-    'confiança': ['Provérbios 3:5-6','Salmos 37:5','Isaías 26:4','Jeremias 17:7','Salmos 56:11'],
-    'alegria': ['Neemias 8:10','Filipenses 4:4','Salmos 16:11','João 15:11','Romanos 15:13'],
-    'sofrimento': ['Romanos 8:18','2 Coríntios 1:3-4','1 Pedro 5:10','Salmos 34:18','Romanos 5:3-5'],
-    'perseverança': ['Tiago 1:2-4','Hebreus 12:1','Romanos 5:3-4','Gálatas 6:9','2 Timóteo 4:7'],
-    'tentação': ['1 Coríntios 10:13','Tiago 1:12','Mateus 26:41','Hebreus 2:18'],
-    'pecado': ['Romanos 3:23','1 João 1:9','Isaías 59:2','Romanos 6:23','Salmos 51:1-2'],
-    'redenção': ['Efésios 1:7','Colossenses 1:14','Gálatas 3:13','1 Pedro 1:18-19'],
-    'propósito': ['Jeremias 29:11','Romanos 8:28','Efésios 2:10','Provérbios 19:21'],
-    'missão': ['Mateus 28:19-20','Marcos 16:15','Atos 1:8','João 20:21'],
-    'obediência': ['João 14:15','Deuteronômio 28:1-2','1 Samuel 15:22','Romanos 6:17'],
-    'prosperidade': ['3 João 1:2','Josué 1:8','Salmos 1:3','Provérbios 10:22'],
-    'provisão': ['Filipenses 4:19','Mateus 6:33','Salmos 23:1','2 Coríntios 9:8'],
-    'proteção': ['Salmos 91:1-4','Isaías 43:2','Salmos 121:1-8','Provérbios 18:10'],
-    'livramento': ['Salmos 34:17','Daniel 6:27','1 Coríntios 10:13','Salmos 91:14'],
-    'resurreicao': ['1 Coríntios 15:14','João 11:25','Romanos 6:4','Mateus 28:6'],
-    'ressurreição': ['1 Coríntios 15:14','João 11:25','Romanos 6:4','Mateus 28:6'],
-    'vida eterna': ['João 3:16','João 17:3','1 João 5:13','João 10:10','Romanos 6:23'],
-    'morte': ['João 11:25-26','Romanos 6:23','1 Coríntios 15:55','Salmos 23:4'],
-    // Família
-    'família': ['Josué 24:15','Efésios 6:1-4','Colossenses 3:18-21','Provérbios 22:6'],
-    'familia': ['Josué 24:15','Efésios 6:1-4','Colossenses 3:18-21','Provérbios 22:6'],
-    'filhos': ['Provérbios 22:6','Efésios 6:1-3','Salmos 127:3','Mateus 19:14'],
-    'casamento': ['Gênesis 2:24','Efésios 5:25-33','Hebreus 13:4','Mateus 19:6'],
-    // Deus / Jesus / Espírito
-    'deus': ['João 3:16','1 João 4:8','Gênesis 1:1','Romanos 8:28','Hebreus 11:6'],
-    'jesus': ['João 14:6','Filipenses 2:9-11','Mateus 1:21','Atos 4:12','João 1:1'],
-    'cristo': ['Filipenses 4:13','Gálatas 2:20','Romanos 8:1','Colossenses 1:27','2 Coríntios 5:17'],
-    'espírito santo': ['João 14:16-17','Atos 1:8','Gálatas 5:22-23','João 16:13'],
-    'espirito': ['João 14:16-17','Atos 1:8','Gálatas 5:22-23','Romanos 8:26'],
-    'espírito': ['João 14:16-17','Atos 1:8','Gálatas 5:22-23','Romanos 8:26'],
-    'trindade': ['Mateus 28:19','2 Coríntios 13:14','João 1:1-3'],
-    // Igreja / Reino
-    'reino': ['Mateus 6:33','Mateus 5:3','Lucas 17:21','Marcos 1:15'],
-    'igreja': ['Mateus 16:18','Efésios 5:25-27','Atos 2:42-47','1 Coríntios 12:27'],
-    'discipulado': ['Mateus 28:19-20','Lucas 9:23','João 8:31','2 Timóteo 2:2'],
-    'unidade': ['João 17:21','Salmos 133:1','Efésios 4:3','Colossenses 3:14'],
-    'frutos': ['Gálatas 5:22-23','João 15:5','Mateus 7:17-18','João 15:8'],
-    'dons': ['1 Coríntios 12:4-11','Romanos 12:6-8','Efésios 4:11-12','1 Pedro 4:10'],
-    'batismo': ['Mateus 28:19','Atos 2:38','Romanos 6:3-4','Marcos 16:16'],
-    // Personagens
-    'davi': ['1 Samuel 16:13','Salmos 23:1','Salmos 51:1','Atos 13:22','2 Samuel 7:8'],
-    'abraão': ['Gênesis 12:1-3','Hebreus 11:8','Romanos 4:3','Gálatas 3:9'],
-    'abrao': ['Gênesis 12:1-3','Hebreus 11:8','Romanos 4:3'],
-    'moisés': ['Êxodo 3:10','Hebreus 11:24-26','Números 12:3'],
-    'moises': ['Êxodo 3:10','Hebreus 11:24-26','Números 12:3'],
-    'paulo': ['Filipenses 4:11-13','Gálatas 2:20','2 Coríntios 12:9','Atos 9:15'],
-    'pedro': ['Mateus 16:18','João 21:17','Atos 2:14','1 Pedro 5:7'],
-    'maria': ['Lucas 1:38','Lucas 1:46-49','João 2:5'],
-    'noé': ['Gênesis 6:9','Hebreus 11:7','Gênesis 6:22'],
-    'noe': ['Gênesis 6:9','Hebreus 11:7'],
-    'josé': ['Gênesis 37:28','Gênesis 50:20','Atos 7:9-10'],
-    'jose': ['Gênesis 37:28','Gênesis 50:20'],
-    'salomão': ['1 Reis 3:9-14','Provérbios 1:1','1 Reis 4:29'],
-    'salomao': ['1 Reis 3:9-14','Provérbios 1:1'],
-    'elias': ['1 Reis 18:36-38','1 Reis 19:11-12','Tiago 5:17'],
-    'daniel': ['Daniel 3:17-18','Daniel 6:10','Daniel 1:8'],
-    'israel': ['Êxodo 3:10','Isaías 43:1','Romanos 11:26','Jeremias 31:31'],
-    // Palavras-chave
-    'luz': ['João 8:12','Mateus 5:14-16','Salmos 119:105','1 João 1:5'],
-    'sal': ['Mateus 5:13','Colossenses 4:6'],
-    'caminho': ['João 14:6','Provérbios 3:6','Salmos 16:11','Isaías 30:21'],
-    'verdade': ['João 14:6','João 8:32','João 17:17','Efésios 4:15'],
-    'vida': ['João 14:6','João 10:10','1 João 5:12','Deuteronômio 30:19'],
-    'porta': ['João 10:9','Apocalipse 3:20','Mateus 7:7-8'],
-    'pão': ['João 6:35','Mateus 6:11','João 6:48'],
-    'agua': ['João 4:14','João 7:38','Apocalipse 22:17'],
-    'água': ['João 4:14','João 7:38','Apocalipse 22:17'],
-    'sangue': ['1 Pedro 1:19','Hebreus 9:22','Apocalipse 1:5','1 João 1:7'],
-    'cruz': ['1 Coríntios 1:18','Gálatas 2:20','Filipenses 2:8','Colossenses 2:14'],
-    'glória': ['Romanos 8:18','João 17:22','2 Coríntios 3:18','Salmos 19:1'],
-    'gloria': ['Romanos 8:18','João 17:22','2 Coríntios 3:18'],
-    'armadura': ['Efésios 6:10-18'],
-    'armadura de deus': ['Efésios 6:10-18'],
-    'pai nosso': ['Mateus 6:9-13','Lucas 11:2-4'],
-    'salmo 23': ['Salmos 23:1-6'],
-    'bem-aventuranças': ['Mateus 5:3-12'],
-    'novo nascimento': ['João 3:3-7','1 Pedro 1:23','2 Coríntios 5:17'],
-    'nova criatura': ['2 Coríntios 5:17','Gálatas 6:15','Efésios 4:24'],
-    'criação': ['Gênesis 1:1','João 1:3','Colossenses 1:16','Hebreus 11:3'],
-    'fogo': ['Atos 2:3','Jeremias 20:9','Deuteronômio 4:24','Lucas 12:49'],
-    'bênçãos': ['Deuteronômio 28:1-14','Efésios 1:3','Números 6:24-26'],
-    'gracas': ['1 Tessalonicenses 5:18','Filipenses 4:6','Colossenses 3:17'],
-    'graças': ['1 Tessalonicenses 5:18','Filipenses 4:6','Colossenses 3:17'],
-    'serviço': ['Mateus 20:28','Marcos 10:45','Gálatas 5:13'],
-    'servir': ['Mateus 20:28','Josué 24:15','Romanos 12:11'],
-    'libertação': ['Lucas 4:18','João 8:36','Gálatas 5:1','Romanos 8:2'],
-    'libertacao': ['Lucas 4:18','João 8:36','Gálatas 5:1'],
+// =============================================
+// STATE
+// =============================================
+let db = {
+  transactions: [],
+  recurring: [],
+  investments: [],
+  goals: [],
+  budgets: [],
+  settings: { name: '', dark: true }
 };
 
-function strNorm(s) {
-    return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+let ui = {
+  page: 'dashboard',
+  history: [],
+  extratoMonth: new Date().getMonth(),
+  extratoYear: new Date().getFullYear(),
+  reportMonth: new Date().getMonth(),
+  reportYear: new Date().getFullYear(),
+  orcMonth: new Date().getMonth(),
+  orcYear: new Date().getFullYear(),
+  filterCat: 'all',
+  lancType: 'expense',
+  recType: 'expense',
+  selectedLancCat: null,
+  selectedRecCat: null,
+  selectedMetaEmoji: '🎯',
+  selectedMetaColor: '#7C3AED',
+};
+
+let charts = {};
+
+// =============================================
+// STORAGE
+// =============================================
+function saveDB() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); } catch(e) {}
 }
 
-function parseBibleRef(query) {
-    const regex = /^(.+?)\s+(\d+)(?::(\d+))?$/;
-    const match = query.match(regex);
-    if (!match) return null;
-
-    const bookQuery = match[1].trim().toLowerCase();
-    const chapter = parseInt(match[2]);
-    const verse = match[3] ? parseInt(match[3]) : null;
-
-    // Busca por nome exato, startsWith e includes
-    let bookIdx = bibleBooks.findIndex(b => b.n.toLowerCase() === bookQuery);
-    if (bookIdx === -1) bookIdx = bibleBooks.findIndex(b => b.n.toLowerCase().startsWith(bookQuery));
-    if (bookIdx === -1) bookIdx = bibleBooks.findIndex(b => b.n.toLowerCase().includes(bookQuery));
-
-    if (bookIdx === -1 || chapter < 1 || chapter > bibleBooks[bookIdx].c) return null;
-    return { bookIdx, chapter, verse };
+function loadDB() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) db = Object.assign({ transactions:[], recurring:[], investments:[], goals:[], budgets:[], settings:{name:'',dark:true} }, JSON.parse(raw));
+  } catch(e) {}
 }
 
-async function handleBibleSearch(query) {
-    const resultsPanel = document.getElementById('bibleSearchResults');
-    const indexList = document.getElementById('bibleIndexList');
-
-    if (!query) {
-        document.querySelectorAll('.verse-item.highlighted').forEach(el => el.classList.remove('highlighted'));
-        if (resultsPanel) resultsPanel.style.display = 'none';
-        return;
-    }
-
-    const ref = parseBibleRef(query);
-
-    if (ref) {
-        // Navigate to specific book/chapter/verse
-        if (resultsPanel) resultsPanel.style.display = 'none';
-        const bookSel = document.getElementById('bibleBook');
-        const chapSel = document.getElementById('bibleChapter');
-
-        bookSel.value = ref.bookIdx;
-        chapSel.innerHTML = '';
-        for (let i = 1; i <= bibleBooks[ref.bookIdx].c; i++) {
-            const opt = document.createElement('option');
-            opt.value = i;
-            opt.textContent = i;
-            chapSel.appendChild(opt);
-        }
-        chapSel.value = ref.chapter;
-
-        await fetchBibleText();
-
-        if (ref.verse) {
-            const items = document.querySelectorAll('.verse-item');
-            items.forEach(item => item.classList.remove('highlighted'));
-            if (items[ref.verse - 1]) {
-                items[ref.verse - 1].classList.add('highlighted');
-                items[ref.verse - 1].scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
-        }
-        return;
-    }
-
-    // Theme/keyword search via VERSE_INDEX
-    const norm = strNorm(query);
-    const matchedRefs = [];
-    for (const [key, refs] of Object.entries(VERSE_INDEX)) {
-        if (strNorm(key).includes(norm) || norm.includes(strNorm(key))) {
-            refs.forEach(r => { if (!matchedRefs.includes(r)) matchedRefs.push(r); });
-        }
-    }
-
-    if (matchedRefs.length > 0 && resultsPanel && indexList) {
-        indexList.innerHTML = '';
-        matchedRefs.forEach(refText => {
-            const chip = document.createElement('button');
-            chip.className = 'ref-chip';
-            chip.textContent = refText;
-            chip.addEventListener('click', () => {
-                document.getElementById('bibleSearch').value = refText;
-                handleBibleSearch(refText);
-            });
-            indexList.appendChild(chip);
-        });
-        resultsPanel.style.display = 'block';
-    } else if (resultsPanel) {
-        resultsPanel.style.display = 'none';
-    }
-
-    // Also search current chapter text
-    const items = document.querySelectorAll('.verse-item');
-    const lowerQuery = query.toLowerCase();
-    let found = false;
-    items.forEach(item => {
-        const textEl = item.querySelector('.verse-text');
-        if (textEl && textEl.textContent.toLowerCase().includes(lowerQuery)) {
-            item.classList.add('highlighted');
-            if (!found) {
-                item.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                found = true;
-            }
-        } else {
-            item.classList.remove('highlighted');
-        }
-    });
-    if (!found && matchedRefs.length === 0) showToast('Nenhuma referência encontrada');
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 }
 
-async function fetchWithRetry(url, maxRetries = 3) {
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-        try {
-            const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            return res;
-        } catch (err) {
-            if (attempt === maxRetries - 1) throw err;
-            await new Promise(r => setTimeout(r, 500 * Math.pow(2, attempt)));
-        }
-    }
+// =============================================
+// UTILS
+// =============================================
+function fmtCurrency(v) {
+  return 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-async function fetchBibleText() {
-    const bookIdx = parseInt(document.getElementById('bibleBook').value);
-    const bookName = bibleBooks[bookIdx].n;
-    const chapter = document.getElementById('bibleChapter').value;
-    const display = document.getElementById('bibleText');
-
-    display.innerHTML = "<div style='text-align:center; padding:20px; color:var(--text-muted); font-family:var(--font-ui)'>Carregando...</div>";
-
-    try {
-        const res = await fetchWithRetry(
-            `https://bible-api.com/${encodeURIComponent(bookName + ' ' + chapter)}?translation=almeida`
-        );
-        const data = await res.json();
-
-        if (data.error || !data.verses) {
-            display.innerHTML = "<div style='text-align:center; padding:20px; color:var(--text-muted); font-family:var(--font-ui)'>Capítulo não encontrado.</div>";
-            return;
-        }
-
-        display.innerHTML = '';
-        data.verses.forEach(v => {
-            const ref = `${bookName} ${chapter}:${v.verse}`;
-            const verseText = v.text.trim();
-
-            const item = document.createElement('div');
-            item.className = 'verse-item';
-            item.dataset.verse = v.verse;
-
-            const textEl = document.createElement('div');
-            textEl.className = 'verse-text';
-            textEl.innerHTML = `<b>${v.verse}.</b> ${verseText}`;
-
-            const copyBtn = document.createElement('button');
-            copyBtn.className = 'verse-btn';
-            copyBtn.textContent = 'Copiar';
-            copyBtn.addEventListener('click', () => copyVerseText(`${verseText} — ${ref}`, copyBtn));
-
-            const insertBtn = document.createElement('button');
-            insertBtn.className = 'verse-btn insert';
-            insertBtn.textContent = 'Inserir';
-            insertBtn.addEventListener('click', () => insertSingleVerse(`${verseText} (${ref})`));
-
-            const actions = document.createElement('div');
-            actions.className = 'verse-actions';
-            actions.appendChild(copyBtn);
-            actions.appendChild(insertBtn);
-
-            item.appendChild(textEl);
-            item.appendChild(actions);
-            display.appendChild(item);
-        });
-    } catch {
-        display.innerHTML = `
-            <div style='text-align:center; padding:24px; color:var(--text-muted); font-family:var(--font-ui)'>
-                <div style='font-size:32px; margin-bottom:12px'>📡</div>
-                <p style='margin:0 0 8px 0; font-weight:600'>Sem conexão</p>
-                <p style='margin:0; font-size:13px'>Verifique sua internet e tente novamente.</p>
-            </div>`;
-    }
+function fmtDate(dateStr) {
+  if (!dateStr) return '';
+  const [y, m, d] = dateStr.split('-');
+  return `${d}/${m}/${y}`;
 }
 
-function copyVerseText(text, btn) {
-    navigator.clipboard.writeText(text).then(() => {
-        const original = btn.textContent;
-        btn.textContent = 'OK!';
-        setTimeout(() => { btn.textContent = original; }, 1200);
-    }).catch(() => showToast('Não foi possível copiar'));
+function todayISO() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
-function insertSingleVerse(text) {
-    createBlockUI('quote', text);
-    toggleBible(false);
-    triggerSave();
-    window.scrollTo(0, document.body.scrollHeight);
+function monthLabel(m, y) {
+  return `${MONTH_NAMES[m]} ${y}`;
 }
 
-function toggleBible(show) {
-    document.getElementById('bibleModal').classList.toggle('active', show);
-    if (show) {
-        const display = document.getElementById('bibleText');
-        if (!display.querySelector('.verse-item')) fetchBibleText();
-        // Limpar busca ao abrir
-        document.getElementById('bibleSearch').value = '';
-    }
+function getCat(id) {
+  return CATEGORIES.find(c => c.id === id) || CATEGORIES.find(c => c.id === 'other');
 }
 
-// ---- PREACH MODE ----
-
-// Índice do bloco em foco no modo pregação
-let preachFocusIndex = 0;
-
-function startPreachMode() {
-    setEditorHeader(false);
-    hideFloatingBar();
-    performSave();
-    const s = STATE.sermons.find(x => x.id === STATE.currentId);
-    if (!s) return;
-
-    let html = `<div style="text-align:center; margin-bottom:40px; opacity:0.8; border-bottom:1px solid var(--border); padding-bottom:30px">
-        <h1 style="font-size:1.8em; margin:0; line-height:1.2; font-family:var(--font-ui)">${escapeHtml(s.title)}</h1>
-        <p style="font-size:1.2em; color:var(--primary); margin:10px 0 0 0; font-weight:600; font-family:var(--font-ui)">${escapeHtml(s.ref)}</p>
-    </div>`;
-
-    let topicNum = 0, subNum = 1;
-    s.content.forEach((b, idx) => {
-        const txt = escapeHtml(b.text) || '&nbsp;';
-        const doneStyle = b.done ? ' preach-block-done' : '';
-        const dataAttr = `data-preach-idx="${idx}"`;
-        if (b.type === 'topic') { topicNum++; subNum = 1; }
-
-        if (b.type === 'h1') html += `<h2 ${dataAttr} class="${doneStyle}" style="font-size:1.6em; margin-top:40px; line-height:1.2; font-weight:800; font-family:var(--font-ui)">${txt}</h2>`;
-        else if (b.type === 'h2') html += `<h3 ${dataAttr} class="${doneStyle}" style="color:var(--primary); margin-top:30px; font-size:1.3em; font-family:var(--font-ui)">${txt}</h3>`;
-        else if (b.type === 'h3') html += `<p ${dataAttr} class="${doneStyle}" style="font-family:var(--font-ui);font-size:0.8em;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-secondary);margin-top:20px;">${txt}</p>`;
-        else if (b.type === 'topic') html += `<p ${dataAttr} class="${doneStyle}" style="font-family:var(--font-ui);font-size:1.15em;font-weight:800;color:var(--text);margin-top:28px;border-left:3px solid var(--primary);padding-left:12px;"><span style="color:var(--primary)">${topicNum}. </span>${txt}</p>`;
-        else if (b.type === 'subtopic') html += `<p ${dataAttr} class="${doneStyle}" style="font-family:var(--font-ui);font-size:0.95em;font-weight:500;color:var(--text-secondary);padding-left:28px;margin-top:6px;"><span style="color:var(--primary);font-weight:700;font-size:0.85em">${Math.max(1,topicNum)}.${subNum++}  </span>${txt}</p>`;
-        else if (b.type === 'bullet') html += `<p ${dataAttr} class="${doneStyle}" style="font-family:var(--font-ui);font-size:0.9em;color:var(--text-secondary);padding-left:44px;margin-top:4px;"><span style="color:var(--primary);font-weight:700;">→  </span>${txt}</p>`;
-        else if (b.type === 'quote') html += `<div ${dataAttr} class="preach-quote${doneStyle}">${txt}</div>`;
-        else if (b.type === 'warn') html += `<div ${dataAttr} class="preach-warn${doneStyle}">${txt}</div>`;
-        else if (b.type === 'box') html += `<div ${dataAttr} class="preach-box${doneStyle}">${txt}</div>`;
-        else html += `<p ${dataAttr} class="${doneStyle}" style="margin-bottom:20px">${txt}</p>`;
-    });
-
-    preachFocusIndex = 0;
-    document.getElementById('preachContent').innerHTML = html;
-
-    // Clique em blocos do modo pregação atualiza preachFocusIndex
-    document.getElementById('preachContent').addEventListener('click', (e) => {
-        const el = e.target.closest('[data-preach-idx]');
-        if (el) preachFocusIndex = parseInt(el.dataset.preachIdx);
-    });
-
-    showScreen('preachScreen');
-    resetTimer();
+function getTransactionsForMonth(m, y) {
+  return db.transactions.filter(t => {
+    const d = new Date(t.date + 'T12:00:00');
+    return d.getMonth() === m && d.getFullYear() === y;
+  });
 }
 
-function markCurrentPreachBlockDone() {
-    // Marcar o bloco no dado salvo e atualizar o DOM do modo pregação
-    const s = STATE.sermons.find(x => x.id === STATE.currentId);
-    if (!s || !s.content[preachFocusIndex]) return;
+function monthIncome(txs) { return txs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0); }
+function monthExpense(txs) { return txs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0); }
 
-    s.content[preachFocusIndex].done = !s.content[preachFocusIndex].done;
+// =============================================
+// NAVIGATION
+// =============================================
+const PAGE_TITLES = {
+  dashboard: 'Início', extrato: 'Extrato',
+  investimentos: 'Investimentos', metas: 'Metas',
+  recorrentes: 'Recorrentes', relatorios: 'Relatórios',
+  orcamento: 'Orçamento', configuracoes: 'Configurações'
+};
+
+function navigate(page) {
+  if (ui.page !== page) ui.history.push(ui.page);
+  ui.page = page;
+
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+
+  document.getElementById('page-title').textContent = PAGE_TITLES[page] || '';
+
+  // back button
+  const backBtn = document.getElementById('btn-back');
+  const hasPrev = ui.history.length > 0 && page !== 'dashboard';
+  backBtn.classList.toggle('hidden', !hasPrev);
+
+  // nav active state
+  document.querySelectorAll('.nav-btn[data-page]').forEach(b => {
+    b.classList.toggle('active', b.dataset.page === page);
+  });
+
+  // hide FAB on certain pages
+  const hideFab = ['configuracoes', 'relatorios'];
+  document.getElementById('fab').style.display = hideFab.includes(page) ? 'none' : '';
+
+  // render page
+  renderPage(page);
+}
+
+function navigateBack() {
+  const prev = ui.history.pop() || 'dashboard';
+  ui.page = prev;
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + prev).classList.add('active');
+  document.getElementById('page-title').textContent = PAGE_TITLES[prev] || '';
+  document.getElementById('btn-back').classList.toggle('hidden', ui.history.length === 0 || prev === 'dashboard');
+  document.querySelectorAll('.nav-btn[data-page]').forEach(b => {
+    b.classList.toggle('active', b.dataset.page === prev);
+  });
+  document.getElementById('fab').style.display = ['configuracoes','relatorios'].includes(prev) ? 'none' : '';
+  renderPage(prev);
+}
+
+function renderPage(page) {
+  const fns = {
+    dashboard: renderDashboard,
+    extrato: renderExtrato,
+    investimentos: renderInvestimentos,
+    metas: renderMetas,
+    recorrentes: renderRecorrentes,
+    relatorios: renderRelatorios,
+    orcamento: renderOrcamento,
+    configuracoes: renderConfiguracoes,
+  };
+  if (fns[page]) fns[page]();
+}
+
+function navFromMais(page) {
+  closeModal('modal-mais');
+  setTimeout(() => navigate(page), 120);
+}
+
+// =============================================
+// DASHBOARD
+// =============================================
+function renderDashboard() {
+  const now = new Date();
+  const m = now.getMonth(), y = now.getFullYear();
+  const txs = getTransactionsForMonth(m, y);
+  const inc = monthIncome(txs);
+  const exp = monthExpense(txs);
+  const bal = inc - exp;
+
+  const name = db.settings.name;
+  const hour = now.getHours();
+  const greet = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
+  document.getElementById('hero-greeting').textContent = name ? `${greet}, ${name}! 👋` : `${greet}! 👋`;
+  document.getElementById('hero-balance').textContent = fmtCurrency(bal);
+  document.getElementById('hero-balance').style.color = bal < 0 ? '#FCA5A5' : 'white';
+  document.getElementById('hero-period').textContent = monthLabel(m, y);
+  document.getElementById('dash-income').textContent = fmtCurrency(inc);
+  document.getElementById('dash-expense').textContent = fmtCurrency(exp);
+
+  // Upcoming bills (next 7 days)
+  const today = now.getDate();
+  const upcoming = db.recurring.filter(r => r.active && r.type === 'expense').map(r => {
+    let daysUntil = r.day - today;
+    if (daysUntil < 0) daysUntil += 30;
+    return { ...r, daysUntil };
+  }).filter(r => r.daysUntil <= 7).sort((a, b) => a.daysUntil - b.daysUntil);
+
+  const badge = document.getElementById('upcoming-badge');
+  const upList = document.getElementById('upcoming-list');
+  const upEmpty = document.getElementById('upcoming-empty');
+  badge.textContent = upcoming.length || '';
+  badge.style.display = upcoming.length ? '' : 'none';
+  upList.innerHTML = '';
+  upEmpty.classList.toggle('hidden', upcoming.length > 0);
+  upcoming.slice(0, 5).forEach(r => {
+    const cat = getCat(r.category);
+    const div = document.createElement('div');
+    div.className = 'upcoming-item';
+    const dayText = r.daysUntil === 0 ? 'hoje' : r.daysUntil === 1 ? 'amanhã' : `em ${r.daysUntil} dias`;
+    div.innerHTML = `
+      <div class="upcoming-dot" style="background:${cat.color}"></div>
+      <div class="upcoming-name">${r.name}</div>
+      <div class="upcoming-day">${dayText}</div>
+      <div class="upcoming-val">${fmtCurrency(r.amount)}</div>`;
+    upList.appendChild(div);
+  });
+
+  // Recent transactions
+  const recentList = document.getElementById('recent-list');
+  const recentEmpty = document.getElementById('recent-empty');
+  const sorted = [...txs].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
+  recentList.innerHTML = '';
+  recentEmpty.classList.toggle('hidden', sorted.length > 0);
+  sorted.forEach(t => recentList.appendChild(makeTxItem(t, false)));
+
+  // Chart: last 6 months balance
+  renderDashboardChart(m, y);
+}
+
+function renderDashboardChart(curM, curY) {
+  const labels = [], incData = [], expData = [];
+  for (let i = 5; i >= 0; i--) {
+    let m = curM - i, y = curY;
+    if (m < 0) { m += 12; y--; }
+    const txs = getTransactionsForMonth(m, y);
+    labels.push(MONTH_NAMES[m].slice(0, 3));
+    incData.push(monthIncome(txs));
+    expData.push(monthExpense(txs));
+  }
+  const ctx = document.getElementById('chart-dashboard').getContext('2d');
+  if (charts.dashboard) charts.dashboard.destroy();
+  charts.dashboard = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Entradas', data: incData, backgroundColor: 'rgba(16,185,129,0.7)', borderRadius: 6 },
+        { label: 'Saídas', data: expData, backgroundColor: 'rgba(239,68,68,0.7)', borderRadius: 6 },
+      ]
+    },
+    options: chartDefaults({ legend: true })
+  });
+}
+
+// =============================================
+// EXTRATO
+// =============================================
+function renderExtrato() {
+  const m = ui.extratoMonth, y = ui.extratoYear;
+  document.getElementById('extrato-month-label').textContent = monthLabel(m, y);
+
+  let txs = getTransactionsForMonth(m, y);
+  const inc = monthIncome(txs), exp = monthExpense(txs), bal = inc - exp;
+  document.getElementById('ext-income').textContent = fmtCurrency(inc);
+  document.getElementById('ext-expense').textContent = fmtCurrency(exp);
+  document.getElementById('ext-balance').textContent = fmtCurrency(bal);
+  document.getElementById('ext-balance').style.color = bal < 0 ? 'var(--red)' : 'var(--green)';
+
+  // Category chips
+  const filterRow = document.getElementById('cat-filter-row');
+  const usedCats = [...new Set(txs.map(t => t.category))];
+  filterRow.innerHTML = `<button class="chip${ui.filterCat==='all'?' active':''}" data-cat="all" onclick="filterCat(this,'all')">Todos</button>`;
+  usedCats.forEach(cid => {
+    const c = getCat(cid);
+    filterRow.innerHTML += `<button class="chip${ui.filterCat===cid?' active':''}" data-cat="${cid}" onclick="filterCat(this,'${cid}')">${c.emoji} ${c.label}</button>`;
+  });
+
+  // Filter
+  if (ui.filterCat !== 'all') txs = txs.filter(t => t.category === ui.filterCat);
+  txs.sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+
+  const list = document.getElementById('extrato-list');
+  const empty = document.getElementById('extrato-empty');
+  list.innerHTML = '';
+  if (!txs.length) { empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+
+  // Group by date
+  const groups = {};
+  txs.forEach(t => { if (!groups[t.date]) groups[t.date] = []; groups[t.date].push(t); });
+  Object.keys(groups).sort((a,b) => b.localeCompare(a)).forEach(date => {
+    const label = document.createElement('div');
+    label.className = 'tx-group-label';
+    label.textContent = fmtDate(date);
+    list.appendChild(label);
+    groups[date].forEach(t => list.appendChild(makeTxItem(t, true)));
+  });
+}
+
+function makeTxItem(t, showDelete) {
+  const cat = getCat(t.category);
+  const div = document.createElement('div');
+  div.className = 'tx-item';
+  div.onclick = () => editTransaction(t);
+  div.innerHTML = `
+    <div class="tx-cat-icon" style="background:${cat.bg};color:${cat.color}">${cat.emoji}</div>
+    <div class="tx-info">
+      <div class="tx-desc">${t.description || cat.label}</div>
+      <div class="tx-date">${cat.label} · ${fmtDate(t.date)}</div>
+    </div>
+    <div class="tx-amount ${t.type}">${t.type==='income'?'+':'-'}${fmtCurrency(t.amount)}</div>`;
+  return div;
+}
+
+function changeMonth(delta) {
+  ui.extratoMonth += delta;
+  if (ui.extratoMonth > 11) { ui.extratoMonth = 0; ui.extratoYear++; }
+  if (ui.extratoMonth < 0) { ui.extratoMonth = 11; ui.extratoYear--; }
+  ui.filterCat = 'all';
+  renderExtrato();
+}
+
+function filterCat(btn, cat) {
+  ui.filterCat = cat;
+  document.querySelectorAll('#cat-filter-row .chip').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  renderExtrato();
+}
+
+// =============================================
+// LANÇAMENTOS MODAL
+// =============================================
+function openModalLancamento(type) {
+  ui.lancType = type || 'expense';
+  ui.selectedLancCat = null;
+  document.getElementById('lanc-modal-title').textContent = 'Novo Lançamento';
+  document.getElementById('lanc-id').value = '';
+  document.getElementById('lanc-amount').value = '';
+  document.getElementById('lanc-desc').value = '';
+  document.getElementById('lanc-date').value = todayISO();
+  setLancType(ui.lancType);
+  buildCatGrid('lanc-cat-grid', null, ui.lancType);
+  openModal('modal-lancamento');
+}
+
+function editTransaction(t) {
+  ui.lancType = t.type;
+  ui.selectedLancCat = t.category;
+  document.getElementById('lanc-modal-title').textContent = 'Editar Lançamento';
+  document.getElementById('lanc-id').value = t.id;
+  document.getElementById('lanc-amount').value = t.amount;
+  document.getElementById('lanc-desc').value = t.description;
+  document.getElementById('lanc-date').value = t.date;
+  setLancType(t.type);
+  buildCatGrid('lanc-cat-grid', t.category, t.type);
+  openModal('modal-lancamento');
+}
+
+function setLancType(type) {
+  ui.lancType = type;
+  const ti = document.getElementById('tab-income');
+  const te = document.getElementById('tab-expense');
+  ti.className = 'type-tab' + (type === 'income' ? ' active income-tab' : '');
+  te.className = 'type-tab' + (type === 'expense' ? ' active expense-tab' : '');
+  buildCatGrid('lanc-cat-grid', ui.selectedLancCat, type);
+}
+
+function buildCatGrid(containerId, selected, typeFilter) {
+  const grid = document.getElementById(containerId);
+  grid.innerHTML = '';
+  const cats = CATEGORIES.filter(c => c.type === typeFilter || c.type === 'both');
+  cats.forEach(c => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'cat-btn' + (c.id === selected ? ' active' : '');
+    btn.innerHTML = `<span class="cat-emoji">${c.emoji}</span><span>${c.label}</span>`;
+    btn.onclick = () => {
+      grid.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      if (containerId === 'lanc-cat-grid') ui.selectedLancCat = c.id;
+      else if (containerId === 'rec-cat-grid') ui.selectedRecCat = c.id;
+    };
+    grid.appendChild(btn);
+  });
+}
+
+function saveLancamento() {
+  const amount = parseFloat(document.getElementById('lanc-amount').value);
+  const desc = document.getElementById('lanc-desc').value.trim();
+  const date = document.getElementById('lanc-date').value;
+  const id = document.getElementById('lanc-id').value;
+  const cat = ui.selectedLancCat || (ui.lancType === 'income' ? 'salary' : 'other');
+
+  if (!amount || amount <= 0) { alert('Informe um valor válido.'); return; }
+  if (!date) { alert('Informe a data.'); return; }
+
+  if (id) {
+    const idx = db.transactions.findIndex(t => t.id === id);
+    if (idx !== -1) db.transactions[idx] = { ...db.transactions[idx], amount, description: desc, date, type: ui.lancType, category: cat };
+  } else {
+    db.transactions.push({ id: uid(), amount, description: desc, date, type: ui.lancType, category: cat });
+  }
+
+  saveDB();
+  closeModal('modal-lancamento');
+  if (ui.page === 'extrato') renderExtrato();
+  else if (ui.page === 'dashboard') renderDashboard();
+  else if (ui.page === 'orcamento') renderOrcamento();
+}
+
+function deleteTransaction(id) {
+  confirmAction('Excluir lançamento?', 'Esta ação não pode ser desfeita.', () => {
+    db.transactions = db.transactions.filter(t => t.id !== id);
     saveDB();
+    closeModal('modal-lancamento');
+    renderPage(ui.page);
+  });
+}
 
-    // Atualizar visual no preachContent
-    const el = document.querySelector(`[data-preach-idx="${preachFocusIndex}"]`);
-    if (el) {
-        el.classList.toggle('preach-block-done', s.content[preachFocusIndex].done);
+// =============================================
+// RECORRENTES
+// =============================================
+function renderRecorrentes() {
+  const recs = db.recurring;
+  const totalExp = recs.filter(r => r.type === 'expense' && r.active).reduce((s, r) => s + r.amount, 0);
+  const totalInc = recs.filter(r => r.type === 'income' && r.active).reduce((s, r) => s + r.amount, 0);
+  document.getElementById('rec-total-exp').textContent = fmtCurrency(totalExp);
+  document.getElementById('rec-total-inc').textContent = fmtCurrency(totalInc);
+  document.getElementById('rec-total-bal').textContent = fmtCurrency(totalInc - totalExp);
+  document.getElementById('rec-total-bal').style.color = totalInc - totalExp >= 0 ? 'var(--green)' : 'var(--red)';
+
+  const list = document.getElementById('recorrentes-list');
+  const empty = document.getElementById('recorrentes-empty');
+  list.innerHTML = '';
+  if (!recs.length) { empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+
+  recs.sort((a, b) => a.day - b.day).forEach(r => {
+    const cat = getCat(r.category);
+    const item = document.createElement('div');
+    item.className = 'rec-item';
+    item.innerHTML = `
+      <div class="rec-cat-icon" style="background:${cat.bg};color:${cat.color}">${cat.emoji}</div>
+      <div class="rec-info">
+        <div class="rec-name">${r.name}</div>
+        <div class="rec-day-label">Dia ${r.day} · ${cat.label}</div>
+      </div>
+      <div class="rec-amount ${r.type}">${r.type==='income'?'+':'-'}${fmtCurrency(r.amount)}</div>
+      <label class="toggle-sw rec-toggle">
+        <input type="checkbox" ${r.active?'checked':''} onchange="toggleRecurring('${r.id}',this.checked)">
+        <span class="sw-track"><span class="sw-thumb"></span></span>
+      </label>`;
+    item.querySelector('.rec-info').onclick = () => editRecorrente(r);
+    list.appendChild(item);
+  });
+}
+
+function openModalRecorrente() {
+  ui.recType = 'expense';
+  ui.selectedRecCat = null;
+  document.getElementById('rec-modal-title').textContent = 'Nova Recorrente';
+  document.getElementById('rec-id').value = '';
+  document.getElementById('rec-name').value = '';
+  document.getElementById('rec-amount').value = '';
+  document.getElementById('rec-day').value = '';
+  setRecType('expense');
+  buildCatGrid('rec-cat-grid', null, 'expense');
+  openModal('modal-recorrente');
+}
+
+function editRecorrente(r) {
+  ui.recType = r.type;
+  ui.selectedRecCat = r.category;
+  document.getElementById('rec-modal-title').textContent = 'Editar Recorrente';
+  document.getElementById('rec-id').value = r.id;
+  document.getElementById('rec-name').value = r.name;
+  document.getElementById('rec-amount').value = r.amount;
+  document.getElementById('rec-day').value = r.day;
+  setRecType(r.type);
+  buildCatGrid('rec-cat-grid', r.category, r.type);
+  openModal('modal-recorrente');
+}
+
+function setRecType(type) {
+  ui.recType = type;
+  const ti = document.getElementById('tab-rec-income');
+  const te = document.getElementById('tab-rec-expense');
+  ti.className = 'type-tab' + (type === 'income' ? ' active income-tab' : '');
+  te.className = 'type-tab' + (type === 'expense' ? ' active expense-tab' : '');
+  buildCatGrid('rec-cat-grid', ui.selectedRecCat, type);
+}
+
+function saveRecorrente() {
+  const name = document.getElementById('rec-name').value.trim();
+  const amount = parseFloat(document.getElementById('rec-amount').value);
+  const day = parseInt(document.getElementById('rec-day').value);
+  const id = document.getElementById('rec-id').value;
+  const cat = ui.selectedRecCat || (ui.recType === 'income' ? 'salary' : 'bills');
+
+  if (!name) { alert('Informe o nome.'); return; }
+  if (!amount || amount <= 0) { alert('Informe um valor válido.'); return; }
+  if (!day || day < 1 || day > 31) { alert('Informe o dia (1-31).'); return; }
+
+  if (id) {
+    const idx = db.recurring.findIndex(r => r.id === id);
+    if (idx !== -1) db.recurring[idx] = { ...db.recurring[idx], name, amount, day, type: ui.recType, category: cat };
+  } else {
+    db.recurring.push({ id: uid(), name, amount, day, type: ui.recType, category: cat, active: true });
+  }
+
+  saveDB();
+  closeModal('modal-recorrente');
+  if (ui.page === 'recorrentes') renderRecorrentes();
+  else if (ui.page === 'dashboard') renderDashboard();
+}
+
+function toggleRecurring(id, active) {
+  const r = db.recurring.find(r => r.id === id);
+  if (r) { r.active = active; saveDB(); renderRecorrentes(); }
+}
+
+function generateMonthlyRecurring() {
+  const now = new Date();
+  const m = now.getMonth(), y = now.getFullYear();
+  const monthStr = `${y}-${String(m+1).padStart(2,'0')}`;
+  let added = 0;
+
+  db.recurring.filter(r => r.active).forEach(r => {
+    const day = Math.min(r.day, new Date(y, m+1, 0).getDate());
+    const date = `${monthStr}-${String(day).padStart(2,'0')}`;
+    const alreadyExists = db.transactions.some(t => t.recurring_id === r.id && t.date.startsWith(monthStr));
+    if (!alreadyExists) {
+      db.transactions.push({ id: uid(), amount: r.amount, description: r.name, date, type: r.type, category: r.category, recurring_id: r.id });
+      added++;
+    }
+  });
+
+  saveDB();
+  alert(added > 0 ? `${added} lançamento(s) gerado(s) com sucesso!` : 'Todos os lançamentos recorrentes já foram gerados este mês.');
+  if (ui.page === 'extrato') renderExtrato();
+  else if (ui.page === 'dashboard') renderDashboard();
+}
+
+// =============================================
+// INVESTIMENTOS
+// =============================================
+function renderInvestimentos() {
+  const total = db.investments.reduce((s, i) => s + i.amount, 0);
+  const proj12 = db.investments.reduce((s, i) => s + calcProjection(i, 12), 0);
+  document.getElementById('invest-total').textContent = fmtCurrency(total);
+  document.getElementById('invest-proj12').textContent = fmtCurrency(proj12);
+
+  const list = document.getElementById('invest-list');
+  const empty = document.getElementById('invest-empty');
+  list.innerHTML = '';
+  if (!db.investments.length) { empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+
+  db.investments.forEach(inv => {
+    const proj = calcProjection(inv, 12);
+    const gain = proj - inv.amount;
+    const card = document.createElement('div');
+    card.className = 'inv-card';
+    card.innerHTML = `
+      <div class="inv-card-head">
+        <div>
+          <div class="inv-name">${inv.name}</div>
+          <div class="inv-bank">${inv.bank}</div>
+        </div>
+        <div class="inv-type-badge">${inv.type}</div>
+      </div>
+      <div class="inv-row">
+        <div class="inv-stat">
+          <div class="inv-stat-label">Investido</div>
+          <div class="inv-stat-value">${fmtCurrency(inv.amount)}</div>
+        </div>
+        <div class="inv-stat">
+          <div class="inv-stat-label">Projeção 12 meses</div>
+          <div class="inv-stat-value" style="color:var(--green)">${fmtCurrency(proj)}</div>
+        </div>
+      </div>
+      <div class="inv-rate-badge">${inv.rate}% a.m. · ganho: +${fmtCurrency(gain)}</div>`;
+    card.onclick = () => editInvestimento(inv);
+    list.appendChild(card);
+  });
+
+  // Pie chart
+  renderInvestPie();
+}
+
+function calcProjection(inv, months) {
+  const rate = inv.rate / 100;
+  return inv.amount * Math.pow(1 + rate, months);
+}
+
+function renderInvestPie() {
+  if (!db.investments.length) {
+    document.getElementById('invest-pie-section').style.display = 'none';
+    return;
+  }
+  document.getElementById('invest-pie-section').style.display = '';
+  const colors = ['#7C3AED','#10B981','#3B82F6','#F97316','#EC4899','#FBBF24','#06B6D4','#EF4444'];
+  const ctx = document.getElementById('chart-invest-pie').getContext('2d');
+  if (charts.investPie) charts.investPie.destroy();
+  charts.investPie = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: db.investments.map(i => i.name),
+      datasets: [{ data: db.investments.map(i => i.amount), backgroundColor: db.investments.map((_, idx) => colors[idx % colors.length]), borderWidth: 2, borderColor: 'var(--bg2)' }]
+    },
+    options: { ...chartDefaults({ legend: false }), cutout: '65%' }
+  });
+
+  const legend = document.getElementById('invest-pie-legend');
+  legend.innerHTML = '';
+  db.investments.forEach((inv, idx) => {
+    const total = db.investments.reduce((s, i) => s + i.amount, 0);
+    const pct = total ? ((inv.amount / total) * 100).toFixed(1) : 0;
+    legend.innerHTML += `<div class="pie-legend-item"><div class="pie-legend-dot" style="background:${colors[idx % colors.length]}"></div>${inv.name} (${pct}%)</div>`;
+  });
+}
+
+function openModalInvestimento() {
+  document.getElementById('inv-modal-title').textContent = 'Novo Investimento';
+  document.getElementById('inv-id').value = '';
+  document.getElementById('inv-name').value = '';
+  document.getElementById('inv-bank').value = '';
+  document.getElementById('inv-type').value = 'CDB';
+  document.getElementById('inv-amount').value = '';
+  document.getElementById('inv-rate').value = '';
+  document.getElementById('inv-date').value = todayISO();
+  openModal('modal-investimento');
+}
+
+function editInvestimento(inv) {
+  document.getElementById('inv-modal-title').textContent = 'Editar Investimento';
+  document.getElementById('inv-id').value = inv.id;
+  document.getElementById('inv-name').value = inv.name;
+  document.getElementById('inv-bank').value = inv.bank;
+  document.getElementById('inv-type').value = inv.type;
+  document.getElementById('inv-amount').value = inv.amount;
+  document.getElementById('inv-rate').value = inv.rate;
+  document.getElementById('inv-date').value = inv.startDate;
+  openModal('modal-investimento');
+}
+
+function saveInvestimento() {
+  const name = document.getElementById('inv-name').value.trim();
+  const bank = document.getElementById('inv-bank').value.trim();
+  const type = document.getElementById('inv-type').value;
+  const amount = parseFloat(document.getElementById('inv-amount').value);
+  const rate = parseFloat(document.getElementById('inv-rate').value);
+  const startDate = document.getElementById('inv-date').value;
+  const id = document.getElementById('inv-id').value;
+
+  if (!name) { alert('Informe o nome.'); return; }
+  if (!amount || amount <= 0) { alert('Informe o valor investido.'); return; }
+  if (isNaN(rate) || rate < 0) { alert('Informe a taxa de rendimento.'); return; }
+
+  const data = { name, bank, type, amount, rate, startDate };
+  if (id) {
+    const idx = db.investments.findIndex(i => i.id === id);
+    if (idx !== -1) db.investments[idx] = { ...db.investments[idx], ...data };
+  } else {
+    db.investments.push({ id: uid(), ...data });
+  }
+
+  saveDB();
+  closeModal('modal-investimento');
+  renderInvestimentos();
+}
+
+// =============================================
+// METAS
+// =============================================
+function renderMetas() {
+  const list = document.getElementById('metas-list');
+  const empty = document.getElementById('metas-empty');
+  list.innerHTML = '';
+  if (!db.goals.length) { empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+
+  db.goals.forEach(g => {
+    const pct = Math.min(100, g.target > 0 ? (g.saved / g.target * 100) : 0);
+    const remaining = Math.max(0, g.target - g.saved);
+    let monthsLeft = null, monthlyNeeded = null;
+    if (g.deadline) {
+      const [dy, dm] = g.deadline.split('-').map(Number);
+      const now = new Date();
+      monthsLeft = (dy - now.getFullYear()) * 12 + dm - (now.getMonth() + 1);
+      if (monthsLeft > 0 && remaining > 0) monthlyNeeded = remaining / monthsLeft;
     }
 
-    showToast(s.content[preachFocusIndex].done ? 'Tópico marcado como ministrado' : 'Marcação removida');
+    const card = document.createElement('div');
+    card.className = 'goal-card';
+    card.innerHTML = `
+      <div class="goal-head">
+        <div class="goal-emoji-circle" style="background:${g.color}22;color:${g.color}">${g.emoji}</div>
+        <div>
+          <div class="goal-title">${g.name}</div>
+          <div class="goal-deadline">${g.deadline ? 'Meta: ' + g.deadline.split('-').reverse().join('/').slice(3) : 'Sem prazo'}</div>
+        </div>
+      </div>
+      <div class="goal-amounts">
+        <div class="goal-saved" style="color:${g.color}">${fmtCurrency(g.saved)}</div>
+        <div class="goal-target">de ${fmtCurrency(g.target)}</div>
+      </div>
+      <div class="goal-bar-bg">
+        <div class="goal-bar-fill" style="width:${pct}%;background:${g.color}"></div>
+      </div>
+      <div class="goal-footer">
+        <div class="goal-pct" style="color:${g.color}">${pct.toFixed(0)}% concluído</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          ${monthlyNeeded ? `<span class="goal-monthly">${fmtCurrency(monthlyNeeded)}/mês</span>` : ''}
+          <button class="btn-deposit" onclick="event.stopPropagation();openDeposito('${g.id}','${g.name}')">+ Depositar</button>
+        </div>
+      </div>`;
+    card.onclick = () => editMeta(g);
+    list.appendChild(card);
+  });
 }
 
-function exitPreach() {
-    clearInterval(STATE.timer);
-    STATE.isRunning = false;
-    setEditorHeader(true);
-    showScreen('editorScreen');
+function openModalMeta() {
+  ui.selectedMetaEmoji = '🎯';
+  ui.selectedMetaColor = GOAL_COLORS[0];
+  document.getElementById('meta-modal-title').textContent = 'Nova Meta';
+  document.getElementById('meta-id').value = '';
+  document.getElementById('meta-name').value = '';
+  document.getElementById('meta-target').value = '';
+  document.getElementById('meta-saved').value = '';
+  document.getElementById('meta-deadline').value = '';
+  buildEmojiGrid();
+  buildColorGrid();
+  openModal('modal-meta');
 }
 
-function exportPDF() {
-    if (!STATE.currentId) return;
-    performSave();
-    startPreachMode();
-    setTimeout(() => window.print(), 800);
+function editMeta(g) {
+  ui.selectedMetaEmoji = g.emoji;
+  ui.selectedMetaColor = g.color;
+  document.getElementById('meta-modal-title').textContent = 'Editar Meta';
+  document.getElementById('meta-id').value = g.id;
+  document.getElementById('meta-name').value = g.name;
+  document.getElementById('meta-target').value = g.target;
+  document.getElementById('meta-saved').value = g.saved;
+  document.getElementById('meta-deadline').value = g.deadline || '';
+  buildEmojiGrid();
+  buildColorGrid();
+  openModal('modal-meta');
 }
 
-function toggleHud() { document.getElementById('hud').classList.toggle('hidden-hud'); }
-
-function adjustFont(delta) {
-    const el = document.getElementById('preachContent');
-    const current = parseFloat(window.getComputedStyle(el).fontSize);
-    el.style.fontSize = Math.max(16, Math.min(60, current + delta)) + 'px';
+function buildEmojiGrid() {
+  const grid = document.getElementById('meta-emoji-grid');
+  grid.innerHTML = '';
+  GOAL_EMOJIS.forEach(em => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'emoji-opt' + (em === ui.selectedMetaEmoji ? ' active' : '');
+    btn.textContent = em;
+    btn.onclick = () => {
+      ui.selectedMetaEmoji = em;
+      grid.querySelectorAll('.emoji-opt').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    };
+    grid.appendChild(btn);
+  });
 }
 
-// ---- TIMER ----
+function buildColorGrid() {
+  const grid = document.getElementById('meta-color-grid');
+  grid.innerHTML = '';
+  GOAL_COLORS.forEach(col => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'color-opt' + (col === ui.selectedMetaColor ? ' active' : '');
+    btn.style.background = col;
+    btn.onclick = () => {
+      ui.selectedMetaColor = col;
+      grid.querySelectorAll('.color-opt').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    };
+    grid.appendChild(btn);
+  });
+}
 
-function toggleTimer() {
-    const btn = document.getElementById('btn-timer');
-    if (STATE.isRunning) {
-        clearInterval(STATE.timer);
-        STATE.isRunning = false;
-        if (btn) btn.textContent = '▶';
-    } else {
-        STATE.isRunning = true;
-        if (btn) btn.textContent = '⏸';
-        STATE.timer = setInterval(() => {
-            STATE.seconds++;
-            const m = String(Math.floor(STATE.seconds / 60)).padStart(2, '0');
-            const s = String(STATE.seconds % 60).padStart(2, '0');
-            const el = document.getElementById('timerDisplay');
-            if (el) el.textContent = `${m}:${s}`;
-        }, 1000);
+function saveMeta() {
+  const name = document.getElementById('meta-name').value.trim();
+  const target = parseFloat(document.getElementById('meta-target').value);
+  const saved = parseFloat(document.getElementById('meta-saved').value) || 0;
+  const deadline = document.getElementById('meta-deadline').value;
+  const id = document.getElementById('meta-id').value;
+
+  if (!name) { alert('Informe o nome da meta.'); return; }
+  if (!target || target <= 0) { alert('Informe o valor alvo.'); return; }
+
+  const data = { name, target, saved, deadline, emoji: ui.selectedMetaEmoji, color: ui.selectedMetaColor };
+  if (id) {
+    const idx = db.goals.findIndex(g => g.id === id);
+    if (idx !== -1) db.goals[idx] = { ...db.goals[idx], ...data };
+  } else {
+    db.goals.push({ id: uid(), ...data });
+  }
+
+  saveDB();
+  closeModal('modal-meta');
+  renderMetas();
+}
+
+function openDeposito(goalId, goalName) {
+  document.getElementById('dep-modal-title').textContent = `+ ${goalName}`;
+  document.getElementById('dep-meta-id').value = goalId;
+  document.getElementById('dep-amount').value = '';
+  openModal('modal-deposito');
+}
+
+function saveDeposito() {
+  const id = document.getElementById('dep-meta-id').value;
+  const amount = parseFloat(document.getElementById('dep-amount').value);
+  if (!amount || amount <= 0) { alert('Informe um valor válido.'); return; }
+  const g = db.goals.find(g => g.id === id);
+  if (g) { g.saved = (g.saved || 0) + amount; saveDB(); }
+  closeModal('modal-deposito');
+  renderMetas();
+}
+
+// =============================================
+// RELATÓRIOS
+// =============================================
+function renderRelatorios() {
+  const m = ui.reportMonth, y = ui.reportYear;
+  document.getElementById('report-month-label').textContent = monthLabel(m, y);
+
+  const txs = getTransactionsForMonth(m, y);
+  renderCategoryPie(txs);
+  renderMonthlyBars(m, y);
+  renderBalanceLine(m, y);
+}
+
+function renderCategoryPie(txs) {
+  const expenses = txs.filter(t => t.type === 'expense');
+  const catMap = {};
+  expenses.forEach(t => { catMap[t.category] = (catMap[t.category] || 0) + t.amount; });
+  const cats = Object.keys(catMap).map(id => ({ ...getCat(id), total: catMap[id] })).sort((a, b) => b.total - a.total);
+
+  const ctx = document.getElementById('chart-cats').getContext('2d');
+  if (charts.catPie) charts.catPie.destroy();
+
+  if (!cats.length) return;
+
+  charts.catPie = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: cats.map(c => c.label),
+      datasets: [{ data: cats.map(c => c.total), backgroundColor: cats.map(c => c.color), borderWidth: 2, borderColor: 'var(--bg2)' }]
+    },
+    options: { ...chartDefaults({ legend: false }), cutout: '60%' }
+  });
+
+  const legend = document.getElementById('cats-legend');
+  const total = cats.reduce((s, c) => s + c.total, 0);
+  legend.innerHTML = cats.map(c => `
+    <div class="pie-legend-item">
+      <div class="pie-legend-dot" style="background:${c.color}"></div>
+      ${c.emoji} ${c.label} — ${fmtCurrency(c.total)} (${total ? ((c.total/total)*100).toFixed(0) : 0}%)
+    </div>`).join('');
+}
+
+function renderMonthlyBars(curM, curY) {
+  const labels = [], incData = [], expData = [];
+  for (let i = 5; i >= 0; i--) {
+    let m = curM - i, y = curY;
+    if (m < 0) { m += 12; y--; }
+    const txs = getTransactionsForMonth(m, y);
+    labels.push(MONTH_NAMES[m].slice(0, 3));
+    incData.push(monthIncome(txs));
+    expData.push(monthExpense(txs));
+  }
+  const ctx = document.getElementById('chart-monthly').getContext('2d');
+  if (charts.monthly) charts.monthly.destroy();
+  charts.monthly = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Entradas', data: incData, backgroundColor: 'rgba(16,185,129,0.75)', borderRadius: 6 },
+        { label: 'Saídas', data: expData, backgroundColor: 'rgba(239,68,68,0.75)', borderRadius: 6 },
+      ]
+    },
+    options: chartDefaults({ legend: true })
+  });
+}
+
+function renderBalanceLine(curM, curY) {
+  const labels = [], data = [];
+  for (let i = 5; i >= 0; i--) {
+    let m = curM - i, y = curY;
+    if (m < 0) { m += 12; y--; }
+    const txs = getTransactionsForMonth(m, y);
+    labels.push(MONTH_NAMES[m].slice(0, 3));
+    data.push(monthIncome(txs) - monthExpense(txs));
+  }
+  const ctx = document.getElementById('chart-balance-line').getContext('2d');
+  if (charts.balanceLine) charts.balanceLine.destroy();
+  charts.balanceLine = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Saldo',
+        data,
+        borderColor: '#7C3AED',
+        backgroundColor: 'rgba(124,58,237,0.15)',
+        borderWidth: 2.5,
+        fill: true,
+        tension: 0.4,
+        pointBackgroundColor: '#7C3AED',
+        pointRadius: 4,
+      }]
+    },
+    options: chartDefaults({ legend: false })
+  });
+}
+
+function changeReportMonth(delta) {
+  ui.reportMonth += delta;
+  if (ui.reportMonth > 11) { ui.reportMonth = 0; ui.reportYear++; }
+  if (ui.reportMonth < 0) { ui.reportMonth = 11; ui.reportYear--; }
+  renderRelatorios();
+}
+
+// =============================================
+// ORÇAMENTO
+// =============================================
+function renderOrcamento() {
+  const m = ui.orcMonth, y = ui.orcYear;
+  document.getElementById('orc-month-label').textContent = monthLabel(m, y);
+  const monthStr = `${y}-${String(m+1).padStart(2,'0')}`;
+
+  const budgets = db.budgets.filter(b => b.month === monthStr);
+  const txs = getTransactionsForMonth(m, y).filter(t => t.type === 'expense');
+
+  const list = document.getElementById('orc-list');
+  const empty = document.getElementById('orc-empty');
+  list.innerHTML = '';
+  if (!budgets.length) { empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+
+  budgets.forEach(b => {
+    const cat = getCat(b.category);
+    const spent = txs.filter(t => t.category === b.category).reduce((s, t) => s + t.amount, 0);
+    const pct = b.limit > 0 ? Math.min(100, (spent / b.limit) * 100) : 0;
+    const barColor = pct >= 100 ? 'var(--red)' : pct >= 80 ? 'var(--yellow)' : 'var(--green)';
+    const remaining = Math.max(0, b.limit - spent);
+
+    const card = document.createElement('div');
+    card.className = 'orc-card';
+    card.innerHTML = `
+      <div class="orc-head">
+        <div class="orc-cat"><span class="orc-cat-icon">${cat.emoji}</span>${cat.label}</div>
+        <div class="orc-values">${fmtCurrency(spent)} / ${fmtCurrency(b.limit)}</div>
+      </div>
+      <div class="orc-bar-bg">
+        <div class="orc-bar-fill" style="width:${pct}%;background:${barColor}"></div>
+      </div>
+      <div class="orc-footer">
+        <span class="orc-pct" style="color:${barColor}">${pct.toFixed(0)}% utilizado</span>
+        <span class="orc-remaining">${pct >= 100 ? 'Limite excedido!' : 'Restam ' + fmtCurrency(remaining)}</span>
+      </div>`;
+    card.onclick = () => editOrcamento(b, monthStr);
+    list.appendChild(card);
+  });
+}
+
+function openModalOrcamento() {
+  const m = ui.orcMonth, y = ui.orcYear;
+  const monthStr = `${y}-${String(m+1).padStart(2,'0')}`;
+  document.getElementById('orc-modal-title').textContent = 'Definir Orçamento';
+  document.getElementById('orc-id').value = '';
+  document.getElementById('orc-limit').value = '';
+
+  const sel = document.getElementById('orc-cat');
+  sel.innerHTML = '';
+  const existing = db.budgets.filter(b => b.month === monthStr).map(b => b.category);
+  CATEGORIES.filter(c => c.type === 'expense' || c.type === 'both').forEach(c => {
+    if (!existing.includes(c.id)) {
+      sel.innerHTML += `<option value="${c.id}">${c.emoji} ${c.label}</option>`;
     }
+  });
+  if (!sel.options.length) { alert('Todas as categorias já têm orçamento definido este mês.'); return; }
+  openModal('modal-orcamento');
 }
 
-function resetTimer() {
-    clearInterval(STATE.timer);
-    STATE.isRunning = false;
-    STATE.seconds = 0;
-    const el = document.getElementById('timerDisplay');
-    if (el) el.textContent = '00:00';
-    const btn = document.getElementById('btn-timer');
-    if (btn) btn.textContent = '▶';
+function editOrcamento(b, monthStr) {
+  document.getElementById('orc-modal-title').textContent = 'Editar Orçamento';
+  document.getElementById('orc-id').value = b.id;
+  document.getElementById('orc-limit').value = b.limit;
+  const cat = getCat(b.category);
+  const sel = document.getElementById('orc-cat');
+  sel.innerHTML = `<option value="${b.category}">${cat.emoji} ${cat.label}</option>`;
+  openModal('modal-orcamento');
 }
 
-// ---- SETTINGS ----
+function saveOrcamento() {
+  const category = document.getElementById('orc-cat').value;
+  const limit = parseFloat(document.getElementById('orc-limit').value);
+  const id = document.getElementById('orc-id').value;
+  const m = ui.orcMonth, y = ui.orcYear;
+  const month = `${y}-${String(m+1).padStart(2,'0')}`;
 
-function toggleSettings(show) {
-    document.getElementById('settingsModal').classList.toggle('active', show);
-    if (show) {
-        // Preencher campo com chave salva
-        const saved = localStorage.getItem(API_KEY_STORAGE);
-        if (saved) document.getElementById('apiKeyInput').value = saved;
-    }
+  if (!limit || limit <= 0) { alert('Informe o limite mensal.'); return; }
+
+  if (id) {
+    const idx = db.budgets.findIndex(b => b.id === id);
+    if (idx !== -1) db.budgets[idx].limit = limit;
+  } else {
+    db.budgets.push({ id: uid(), category, limit, month });
+  }
+
+  saveDB();
+  closeModal('modal-orcamento');
+  renderOrcamento();
+}
+
+function changeOrcMonth(delta) {
+  ui.orcMonth += delta;
+  if (ui.orcMonth > 11) { ui.orcMonth = 0; ui.orcYear++; }
+  if (ui.orcMonth < 0) { ui.orcMonth = 11; ui.orcYear--; }
+  renderOrcamento();
+}
+
+// =============================================
+// CONFIGURAÇÕES
+// =============================================
+function renderConfiguracoes() {
+  document.getElementById('cfg-name').value = db.settings.name || '';
+  document.getElementById('cfg-dark').checked = db.settings.dark !== false;
+}
+
+function saveCfgName() {
+  db.settings.name = document.getElementById('cfg-name').value.trim();
+  saveDB();
 }
 
 function toggleTheme() {
-    document.body.classList.toggle('dark');
-    localStorage.setItem(THEME_KEY, document.body.classList.contains('dark') ? 'dark' : 'light');
+  db.settings.dark = document.getElementById('cfg-dark').checked;
+  applyTheme();
+  saveDB();
 }
 
-function saveApiKey() {
-    const key = document.getElementById('apiKeyInput').value.trim();
-    if (!key) { showToast('Digite uma chave API válida'); return; }
-    localStorage.setItem(API_KEY_STORAGE, key);
-    showToast('Chave API salva com sucesso!');
+function applyTheme() {
+  document.body.classList.toggle('light', !db.settings.dark);
 }
 
-function downloadBackup() {
-    performSave();
-    const payload = JSON.stringify({ version: DB_VERSION, exported: new Date().toISOString(), data: STATE.sermons }, null, 2);
-    const url = 'data:application/json;charset=utf-8,' + encodeURIComponent(payload);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `PregFlow_Backup_${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
+function clearAllData() {
+  localStorage.removeItem(STORAGE_KEY);
+  db = { transactions: [], recurring: [], investments: [], goals: [], budgets: [], settings: { name: '', dark: true } };
+  applyTheme();
+  navigate('dashboard');
 }
 
-function validateBackup(parsed) {
-    let data = parsed;
-    if (parsed && !Array.isArray(parsed) && Array.isArray(parsed.data)) data = parsed.data;
-    if (!Array.isArray(data) || data.length === 0) return null;
-    const valid = data.every(s =>
-        s && typeof s.id === 'number' &&
-        typeof s.title === 'string' &&
-        typeof s.ref === 'string' &&
-        Array.isArray(s.content)
-    );
-    return valid ? data : null;
+// =============================================
+// EXPORTAR CSV
+// =============================================
+function exportCSV() {
+  const headers = ['ID','Data','Tipo','Categoria','Descrição','Valor'];
+  const rows = db.transactions.map(t => {
+    const cat = getCat(t.category);
+    return [t.id, fmtDate(t.date), t.type === 'income' ? 'Entrada' : 'Saída', cat.label, `"${(t.description||'').replace(/"/g,'""')}"`, t.amount.toFixed(2)];
+  });
+  const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `financeflow_${todayISO()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
-function restoreBackup(input) {
-    const f = input.files[0];
-    if (!f) return;
-    if (!f.name.endsWith('.json')) { showToast('Use um arquivo .json'); input.value = ''; return; }
+// =============================================
+// CONFIRM ACTION
+// =============================================
+function confirmAction(title, msg, fn, emoji) {
+  document.getElementById('confirm-title').textContent = title;
+  document.getElementById('confirm-msg').textContent = msg || '';
+  document.getElementById('confirm-emoji').textContent = emoji || '⚠️';
+  document.getElementById('confirm-ok').onclick = () => { closeModal('modal-confirmar'); fn(); };
+  openModal('modal-confirmar');
+}
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        try {
-            const parsed = JSON.parse(e.target.result);
-            const data = validateBackup(parsed);
-            if (!data) { showToast('Formato de backup inválido'); input.value = ''; return; }
-            STATE.sermons = data;
-            saveDB();
-            renderList();
-            toggleSettings(false);
-            showToast(`${data.length} mensagem(ns) restaurada(s) com sucesso`);
-        } catch {
-            showToast('Arquivo corrompido ou inválido');
+// =============================================
+// MODALS
+// =============================================
+function openModal(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.add('open');
+}
+
+function closeModal(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.remove('open');
+}
+
+function overlayClose(e, id) {
+  if (e.target === e.currentTarget) closeModal(id);
+}
+
+function openModalMais() {
+  openModal('modal-mais');
+}
+
+// =============================================
+// CHART DEFAULTS
+// =============================================
+function chartDefaults({ legend }) {
+  const isDark = db.settings.dark !== false;
+  const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+  const textColor = isDark ? '#8B949E' : '#6B7280';
+  return {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: !!legend,
+        labels: { color: textColor, usePointStyle: true, pointStyle: 'circle', padding: 16, font: { size: 12 } }
+      },
+      tooltip: {
+        callbacks: {
+          label: ctx => ' ' + fmtCurrency(ctx.raw)
         }
-        input.value = '';
-    };
-    reader.readAsText(f);
+      }
+    },
+    scales: legend ? {
+      x: { ticks: { color: textColor, font: { size: 11 } }, grid: { color: gridColor } },
+      y: { ticks: { color: textColor, font: { size: 11 }, callback: v => 'R$ ' + Number(v).toLocaleString('pt-BR',{maximumFractionDigits:0}) }, grid: { color: gridColor } }
+    } : undefined,
+    animation: { duration: 400, easing: 'easeOutQuart' }
+  };
 }
 
-// ---- AI STUDY ----
-
-let aiCurrentMode = 'study';
-
-function toggleAIStudy(show) {
-    document.getElementById('aiStudyModal').classList.toggle('active', show);
+// =============================================
+// PWA
+// =============================================
+function registerSW() {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./service-worker.js').catch(() => {});
+  }
 }
 
-function renderMarkdown(text) {
-    // Simples renderer: **bold**, ## heading, - item, \n\n parágrafo
-    let html = text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
+// =============================================
+// INIT
+// =============================================
+function init() {
+  loadDB();
+  applyTheme();
 
-    // Headings: ## texto
-    html = html.replace(/^##\s+(.+)$/gm, '<h3>$1</h3>');
+  // Check recurring generation (once per month)
+  const lastGen = localStorage.getItem('ff_last_gen');
+  const nowKey = `${new Date().getFullYear()}-${new Date().getMonth()}`;
+  if (lastGen !== nowKey && db.recurring.some(r => r.active)) {
+    generateMonthlyRecurring();
+    localStorage.setItem('ff_last_gen', nowKey);
+  }
 
-    // Bold: **texto**
-    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  navigate('dashboard');
 
-    // Listas: - item
-    html = html.replace(/^-\s+(.+)$/gm, '<li>$1</li>');
-    html = html.replace(/(<li>.*<\/li>\n?)+/gs, (match) => `<ul>${match}</ul>`);
+  // Splash hide
+  setTimeout(() => {
+    const splash = document.getElementById('splash');
+    splash.style.opacity = '0';
+    splash.style.transition = 'opacity .4s';
+    setTimeout(() => { splash.style.display = 'none'; document.getElementById('app').classList.remove('hidden'); }, 400);
+  }, 800);
 
-    // Parágrafos: \n\n
-    html = html.replace(/\n\n+/g, '</p><p>');
-    html = `<p>${html}</p>`;
-
-    // Limpeza: não envolver h3 e ul dentro de p
-    html = html.replace(/<p>(<h3>)/g, '$1');
-    html = html.replace(/(<\/h3>)<\/p>/g, '$1');
-    html = html.replace(/<p>(<ul>)/g, '$1');
-    html = html.replace(/(<\/ul>)<\/p>/g, '$1');
-    html = html.replace(/<p><\/p>/g, '');
-
-    return html;
+  registerSW();
 }
 
-async function generateAIContent() {
-    const apiKey = localStorage.getItem(API_KEY_STORAGE);
-    if (!apiKey) {
-        showToast('Configure a chave API nas Configurações');
-        toggleAIStudy(false);
-        toggleSettings(true);
-        return;
-    }
-
-    const s = STATE.sermons.find(x => x.id === STATE.currentId);
-    const title = s ? (s.title || 'Sem título') : 'Sem título';
-    const ref = s ? (s.ref || '') : '';
-    const content = s ? s.content.map(b => b.text).filter(Boolean).join('\n') : '';
-
-    const contentEl = document.getElementById('aiStudyContent');
-    const btn = document.getElementById('btn-generate-study');
-    contentEl.innerHTML = `<div style="text-align:center; padding:40px; color:var(--text-muted); font-family:var(--font-ui);"><div style="font-size:32px; margin-bottom:16px">⏳</div><p>Gerando com IA...</p></div>`;
-    btn.disabled = true;
-    btn.textContent = 'Gerando...';
-
-    const isDevotional = aiCurrentMode === 'devotional';
-
-    const prompt = isDevotional
-        ? `Você é um pastor experiente. Com base na mensagem abaixo, gere um devocional completo em português brasileiro para leitura diária.
-
-**Título da Mensagem:** ${title}
-**Referência Bíblica:** ${ref}
-**Conteúdo da Mensagem:**
-${content}
-
-Estruture o devocional com:
-
-## Título do Devocional
-(título inspirador relacionado ao tema)
-
-## Texto Base
-(versículo principal do dia)
-
-## Contexto Bíblico
-(breve explicação do contexto histórico e espiritual)
-
-## Reflexão
-(3 parágrafos de meditação espiritual profunda baseados no texto)
-
-## Aplicação Pessoal
-(como viver este ensinamento hoje na prática)
-
-## Oração
-(oração pessoal baseada no tema)
-
-## Declaração de Fé
-(uma afirmação de fé para declarar ao longo do dia)`
-        : `Você é um pastor experiente. Com base na mensagem abaixo, gere um estudo de células completo em português brasileiro.
-
-**Título da Mensagem:** ${title}
-**Referência Bíblica:** ${ref}
-**Conteúdo da Mensagem:**
-${content}
-
-Estruture o estudo de células com:
-
-## Tema
-(tema central do estudo)
-
-## Texto Base
-(versículo(s) principal(is))
-
-## Aquecimento
-(1 pergunta quebra-gelo para iniciar a conversa)
-
-## Estudo Bíblico
-(4 perguntas de estudo baseadas no texto bíblico e na mensagem)
-
-## Aplicação Prática
-(3 pontos práticos de aplicação para a semana)
-
-## Oração Sugerida
-(uma oração curta relacionada ao tema)
-
-## Versículo para Memorizar
-(um versículo para a semana)`;
-
-    try {
-        const res = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': apiKey,
-                'anthropic-version': '2023-06-01',
-                'anthropic-dangerous-direct-browser-access': 'true'
-            },
-            body: JSON.stringify({
-                model: 'claude-opus-4-8',
-                max_tokens: 2048,
-                messages: [{ role: 'user', content: prompt }]
-            })
-        });
-
-        if (!res.ok) {
-            if (res.status === 401) {
-                contentEl.innerHTML = `<p style="color:var(--danger); padding:20px;">Chave API inválida. Verifique nas configurações.</p>`;
-            } else {
-                const errData = await res.json().catch(() => ({}));
-                contentEl.innerHTML = `<p style="color:var(--danger); padding:20px;">Erro ${res.status}: ${errData.error?.message || 'Erro desconhecido. Tente novamente.'}</p>`;
-            }
-            return;
-        }
-
-        const data = await res.json();
-        const text = data.content && data.content[0] ? data.content[0].text : '';
-        contentEl.innerHTML = renderMarkdown(text);
-
-    } catch (err) {
-        contentEl.innerHTML = `<p style="color:var(--danger); padding:20px;">Erro de conexão: ${escapeHtml(err.message || 'Verifique sua internet e tente novamente.')}</p>`;
-    } finally {
-        btn.disabled = false;
-        btn.textContent = '✦ Gerar com IA';
-    }
-}
-
-function exportAIStudyPDF() {
-    const s = STATE.sermons.find(x => x.id === STATE.currentId);
-    const sermonTitle = s ? (s.title || 'Mensagem') : 'Mensagem';
-    const typeLabel = aiCurrentMode === 'devotional' ? 'Devocional' : 'Estudo de Células';
-    const content = document.getElementById('aiStudyContent').innerHTML;
-
-    const win = window.open('', '_blank');
-    if (!win) { showToast('Permita pop-ups para exportar PDF'); return; }
-
-    win.document.write(`<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="UTF-8">
-<title>${escapeHtml(sermonTitle)} - ${escapeHtml(typeLabel)}</title>
-<style>
-  body { font-family: 'Georgia', serif; max-width: 800px; margin: 40px auto; padding: 0 24px; color: #111; font-size: 14pt; line-height: 1.7; }
-  h1 { font-size: 24pt; font-weight: 800; text-align: center; margin-bottom: 8px; }
-  h2 { font-size: 14pt; color: #7C3AED; text-align: center; margin-bottom: 32px; }
-  h3 { font-size: 16pt; font-weight: 700; color: #7C3AED; border-bottom: 1px solid #e5e7eb; padding-bottom: 4px; margin: 24px 0 12px 0; }
-  p { margin: 0 0 12px 0; }
-  ul, ol { margin: 0 0 12px 0; padding-left: 20px; }
-  li { margin-bottom: 6px; }
-  strong { font-weight: 700; }
-  @media print { body { margin: 0; padding: 24px; } }
-</style>
-</head>
-<body>
-<h1>${escapeHtml(sermonTitle)}</h1>
-<h2>${escapeHtml(typeLabel)}</h2>
-${content}
-</body>
-</html>`);
-
-    win.document.close();
-    setTimeout(() => { win.focus(); win.print(); }, 500);
-}
-
-// ---- UTILITIES ----
-
-let toastTimer;
-function showToast(msg) {
-    let toast = document.getElementById('toast');
-    if (!toast) {
-        toast = document.createElement('div');
-        toast.id = 'toast';
-        document.body.appendChild(toast);
-    }
-    toast.textContent = msg;
-    toast.classList.add('show');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => toast.classList.remove('show'), 2800);
-}
-
-function escapeHtml(str) {
-    if (!str) return '';
-    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
+document.addEventListener('DOMContentLoaded', init);
