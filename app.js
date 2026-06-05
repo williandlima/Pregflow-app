@@ -95,6 +95,7 @@ function bindEvents() {
     document.getElementById('btn-fmt-italic').addEventListener('mousedown', (e) => { e.preventDefault(); formatText('italic'); });
     document.getElementById('btn-fmt-underline').addEventListener('mousedown', (e) => { e.preventDefault(); formatText('underline'); });
     document.getElementById('btn-fmt-strike').addEventListener('mousedown', (e) => { e.preventDefault(); formatText('strikeThrough'); });
+    document.getElementById('btn-highlight').addEventListener('mousedown', (e) => { e.preventDefault(); document.execCommand('backColor', false, '#FEF08A'); });
     document.getElementById('btn-fmt-clear').addEventListener('mousedown', (e) => { e.preventDefault(); formatText('removeFormat'); });
 
     // Cores de texto
@@ -174,27 +175,6 @@ function bindEvents() {
         if (card) openSermon(parseInt(card.dataset.sermonId));
     });
 
-    // Mobile: pin toolbar above virtual keyboard when it opens
-    if ('visualViewport' in window) {
-        window.visualViewport.addEventListener('resize', () => {
-            const editorActive = document.getElementById('editorScreen').style.display !== 'none';
-            const toolbar = document.querySelector('.toolbar-sticky');
-            if (!toolbar || !editorActive) return;
-            const kbHeight = window.innerHeight - window.visualViewport.height;
-            if (kbHeight > 100) {
-                toolbar.style.cssText = [
-                    'position:fixed',
-                    'top:auto',
-                    `bottom:${kbHeight}px`,
-                    'left:8px', 'right:8px',
-                    'z-index:1000',
-                    'margin-bottom:0'
-                ].join(';');
-            } else {
-                toolbar.style.cssText = '';
-            }
-        });
-    }
 }
 
 // ---- PERSISTENCE ----
