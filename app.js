@@ -2,7 +2,11 @@
 
 const DB_KEY = 'pregflow_db';
 const THEME_KEY = 'pregflow_theme';
+const API_KEY_STORAGE = 'pregflow_api_key';
 const DB_VERSION = 1;
+
+// ---- UNDO STACK ----
+const undoStack = [];
 
 const STATE = {
     sermons: [],
@@ -12,6 +16,9 @@ const STATE = {
     isRunning: false
 };
 
+// Rastreia o bloco em foco
+let focusedBlock = null;
+
 // ---- INIT ----
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -19,6 +26,13 @@ document.addEventListener('DOMContentLoaded', () => {
     applyTheme();
     initBibleData();
     bindEvents();
+
+    // Pré-carregar API key salva no campo de configurações
+    const savedKey = localStorage.getItem(API_KEY_STORAGE);
+    if (savedKey) {
+        const apiInput = document.getElementById('apiKeyInput');
+        if (apiInput) apiInput.value = savedKey;
+    }
 
     setTimeout(() => {
         const splash = document.getElementById('splash');
@@ -64,14 +78,30 @@ function bindEvents() {
     document.getElementById('btn-bible').addEventListener('click', () => toggleBible(true));
     document.getElementById('btn-preach').addEventListener('click', startPreachMode);
 
-    // Toolbar
+    // Toolbar: Novo bloco
     document.getElementById('btn-new-block').addEventListener('mousedown', addNewBlock);
-    document.getElementById('btn-move-up').addEventListener('mousedown', (e) => { e.preventDefault(); moveBlock(-1); });
-    document.getElementById('btn-move-down').addEventListener('mousedown', (e) => { e.preventDefault(); moveBlock(1); });
 
+    // Toolbar: Mover blocos
+    document.getElementById('btn-move-up').addEventListener('mousedown', (e) => { e.preventDefault(); saveSnapshot(); moveBlock(-1); });
+    document.getElementById('btn-move-down').addEventListener('mousedown', (e) => { e.preventDefault(); saveSnapshot(); moveBlock(1); });
+
+    // Toolbar: Formato de bloco
     document.querySelectorAll('[data-format]').forEach(btn => {
-        btn.addEventListener('mousedown', (e) => applyFormat(e, btn.dataset.format));
+        btn.addEventListener('mousedown', (e) => { saveSnapshot(); applyFormat(e, btn.dataset.format); });
     });
+
+    // Toolbar: Formatação inline
+    document.getElementById('btn-fmt-bold').addEventListener('mousedown', (e) => { e.preventDefault(); formatText('bold'); });
+    document.getElementById('btn-fmt-italic').addEventListener('mousedown', (e) => { e.preventDefault(); formatText('italic'); });
+    document.getElementById('btn-fmt-underline').addEventListener('mousedown', (e) => { e.preventDefault(); formatText('underline'); });
+
+    // Toolbar: Ações
+    document.getElementById('btn-done').addEventListener('mousedown', (e) => { e.preventDefault(); toggleBlockDone(); });
+    document.getElementById('btn-delete-block').addEventListener('mousedown', (e) => { e.preventDefault(); deleteCurrentBlock(); });
+    document.getElementById('btn-undo').addEventListener('mousedown', (e) => { e.preventDefault(); undoAction(); });
+
+    // Toolbar: IA
+    document.getElementById('btn-ai-study').addEventListener('mousedown', (e) => { e.preventDefault(); toggleAIStudy(true); });
 
     // Preach HUD
     document.getElementById('btn-font-dec').addEventListener('click', () => adjustFont(-4));
@@ -79,6 +109,7 @@ function bindEvents() {
     document.getElementById('btn-font-inc').addEventListener('click', () => adjustFont(4));
     document.getElementById('btn-exit-preach').addEventListener('click', exitPreach);
     document.getElementById('hud-tap-zone').addEventListener('click', toggleHud);
+    document.getElementById('btn-ministrado').addEventListener('click', markCurrentPreachBlockDone);
 
     // Bible modal
     document.getElementById('bibleModal').addEventListener('click', (e) => {
@@ -87,6 +118,13 @@ function bindEvents() {
     document.getElementById('btn-bible-close').addEventListener('click', () => toggleBible(false));
     document.getElementById('bibleBook').addEventListener('change', loadChapters);
     document.getElementById('bibleChapter').addEventListener('change', fetchBibleText);
+
+    // Bible search com debounce
+    let bibleSearchTimer;
+    document.getElementById('bibleSearch').addEventListener('input', (e) => {
+        clearTimeout(bibleSearchTimer);
+        bibleSearchTimer = setTimeout(() => handleBibleSearch(e.target.value.trim()), 600);
+    });
 
     // Settings modal
     document.getElementById('settingsModal').addEventListener('click', (e) => {
@@ -97,6 +135,18 @@ function bindEvents() {
     document.getElementById('btn-backup-dl').addEventListener('click', downloadBackup);
     document.getElementById('btn-backup-restore').addEventListener('click', () => document.getElementById('fileInput').click());
     document.getElementById('fileInput').addEventListener('change', (e) => restoreBackup(e.target));
+
+    // API Key
+    document.getElementById('btn-save-api-key').addEventListener('click', saveApiKey);
+    document.getElementById('apiKeyInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') saveApiKey(); });
+
+    // AI Study modal
+    document.getElementById('aiStudyModal').addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) toggleAIStudy(false);
+    });
+    document.getElementById('btn-ai-close').addEventListener('click', () => toggleAIStudy(false));
+    document.getElementById('btn-generate-study').addEventListener('click', generateAIStudy);
+    document.getElementById('btn-export-study').addEventListener('click', exportAIStudyPDF);
 
     // Event delegation for dynamic sermon cards
     document.getElementById('sermonList').addEventListener('click', (e) => {
@@ -137,8 +187,34 @@ function performSave() {
     s.ref = document.getElementById('docRef').value;
     s.updated = Date.now();
     const domBlocks = document.querySelectorAll('#editorBlocks .block');
-    s.content = Array.from(domBlocks).map(b => ({ type: b.dataset.type, text: b.innerText }));
+    s.content = Array.from(domBlocks).map(b => ({
+        type: b.dataset.type,
+        text: b.innerText,
+        done: b.dataset.done === 'true'
+    }));
     saveDB();
+}
+
+// ---- UNDO ----
+
+function saveSnapshot() {
+    const domBlocks = document.querySelectorAll('#editorBlocks .block');
+    const snapshot = Array.from(domBlocks).map(b => ({
+        type: b.dataset.type,
+        text: b.innerText,
+        done: b.dataset.done === 'true'
+    }));
+    undoStack.push(JSON.stringify(snapshot));
+    if (undoStack.length > 30) undoStack.shift();
+}
+
+function undoAction() {
+    if (undoStack.length === 0) { showToast('Nada para desfazer'); return; }
+    const snapshot = JSON.parse(undoStack.pop());
+    const container = document.getElementById('editorBlocks');
+    container.innerHTML = '';
+    snapshot.forEach(b => createBlockUI(b.type, b.text, null, b.done));
+    triggerSave();
 }
 
 // ---- SCREENS ----
@@ -185,6 +261,7 @@ function renderList() {
 
 function openSermon(id) {
     STATE.currentId = id;
+    undoStack.length = 0;
     const s = STATE.sermons.find(x => x.id === id);
     document.getElementById('docTitle').value = s.title;
     document.getElementById('docRef').value = s.ref;
@@ -193,14 +270,14 @@ function openSermon(id) {
 
     const container = document.getElementById('editorBlocks');
     container.innerHTML = '';
-    const blocks = s.content.length ? s.content : [{ type: 'p', text: '' }];
-    blocks.forEach(b => createBlockUI(b.type, b.text));
+    const blocks = s.content.length ? s.content : [{ type: 'p', text: '', done: false }];
+    blocks.forEach(b => createBlockUI(b.type, b.text, null, b.done));
     showScreen('editorScreen');
 }
 
 function createNewSermon() {
     const id = Date.now();
-    STATE.sermons.push({ id, title: '', ref: '', content: [{ type: 'p', text: '' }], updated: id });
+    STATE.sermons.push({ id, title: '', ref: '', content: [{ type: 'p', text: '', done: false }], updated: id });
     openSermon(id);
 }
 
@@ -215,7 +292,7 @@ function goHome() { performSave(); renderList(); showScreen('homeScreen'); }
 
 // ---- EDITOR BLOCKS ----
 
-function createBlockUI(type, text, after = null) {
+function createBlockUI(type, text, after = null, done = false) {
     const div = document.createElement('div');
     div.className = 'block';
     if (type === 'quote') div.classList.add('preach-quote');
@@ -226,6 +303,10 @@ function createBlockUI(type, text, after = null) {
     div.dataset.type = type;
     div.innerText = text;
     div.setAttribute('placeholder', getPlaceholder(type));
+
+    if (done) div.dataset.done = 'true';
+
+    div.addEventListener('focus', () => { focusedBlock = div; });
 
     div.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -258,14 +339,33 @@ function addNewBlock(e) {
     triggerSave();
 }
 
-function moveBlock(direction) {
+function getFocusedBlock() {
+    // Tenta via selection primeiro, depois cai para focusedBlock
     const sel = window.getSelection();
-    if (!sel.rangeCount) return;
-    let node = sel.anchorNode;
-    while (node && (!node.classList || !node.classList.contains('block'))) {
-        node = node.parentNode;
-        if (node === document.body) return;
+    if (sel && sel.rangeCount) {
+        let node = sel.anchorNode;
+        while (node && node !== document.body) {
+            if (node.classList && node.classList.contains('block')) return node;
+            node = node.parentNode;
+        }
     }
+    return focusedBlock;
+}
+
+function deleteCurrentBlock() {
+    const allBlocks = document.querySelectorAll('#editorBlocks .block');
+    if (allBlocks.length <= 1) { showToast('Mantenha pelo menos 1 bloco'); return; }
+    const block = getFocusedBlock();
+    if (!block) { showToast('Selecione um bloco para deletar'); return; }
+    saveSnapshot();
+    const prev = block.previousElementSibling || block.nextElementSibling;
+    block.remove();
+    if (prev) prev.focus();
+    triggerSave();
+}
+
+function moveBlock(direction) {
+    const node = getFocusedBlock();
     if (!node) return;
     if (direction === -1 && node.previousElementSibling) {
         node.parentNode.insertBefore(node, node.previousElementSibling);
@@ -278,19 +378,25 @@ function moveBlock(direction) {
 }
 
 function getPlaceholder(type) {
-    const map = { p: 'Comece a escrever...', h1: 'Título Principal', h2: 'Subtítulo', quote: 'Citação...', warn: 'Aviso...', box: 'Destaque...' };
+    const map = {
+        p: 'Comece a escrever...',
+        h1: 'Título Principal',
+        h2: 'Subtítulo',
+        h3: 'Subtópico...',
+        bullet: 'Ponto...',
+        quote: 'Citação...',
+        warn: 'Aviso...',
+        box: 'Destaque...'
+    };
     return map[type] || '...';
 }
 
 function applyFormat(e, type) {
     e.preventDefault();
-    const sel = window.getSelection();
-    let node = sel.anchorNode;
-    if (!sel.rangeCount || !node) {
+    const node = getFocusedBlock() || (() => {
         const blocks = document.querySelectorAll('.block');
-        node = blocks.length > 0 ? blocks[blocks.length - 1] : createBlockUI('p', '');
-    }
-    while (node && (!node.classList || !node.classList.contains('block'))) { node = node.parentNode; }
+        return blocks.length > 0 ? blocks[blocks.length - 1] : createBlockUI('p', '');
+    })();
     if (!node) return;
 
     node.className = 'block';
@@ -299,6 +405,8 @@ function applyFormat(e, type) {
     if (type === 'quote') node.classList.add('preach-quote');
     if (type === 'warn') node.classList.add('preach-warn');
     if (type === 'box') node.classList.add('preach-box');
+    // Manter o estado done ao mudar formato
+    if (node.dataset.done === 'true') node.dataset.done = 'true';
 
     document.querySelectorAll('.tool-chip').forEach(b => b.classList.remove('active'));
     const btn = e.target.closest('.tool-chip');
@@ -306,6 +414,22 @@ function applyFormat(e, type) {
 
     triggerSave();
     node.focus();
+}
+
+// ---- INLINE FORMATTING ----
+
+function formatText(command) {
+    document.execCommand(command, false, null);
+}
+
+// ---- DONE (MINISTRADO) ----
+
+function toggleBlockDone() {
+    const block = getFocusedBlock();
+    if (!block) { showToast('Selecione um bloco'); return; }
+    const isDone = block.dataset.done === 'true';
+    block.dataset.done = isDone ? 'false' : 'true';
+    triggerSave();
 }
 
 // ---- BIBLE ----
@@ -351,6 +475,84 @@ function loadChapters() {
     fetchBibleText();
 }
 
+// ---- BIBLE SEARCH ----
+
+function parseBibleRef(query) {
+    const regex = /^(.+?)\s+(\d+)(?::(\d+))?$/;
+    const match = query.match(regex);
+    if (!match) return null;
+
+    const bookQuery = match[1].trim().toLowerCase();
+    const chapter = parseInt(match[2]);
+    const verse = match[3] ? parseInt(match[3]) : null;
+
+    // Busca por nome exato, startsWith e includes
+    let bookIdx = bibleBooks.findIndex(b => b.n.toLowerCase() === bookQuery);
+    if (bookIdx === -1) bookIdx = bibleBooks.findIndex(b => b.n.toLowerCase().startsWith(bookQuery));
+    if (bookIdx === -1) bookIdx = bibleBooks.findIndex(b => b.n.toLowerCase().includes(bookQuery));
+
+    if (bookIdx === -1 || chapter < 1 || chapter > bibleBooks[bookIdx].c) return null;
+    return { bookIdx, chapter, verse };
+}
+
+async function handleBibleSearch(query) {
+    if (!query) {
+        // Limpar destaques
+        document.querySelectorAll('.verse-item.highlighted').forEach(el => el.classList.remove('highlighted'));
+        return;
+    }
+
+    const ref = parseBibleRef(query);
+
+    if (ref) {
+        // Navegar para o livro/capítulo e destacar versículo
+        const bookSel = document.getElementById('bibleBook');
+        const chapSel = document.getElementById('bibleChapter');
+
+        bookSel.value = ref.bookIdx;
+
+        // Rebuild chapters for new book
+        chapSel.innerHTML = '';
+        for (let i = 1; i <= bibleBooks[ref.bookIdx].c; i++) {
+            const opt = document.createElement('option');
+            opt.value = i;
+            opt.textContent = i;
+            chapSel.appendChild(opt);
+        }
+        chapSel.value = ref.chapter;
+
+        await fetchBibleText();
+
+        if (ref.verse) {
+            // Destacar o versículo específico
+            const items = document.querySelectorAll('.verse-item');
+            items.forEach(item => item.classList.remove('highlighted'));
+            if (items[ref.verse - 1]) {
+                items[ref.verse - 1].classList.add('highlighted');
+                items[ref.verse - 1].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+    } else {
+        // Buscar texto dentro do capítulo carregado
+        const items = document.querySelectorAll('.verse-item');
+        const lowerQuery = query.toLowerCase();
+        let found = false;
+        items.forEach(item => {
+            const textEl = item.querySelector('.verse-text');
+            if (textEl && textEl.textContent.toLowerCase().includes(lowerQuery)) {
+                item.classList.add('highlighted');
+                if (!found) {
+                    item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    found = true;
+                }
+            } else {
+                item.classList.remove('highlighted');
+            }
+        });
+        if (!found && items.length > 0) showToast('Nenhum versículo encontrado');
+    }
+}
+
 async function fetchWithRetry(url, maxRetries = 3) {
     for (let attempt = 0; attempt < maxRetries; attempt++) {
         try {
@@ -390,6 +592,7 @@ async function fetchBibleText() {
 
             const item = document.createElement('div');
             item.className = 'verse-item';
+            item.dataset.verse = v.verse;
 
             const textEl = document.createElement('div');
             textEl.className = 'verse-text';
@@ -444,10 +647,15 @@ function toggleBible(show) {
     if (show) {
         const display = document.getElementById('bibleText');
         if (!display.querySelector('.verse-item')) fetchBibleText();
+        // Limpar busca ao abrir
+        document.getElementById('bibleSearch').value = '';
     }
 }
 
 // ---- PREACH MODE ----
+
+// Índice do bloco em foco no modo pregação
+let preachFocusIndex = 0;
 
 function startPreachMode() {
     performSave();
@@ -459,19 +667,49 @@ function startPreachMode() {
         <p style="font-size:1.2em; color:var(--primary); margin:10px 0 0 0; font-weight:600; font-family:var(--font-ui)">${escapeHtml(s.ref)}</p>
     </div>`;
 
-    s.content.forEach(b => {
+    s.content.forEach((b, idx) => {
         const txt = escapeHtml(b.text) || '&nbsp;';
-        if (b.type === 'h1') html += `<h2 style="font-size:1.6em; margin-top:40px; line-height:1.2; font-weight:800; font-family:var(--font-ui)">${txt}</h2>`;
-        else if (b.type === 'h2') html += `<h3 style="color:var(--primary); margin-top:30px; font-size:1.3em; font-family:var(--font-ui)">${txt}</h3>`;
-        else if (b.type === 'quote') html += `<div class="preach-quote">${txt}</div>`;
-        else if (b.type === 'warn') html += `<div class="preach-warn">${txt}</div>`;
-        else if (b.type === 'box') html += `<div class="preach-box">${txt}</div>`;
-        else html += `<p style="margin-bottom:20px">${txt}</p>`;
+        const doneStyle = b.done ? ' preach-block-done' : '';
+        const dataAttr = `data-preach-idx="${idx}"`;
+
+        if (b.type === 'h1') html += `<h2 ${dataAttr} class="${doneStyle}" style="font-size:1.6em; margin-top:40px; line-height:1.2; font-weight:800; font-family:var(--font-ui)">${txt}</h2>`;
+        else if (b.type === 'h2') html += `<h3 ${dataAttr} class="${doneStyle}" style="color:var(--primary); margin-top:30px; font-size:1.3em; font-family:var(--font-ui)">${txt}</h3>`;
+        else if (b.type === 'h3') html += `<p ${dataAttr} class="${doneStyle}" style="font-family:var(--font-ui);font-size:0.8em;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-secondary);margin-top:20px;">${txt}</p>`;
+        else if (b.type === 'bullet') html += `<p ${dataAttr} class="${doneStyle}" style="padding-left:36px; position:relative;"><span style="position:absolute;left:14px;color:var(--primary);font-size:1.2em;">›</span>${txt}</p>`;
+        else if (b.type === 'quote') html += `<div ${dataAttr} class="preach-quote${doneStyle}">${txt}</div>`;
+        else if (b.type === 'warn') html += `<div ${dataAttr} class="preach-warn${doneStyle}">${txt}</div>`;
+        else if (b.type === 'box') html += `<div ${dataAttr} class="preach-box${doneStyle}">${txt}</div>`;
+        else html += `<p ${dataAttr} class="${doneStyle}" style="margin-bottom:20px">${txt}</p>`;
     });
 
+    preachFocusIndex = 0;
     document.getElementById('preachContent').innerHTML = html;
+
+    // Clique em blocos do modo pregação atualiza preachFocusIndex
+    document.getElementById('preachContent').addEventListener('click', (e) => {
+        const el = e.target.closest('[data-preach-idx]');
+        if (el) preachFocusIndex = parseInt(el.dataset.preachIdx);
+    });
+
     showScreen('preachScreen');
     resetTimer();
+}
+
+function markCurrentPreachBlockDone() {
+    // Marcar o bloco no dado salvo e atualizar o DOM do modo pregação
+    const s = STATE.sermons.find(x => x.id === STATE.currentId);
+    if (!s || !s.content[preachFocusIndex]) return;
+
+    s.content[preachFocusIndex].done = !s.content[preachFocusIndex].done;
+    saveDB();
+
+    // Atualizar visual no preachContent
+    const el = document.querySelector(`[data-preach-idx="${preachFocusIndex}"]`);
+    if (el) {
+        el.classList.toggle('preach-block-done', s.content[preachFocusIndex].done);
+    }
+
+    showToast(s.content[preachFocusIndex].done ? 'Tópico marcado como ministrado' : 'Marcação removida');
 }
 
 function exitPreach() {
@@ -530,11 +768,23 @@ function resetTimer() {
 
 function toggleSettings(show) {
     document.getElementById('settingsModal').classList.toggle('active', show);
+    if (show) {
+        // Preencher campo com chave salva
+        const saved = localStorage.getItem(API_KEY_STORAGE);
+        if (saved) document.getElementById('apiKeyInput').value = saved;
+    }
 }
 
 function toggleTheme() {
     document.body.classList.toggle('dark');
     localStorage.setItem(THEME_KEY, document.body.classList.contains('dark') ? 'dark' : 'light');
+}
+
+function saveApiKey() {
+    const key = document.getElementById('apiKeyInput').value.trim();
+    if (!key) { showToast('Digite uma chave API válida'); return; }
+    localStorage.setItem(API_KEY_STORAGE, key);
+    showToast('Chave API salva com sucesso!');
 }
 
 function downloadBackup() {
@@ -582,6 +832,167 @@ function restoreBackup(input) {
         input.value = '';
     };
     reader.readAsText(f);
+}
+
+// ---- AI STUDY ----
+
+function toggleAIStudy(show) {
+    document.getElementById('aiStudyModal').classList.toggle('active', show);
+}
+
+function renderMarkdown(text) {
+    // Simples renderer: **bold**, ## heading, - item, \n\n parágrafo
+    let html = text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+
+    // Headings: ## texto
+    html = html.replace(/^##\s+(.+)$/gm, '<h3>$1</h3>');
+
+    // Bold: **texto**
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+
+    // Listas: - item
+    html = html.replace(/^-\s+(.+)$/gm, '<li>$1</li>');
+    html = html.replace(/(<li>.*<\/li>\n?)+/gs, (match) => `<ul>${match}</ul>`);
+
+    // Parágrafos: \n\n
+    html = html.replace(/\n\n+/g, '</p><p>');
+    html = `<p>${html}</p>`;
+
+    // Limpeza: não envolver h3 e ul dentro de p
+    html = html.replace(/<p>(<h3>)/g, '$1');
+    html = html.replace(/(<\/h3>)<\/p>/g, '$1');
+    html = html.replace(/<p>(<ul>)/g, '$1');
+    html = html.replace(/(<\/ul>)<\/p>/g, '$1');
+    html = html.replace(/<p><\/p>/g, '');
+
+    return html;
+}
+
+async function generateAIStudy() {
+    const apiKey = localStorage.getItem(API_KEY_STORAGE);
+    if (!apiKey) {
+        showToast('Configure a chave API nas Configurações');
+        toggleAIStudy(false);
+        toggleSettings(true);
+        return;
+    }
+
+    const s = STATE.sermons.find(x => x.id === STATE.currentId);
+    const title = s ? (s.title || 'Sem título') : 'Sem título';
+    const ref = s ? (s.ref || '') : '';
+    const content = s ? s.content.map(b => b.text).filter(Boolean).join('\n') : '';
+
+    const contentEl = document.getElementById('aiStudyContent');
+    const btn = document.getElementById('btn-generate-study');
+    contentEl.innerHTML = `<div style="text-align:center; padding:40px; color:var(--text-muted); font-family:var(--font-ui);"><div style="font-size:32px; margin-bottom:16px">⏳</div><p>Gerando estudo com IA...</p></div>`;
+    btn.disabled = true;
+    btn.textContent = 'Gerando...';
+
+    const prompt = `Você é um pastor experiente. Com base na mensagem abaixo, gere um estudo de células completo em português brasileiro.
+
+**Título da Mensagem:** ${title}
+**Referência Bíblica:** ${ref}
+**Conteúdo da Mensagem:**
+${content}
+
+Estruture o estudo de células com:
+
+## Tema
+(tema central do estudo)
+
+## Texto Base
+(versículo(s) principal(is))
+
+## Aquecimento
+(1 pergunta quebra-gelo para iniciar a conversa)
+
+## Estudo Bíblico
+(4 perguntas de estudo baseadas no texto bíblico e na mensagem)
+
+## Aplicação Prática
+(3 pontos práticos de aplicação para a semana)
+
+## Oração Sugerida
+(uma oração curta relacionada ao tema)
+
+## Versículo para Memorizar
+(um versículo para a semana)`;
+
+    try {
+        const res = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': apiKey,
+                'anthropic-version': '2023-06-01',
+                'anthropic-dangerous-direct-browser-access': 'true'
+            },
+            body: JSON.stringify({
+                model: 'claude-opus-4-8',
+                max_tokens: 2048,
+                messages: [{ role: 'user', content: prompt }]
+            })
+        });
+
+        if (!res.ok) {
+            if (res.status === 401) {
+                contentEl.innerHTML = `<p style="color:var(--danger); padding:20px;">Chave API inválida. Verifique nas configurações.</p>`;
+            } else {
+                const errData = await res.json().catch(() => ({}));
+                contentEl.innerHTML = `<p style="color:var(--danger); padding:20px;">Erro ${res.status}: ${errData.error?.message || 'Erro desconhecido. Tente novamente.'}</p>`;
+            }
+            return;
+        }
+
+        const data = await res.json();
+        const text = data.content && data.content[0] ? data.content[0].text : '';
+        contentEl.innerHTML = renderMarkdown(text);
+
+    } catch (err) {
+        contentEl.innerHTML = `<p style="color:var(--danger); padding:20px;">Erro de conexão: ${escapeHtml(err.message || 'Verifique sua internet e tente novamente.')}</p>`;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '✦ Gerar Estudo com IA';
+    }
+}
+
+function exportAIStudyPDF() {
+    const s = STATE.sermons.find(x => x.id === STATE.currentId);
+    const title = s ? (s.title || 'Estudo de Células') : 'Estudo de Células';
+    const content = document.getElementById('aiStudyContent').innerHTML;
+
+    const win = window.open('', '_blank');
+    if (!win) { showToast('Permita pop-ups para exportar PDF'); return; }
+
+    win.document.write(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>${escapeHtml(title)} - Estudo de Células</title>
+<style>
+  body { font-family: 'Georgia', serif; max-width: 800px; margin: 40px auto; padding: 0 24px; color: #111; font-size: 14pt; line-height: 1.7; }
+  h1 { font-size: 24pt; font-weight: 800; text-align: center; margin-bottom: 8px; }
+  h2 { font-size: 14pt; color: #7C3AED; text-align: center; margin-bottom: 32px; }
+  h3 { font-size: 16pt; font-weight: 700; color: #7C3AED; border-bottom: 1px solid #e5e7eb; padding-bottom: 4px; margin: 24px 0 12px 0; }
+  p { margin: 0 0 12px 0; }
+  ul, ol { margin: 0 0 12px 0; padding-left: 20px; }
+  li { margin-bottom: 6px; }
+  strong { font-weight: 700; }
+  @media print { body { margin: 0; padding: 24px; } }
+</style>
+</head>
+<body>
+<h1>${escapeHtml(title)}</h1>
+<h2>Estudo de Células</h2>
+${content}
+</body>
+</html>`);
+
+    win.document.close();
+    setTimeout(() => { win.focus(); win.print(); }, 500);
 }
 
 // ---- UTILITIES ----
