@@ -167,6 +167,27 @@ function bindEvents() {
         });
     });
 
+    // Barra flutuante — formatação de bloco
+    document.querySelectorAll('#floatingBar [data-format]').forEach(btn => {
+        btn.addEventListener('mousedown', (e) => { saveSnapshot(); applyFormat(e, btn.dataset.format); });
+    });
+    // Barra flutuante — cores
+    document.querySelectorAll('#floatingBar .fcolor').forEach(btn => {
+        btn.addEventListener('mousedown', (e) => { e.preventDefault(); document.execCommand('foreColor', false, btn.dataset.color); });
+    });
+    // Barra flutuante — inline
+    document.getElementById('fbt-bold').addEventListener('mousedown', (e) => { e.preventDefault(); formatText('bold'); });
+    document.getElementById('fbt-italic').addEventListener('mousedown', (e) => { e.preventDefault(); formatText('italic'); });
+    document.getElementById('fbt-underline').addEventListener('mousedown', (e) => { e.preventDefault(); formatText('underline'); });
+    // Barra flutuante — ações
+    document.getElementById('fbt-new').addEventListener('mousedown', addNewBlock);
+    document.getElementById('fbt-del').addEventListener('mousedown', (e) => { e.preventDefault(); deleteCurrentBlock(); });
+
+    // Scroll do editor: reposicionar barra flutuante
+    document.getElementById('editorScreen').addEventListener('scroll', () => {
+        if (focusedBlock) updateFloatingBar(focusedBlock);
+    });
+
     // Event delegation for dynamic sermon cards
     document.getElementById('sermonList').addEventListener('click', (e) => {
         const deleteBtn = e.target.closest('[data-delete-id]');
@@ -316,7 +337,26 @@ function setEditorHeader(show) {
     if (h) h.style.display = show ? 'block' : 'none';
 }
 
-function goHome() { performSave(); setEditorHeader(false); renderList(); showScreen('homeScreen'); }
+function updateFloatingBar(block) {
+    const bar = document.getElementById('floatingBar');
+    if (!bar || !block) return;
+    const rect = block.getBoundingClientRect();
+    const headerH = 120;
+    const barH = 40;
+    const gap = 6;
+    let top = rect.top - barH - gap;
+    if (top < headerH + 4) top = rect.bottom + gap;
+    top = Math.min(top, window.innerHeight - barH - 8);
+    bar.style.top = top + 'px';
+    bar.classList.remove('hidden');
+}
+
+function hideFloatingBar() {
+    const bar = document.getElementById('floatingBar');
+    if (bar) bar.classList.add('hidden');
+}
+
+function goHome() { performSave(); setEditorHeader(false); hideFloatingBar(); renderList(); showScreen('homeScreen'); }
 
 // ---- EDITOR BLOCKS ----
 
@@ -336,8 +376,18 @@ function createBlockUI(type, text, after = null, done = false) {
 
     div.addEventListener('focus', () => {
         focusedBlock = div;
-        // Scroll para manter o bloco visível (especialmente no mobile com teclado)
-        setTimeout(() => div.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 300);
+        setTimeout(() => {
+            div.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            updateFloatingBar(div);
+        }, 300);
+    });
+
+    div.addEventListener('blur', () => {
+        setTimeout(() => {
+            if (!document.activeElement || !document.activeElement.classList.contains('block')) {
+                hideFloatingBar();
+            }
+        }, 150);
     });
 
     div.addEventListener('keydown', (e) => {
@@ -868,6 +918,7 @@ let preachFocusIndex = 0;
 
 function startPreachMode() {
     setEditorHeader(false);
+    hideFloatingBar();
     performSave();
     const s = STATE.sermons.find(x => x.id === STATE.currentId);
     if (!s) return;

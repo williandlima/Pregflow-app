@@ -139,6 +139,25 @@
     </div>
 </div>
 
+<!-- BARRA FLUTUANTE — acompanha o bloco em foco -->
+<div id="floatingBar" class="floating-bar hidden" onmousedown="event.preventDefault()">
+    <button class="ftool" data-format="topic" title="Tópico">1.</button>
+    <button class="ftool" data-format="subtopic" title="Subtópico">1.1</button>
+    <button class="ftool" data-format="bullet" title="Ponto">→</button>
+    <button class="ftool" data-format="p" title="Parágrafo">Aa</button>
+    <div class="ftool-div"></div>
+    <button class="ftool" id="fbt-bold" title="Negrito"><strong>B</strong></button>
+    <button class="ftool" id="fbt-italic" title="Itálico"><em style="font-style:italic">I</em></button>
+    <button class="ftool" id="fbt-underline" title="Sublinhado"><span style="text-decoration:underline">U</span></button>
+    <div class="ftool-div"></div>
+    <button class="ftool fcolor" data-color="#7C3AED" title="Roxo"><span style="font-weight:800;color:#7C3AED;border-bottom:2px solid #7C3AED;padding-bottom:1px">A</span></button>
+    <button class="ftool fcolor" data-color="#EF4444" title="Vermelho"><span style="font-weight:800;color:#EF4444;border-bottom:2px solid #EF4444;padding-bottom:1px">A</span></button>
+    <button class="ftool fcolor" data-color="#16A34A" title="Verde"><span style="font-weight:800;color:#16A34A;border-bottom:2px solid #16A34A;padding-bottom:1px">A</span></button>
+    <div class="ftool-div"></div>
+    <button class="ftool" id="fbt-new" title="Novo bloco">+ Novo</button>
+    <button class="ftool" id="fbt-del" title="Deletar bloco" style="color:var(--danger)">✕</button>
+</div>
+
 <!-- EDITOR SCREEN -->
 <div id="editorScreen" class="screen">
     <div class="input-wrapper">
