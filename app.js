@@ -294,6 +294,7 @@ function openSermon(id) {
     const blocks = s.content.length ? s.content : [{ type: 'p', text: '', done: false }];
     blocks.forEach(b => createBlockUI(b.type, b.text, null, b.done));
     updateOutlineNumbers();
+    setEditorHeader(true);
     showScreen('editorScreen');
 }
 
@@ -310,7 +311,12 @@ function deleteSermon(id) {
     renderList();
 }
 
-function goHome() { performSave(); renderList(); showScreen('homeScreen'); }
+function setEditorHeader(show) {
+    const h = document.querySelector('.editor-header');
+    if (h) h.style.display = show ? 'block' : 'none';
+}
+
+function goHome() { performSave(); setEditorHeader(false); renderList(); showScreen('homeScreen'); }
 
 // ---- EDITOR BLOCKS ----
 
@@ -538,6 +544,120 @@ function loadChapters() {
 
 // ---- BIBLE SEARCH ----
 
+// Índice de temas, personagens e palavras-chave → referências bíblicas
+const VERSE_INDEX = {
+    // Temas principais
+    'amor': ['1 João 4:8','João 3:16','1 Coríntios 13:4-7','Romanos 8:38-39','João 15:13','1 João 4:16'],
+    'fé': ['Hebreus 11:1','Romanos 10:17','Gálatas 2:20','Tiago 2:17','Marcos 11:22','2 Coríntios 5:7'],
+    'esperança': ['Romanos 5:5','Jeremias 29:11','Romanos 15:13','1 Pedro 1:3','Hebreus 6:19','Salmos 33:18'],
+    'graça': ['Efésios 2:8-9','João 1:17','2 Coríntios 12:9','Romanos 5:20','Tito 2:11'],
+    'salvação': ['João 3:16','Atos 4:12','Romanos 10:9-10','Efésios 2:8','Tito 3:5','Atos 16:31'],
+    'perdão': ['Salmos 103:12','Efésios 4:32','1 João 1:9','Mateus 6:14-15','Colossenses 3:13'],
+    'paz': ['João 14:27','Filipenses 4:7','Isaías 26:3','Romanos 5:1','Salmos 29:11','João 16:33'],
+    'oração': ['Mateus 6:9-13','Filipenses 4:6','1 Tessalonicenses 5:17','Tiago 5:16','Jeremias 33:3'],
+    'cura': ['Isaías 53:5','1 Pedro 2:24','Salmos 103:3','Êxodo 15:26','Tiago 5:14-15'],
+    'bênção': ['Números 6:24-26','Salmos 1:1','Efésios 1:3','Malaquias 3:10','João 1:16'],
+    'adoração': ['João 4:23-24','Salmos 100:1-4','Romanos 12:1','Salmos 95:6','Apocalipse 4:11'],
+    'louvor': ['Salmos 150:1-6','Salmos 34:1','Efésios 5:19','Salmos 113:1','Atos 16:25'],
+    'poder': ['Filipenses 4:13','2 Timóteo 1:7','Atos 1:8','Efésios 3:20','Isaías 40:31'],
+    'força': ['Filipenses 4:13','Isaías 40:31','Salmos 28:7','Efésios 6:10','Neemias 8:10'],
+    'vitória': ['1 Coríntios 15:57','Romanos 8:37','1 João 5:4','2 Coríntios 2:14'],
+    'humildade': ['Filipenses 2:3-4','Tiago 4:10','Provérbios 22:4','Mateus 23:12','1 Pedro 5:6'],
+    'santidade': ['1 Pedro 1:16','Levítico 11:44','Hebreus 12:14','1 Tessalonicenses 4:3'],
+    'sabedoria': ['Provérbios 1:7','Tiago 1:5','Provérbios 3:5-6','Colossenses 2:3','1 Reis 3:9'],
+    'confiança': ['Provérbios 3:5-6','Salmos 37:5','Isaías 26:4','Jeremias 17:7','Salmos 56:11'],
+    'alegria': ['Neemias 8:10','Filipenses 4:4','Salmos 16:11','João 15:11','Romanos 15:13'],
+    'sofrimento': ['Romanos 8:18','2 Coríntios 1:3-4','1 Pedro 5:10','Salmos 34:18','Romanos 5:3-5'],
+    'perseverança': ['Tiago 1:2-4','Hebreus 12:1','Romanos 5:3-4','Gálatas 6:9','2 Timóteo 4:7'],
+    'tentação': ['1 Coríntios 10:13','Tiago 1:12','Mateus 26:41','Hebreus 2:18'],
+    'pecado': ['Romanos 3:23','1 João 1:9','Isaías 59:2','Romanos 6:23','Salmos 51:1-2'],
+    'redenção': ['Efésios 1:7','Colossenses 1:14','Gálatas 3:13','1 Pedro 1:18-19'],
+    'propósito': ['Jeremias 29:11','Romanos 8:28','Efésios 2:10','Provérbios 19:21'],
+    'missão': ['Mateus 28:19-20','Marcos 16:15','Atos 1:8','João 20:21'],
+    'obediência': ['João 14:15','Deuteronômio 28:1-2','1 Samuel 15:22','Romanos 6:17'],
+    'prosperidade': ['3 João 1:2','Josué 1:8','Salmos 1:3','Provérbios 10:22'],
+    'provisão': ['Filipenses 4:19','Mateus 6:33','Salmos 23:1','2 Coríntios 9:8'],
+    'proteção': ['Salmos 91:1-4','Isaías 43:2','Salmos 121:1-8','Provérbios 18:10'],
+    'livramento': ['Salmos 34:17','Daniel 6:27','1 Coríntios 10:13','Salmos 91:14'],
+    'resurreicao': ['1 Coríntios 15:14','João 11:25','Romanos 6:4','Mateus 28:6'],
+    'ressurreição': ['1 Coríntios 15:14','João 11:25','Romanos 6:4','Mateus 28:6'],
+    'vida eterna': ['João 3:16','João 17:3','1 João 5:13','João 10:10','Romanos 6:23'],
+    'morte': ['João 11:25-26','Romanos 6:23','1 Coríntios 15:55','Salmos 23:4'],
+    // Família
+    'família': ['Josué 24:15','Efésios 6:1-4','Colossenses 3:18-21','Provérbios 22:6'],
+    'familia': ['Josué 24:15','Efésios 6:1-4','Colossenses 3:18-21','Provérbios 22:6'],
+    'filhos': ['Provérbios 22:6','Efésios 6:1-3','Salmos 127:3','Mateus 19:14'],
+    'casamento': ['Gênesis 2:24','Efésios 5:25-33','Hebreus 13:4','Mateus 19:6'],
+    // Deus / Jesus / Espírito
+    'deus': ['João 3:16','1 João 4:8','Gênesis 1:1','Romanos 8:28','Hebreus 11:6'],
+    'jesus': ['João 14:6','Filipenses 2:9-11','Mateus 1:21','Atos 4:12','João 1:1'],
+    'cristo': ['Filipenses 4:13','Gálatas 2:20','Romanos 8:1','Colossenses 1:27','2 Coríntios 5:17'],
+    'espírito santo': ['João 14:16-17','Atos 1:8','Gálatas 5:22-23','João 16:13'],
+    'espirito': ['João 14:16-17','Atos 1:8','Gálatas 5:22-23','Romanos 8:26'],
+    'espírito': ['João 14:16-17','Atos 1:8','Gálatas 5:22-23','Romanos 8:26'],
+    'trindade': ['Mateus 28:19','2 Coríntios 13:14','João 1:1-3'],
+    // Igreja / Reino
+    'reino': ['Mateus 6:33','Mateus 5:3','Lucas 17:21','Marcos 1:15'],
+    'igreja': ['Mateus 16:18','Efésios 5:25-27','Atos 2:42-47','1 Coríntios 12:27'],
+    'discipulado': ['Mateus 28:19-20','Lucas 9:23','João 8:31','2 Timóteo 2:2'],
+    'unidade': ['João 17:21','Salmos 133:1','Efésios 4:3','Colossenses 3:14'],
+    'frutos': ['Gálatas 5:22-23','João 15:5','Mateus 7:17-18','João 15:8'],
+    'dons': ['1 Coríntios 12:4-11','Romanos 12:6-8','Efésios 4:11-12','1 Pedro 4:10'],
+    'batismo': ['Mateus 28:19','Atos 2:38','Romanos 6:3-4','Marcos 16:16'],
+    // Personagens
+    'davi': ['1 Samuel 16:13','Salmos 23:1','Salmos 51:1','Atos 13:22','2 Samuel 7:8'],
+    'abraão': ['Gênesis 12:1-3','Hebreus 11:8','Romanos 4:3','Gálatas 3:9'],
+    'abrao': ['Gênesis 12:1-3','Hebreus 11:8','Romanos 4:3'],
+    'moisés': ['Êxodo 3:10','Hebreus 11:24-26','Números 12:3'],
+    'moises': ['Êxodo 3:10','Hebreus 11:24-26','Números 12:3'],
+    'paulo': ['Filipenses 4:11-13','Gálatas 2:20','2 Coríntios 12:9','Atos 9:15'],
+    'pedro': ['Mateus 16:18','João 21:17','Atos 2:14','1 Pedro 5:7'],
+    'maria': ['Lucas 1:38','Lucas 1:46-49','João 2:5'],
+    'noé': ['Gênesis 6:9','Hebreus 11:7','Gênesis 6:22'],
+    'noe': ['Gênesis 6:9','Hebreus 11:7'],
+    'josé': ['Gênesis 37:28','Gênesis 50:20','Atos 7:9-10'],
+    'jose': ['Gênesis 37:28','Gênesis 50:20'],
+    'salomão': ['1 Reis 3:9-14','Provérbios 1:1','1 Reis 4:29'],
+    'salomao': ['1 Reis 3:9-14','Provérbios 1:1'],
+    'elias': ['1 Reis 18:36-38','1 Reis 19:11-12','Tiago 5:17'],
+    'daniel': ['Daniel 3:17-18','Daniel 6:10','Daniel 1:8'],
+    'israel': ['Êxodo 3:10','Isaías 43:1','Romanos 11:26','Jeremias 31:31'],
+    // Palavras-chave
+    'luz': ['João 8:12','Mateus 5:14-16','Salmos 119:105','1 João 1:5'],
+    'sal': ['Mateus 5:13','Colossenses 4:6'],
+    'caminho': ['João 14:6','Provérbios 3:6','Salmos 16:11','Isaías 30:21'],
+    'verdade': ['João 14:6','João 8:32','João 17:17','Efésios 4:15'],
+    'vida': ['João 14:6','João 10:10','1 João 5:12','Deuteronômio 30:19'],
+    'porta': ['João 10:9','Apocalipse 3:20','Mateus 7:7-8'],
+    'pão': ['João 6:35','Mateus 6:11','João 6:48'],
+    'agua': ['João 4:14','João 7:38','Apocalipse 22:17'],
+    'água': ['João 4:14','João 7:38','Apocalipse 22:17'],
+    'sangue': ['1 Pedro 1:19','Hebreus 9:22','Apocalipse 1:5','1 João 1:7'],
+    'cruz': ['1 Coríntios 1:18','Gálatas 2:20','Filipenses 2:8','Colossenses 2:14'],
+    'glória': ['Romanos 8:18','João 17:22','2 Coríntios 3:18','Salmos 19:1'],
+    'gloria': ['Romanos 8:18','João 17:22','2 Coríntios 3:18'],
+    'armadura': ['Efésios 6:10-18'],
+    'armadura de deus': ['Efésios 6:10-18'],
+    'pai nosso': ['Mateus 6:9-13','Lucas 11:2-4'],
+    'salmo 23': ['Salmos 23:1-6'],
+    'bem-aventuranças': ['Mateus 5:3-12'],
+    'novo nascimento': ['João 3:3-7','1 Pedro 1:23','2 Coríntios 5:17'],
+    'nova criatura': ['2 Coríntios 5:17','Gálatas 6:15','Efésios 4:24'],
+    'criação': ['Gênesis 1:1','João 1:3','Colossenses 1:16','Hebreus 11:3'],
+    'fogo': ['Atos 2:3','Jeremias 20:9','Deuteronômio 4:24','Lucas 12:49'],
+    'bênçãos': ['Deuteronômio 28:1-14','Efésios 1:3','Números 6:24-26'],
+    'gracas': ['1 Tessalonicenses 5:18','Filipenses 4:6','Colossenses 3:17'],
+    'graças': ['1 Tessalonicenses 5:18','Filipenses 4:6','Colossenses 3:17'],
+    'serviço': ['Mateus 20:28','Marcos 10:45','Gálatas 5:13'],
+    'servir': ['Mateus 20:28','Josué 24:15','Romanos 12:11'],
+    'libertação': ['Lucas 4:18','João 8:36','Gálatas 5:1','Romanos 8:2'],
+    'libertacao': ['Lucas 4:18','João 8:36','Gálatas 5:1'],
+};
+
+function strNorm(s) {
+    return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
 function parseBibleRef(query) {
     const regex = /^(.+?)\s+(\d+)(?::(\d+))?$/;
     const match = query.match(regex);
@@ -557,22 +677,24 @@ function parseBibleRef(query) {
 }
 
 async function handleBibleSearch(query) {
+    const resultsPanel = document.getElementById('bibleSearchResults');
+    const indexList = document.getElementById('bibleIndexList');
+
     if (!query) {
-        // Limpar destaques
         document.querySelectorAll('.verse-item.highlighted').forEach(el => el.classList.remove('highlighted'));
+        if (resultsPanel) resultsPanel.style.display = 'none';
         return;
     }
 
     const ref = parseBibleRef(query);
 
     if (ref) {
-        // Navegar para o livro/capítulo e destacar versículo
+        // Navigate to specific book/chapter/verse
+        if (resultsPanel) resultsPanel.style.display = 'none';
         const bookSel = document.getElementById('bibleBook');
         const chapSel = document.getElementById('bibleChapter');
 
         bookSel.value = ref.bookIdx;
-
-        // Rebuild chapters for new book
         chapSel.innerHTML = '';
         for (let i = 1; i <= bibleBooks[ref.bookIdx].c; i++) {
             const opt = document.createElement('option');
@@ -585,7 +707,6 @@ async function handleBibleSearch(query) {
         await fetchBibleText();
 
         if (ref.verse) {
-            // Destacar o versículo específico
             const items = document.querySelectorAll('.verse-item');
             items.forEach(item => item.classList.remove('highlighted'));
             if (items[ref.verse - 1]) {
@@ -593,25 +714,52 @@ async function handleBibleSearch(query) {
                 items[ref.verse - 1].scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
         }
-    } else {
-        // Buscar texto dentro do capítulo carregado
-        const items = document.querySelectorAll('.verse-item');
-        const lowerQuery = query.toLowerCase();
-        let found = false;
-        items.forEach(item => {
-            const textEl = item.querySelector('.verse-text');
-            if (textEl && textEl.textContent.toLowerCase().includes(lowerQuery)) {
-                item.classList.add('highlighted');
-                if (!found) {
-                    item.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    found = true;
-                }
-            } else {
-                item.classList.remove('highlighted');
-            }
-        });
-        if (!found && items.length > 0) showToast('Nenhum versículo encontrado');
+        return;
     }
+
+    // Theme/keyword search via VERSE_INDEX
+    const norm = strNorm(query);
+    const matchedRefs = [];
+    for (const [key, refs] of Object.entries(VERSE_INDEX)) {
+        if (strNorm(key).includes(norm) || norm.includes(strNorm(key))) {
+            refs.forEach(r => { if (!matchedRefs.includes(r)) matchedRefs.push(r); });
+        }
+    }
+
+    if (matchedRefs.length > 0 && resultsPanel && indexList) {
+        indexList.innerHTML = '';
+        matchedRefs.forEach(refText => {
+            const chip = document.createElement('button');
+            chip.className = 'ref-chip';
+            chip.textContent = refText;
+            chip.addEventListener('click', () => {
+                document.getElementById('bibleSearch').value = refText;
+                handleBibleSearch(refText);
+            });
+            indexList.appendChild(chip);
+        });
+        resultsPanel.style.display = 'block';
+    } else if (resultsPanel) {
+        resultsPanel.style.display = 'none';
+    }
+
+    // Also search current chapter text
+    const items = document.querySelectorAll('.verse-item');
+    const lowerQuery = query.toLowerCase();
+    let found = false;
+    items.forEach(item => {
+        const textEl = item.querySelector('.verse-text');
+        if (textEl && textEl.textContent.toLowerCase().includes(lowerQuery)) {
+            item.classList.add('highlighted');
+            if (!found) {
+                item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                found = true;
+            }
+        } else {
+            item.classList.remove('highlighted');
+        }
+    });
+    if (!found && matchedRefs.length === 0) showToast('Nenhuma referência encontrada');
 }
 
 async function fetchWithRetry(url, maxRetries = 3) {
@@ -719,6 +867,7 @@ function toggleBible(show) {
 let preachFocusIndex = 0;
 
 function startPreachMode() {
+    setEditorHeader(false);
     performSave();
     const s = STATE.sermons.find(x => x.id === STATE.currentId);
     if (!s) return;
@@ -780,6 +929,7 @@ function markCurrentPreachBlockDone() {
 function exitPreach() {
     clearInterval(STATE.timer);
     STATE.isRunning = false;
+    setEditorHeader(true);
     showScreen('editorScreen');
 }
 

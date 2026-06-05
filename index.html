@@ -58,10 +58,8 @@
     </button>
 </div>
 
-<!-- EDITOR SCREEN -->
-<div id="editorScreen" class="screen">
-    <!-- HEADER FIXO: nav + toolbar juntos, sempre visíveis ao rolar -->
-    <div class="editor-header">
+<!-- EDITOR HEADER — fixo no topo, controlado via JS -->
+<div class="editor-header" style="display:none">
         <div class="editor-nav">
             <button id="btn-back" class="icon-btn" title="Voltar">
                 <svg class="icon"><use href="#icon-back"></use></svg>
@@ -139,7 +137,10 @@
             <button id="btn-ai-study" class="tool-chip" title="Assistente IA" style="color:var(--primary);background:var(--primary-soft)">🤖 IA</button>
         </div>
     </div>
+</div>
 
+<!-- EDITOR SCREEN -->
+<div id="editorScreen" class="screen">
     <div class="input-wrapper">
         <input id="docTitle" class="input-title" placeholder="Título da Mensagem" autocomplete="off">
         <input id="docRef" class="input-ref" placeholder="Referência (ex: Romanos 8:28)" autocomplete="off">
@@ -182,6 +183,12 @@
             <span class="bible-search-icon">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
             </span>
+        </div>
+
+        <!-- Resultados de busca por tema / personagem -->
+        <div id="bibleSearchResults" style="display:none; background:var(--primary-soft); border-radius:10px; padding:10px 12px; margin-bottom:12px; flex-shrink:0;">
+            <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:var(--primary); margin-bottom:8px; font-family:var(--font-ui)">Referências encontradas</div>
+            <div id="bibleIndexList" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
         </div>
 
         <div class="bible-controls">
