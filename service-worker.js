@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pregflow-v4';
+const CACHE_NAME = 'pregflow-v5';
 const STATIC_ASSETS = [
     '/',
     '/index.html',

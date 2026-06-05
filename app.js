@@ -383,7 +383,9 @@ function getPlaceholder(type) {
         h1: 'Título Principal',
         h2: 'Subtítulo',
         h3: 'Subtópico...',
-        bullet: 'Ponto...',
+        topic: 'Primeiro ponto...',
+        subtopic: 'Aprofundamento...',
+        bullet: 'Detalhe...',
         quote: 'Citação...',
         warn: 'Aviso...',
         box: 'Destaque...'
@@ -667,15 +669,19 @@ function startPreachMode() {
         <p style="font-size:1.2em; color:var(--primary); margin:10px 0 0 0; font-weight:600; font-family:var(--font-ui)">${escapeHtml(s.ref)}</p>
     </div>`;
 
+    let topicNum = 0, subNum = 1;
     s.content.forEach((b, idx) => {
         const txt = escapeHtml(b.text) || '&nbsp;';
         const doneStyle = b.done ? ' preach-block-done' : '';
         const dataAttr = `data-preach-idx="${idx}"`;
+        if (b.type === 'topic') { topicNum++; subNum = 1; }
 
         if (b.type === 'h1') html += `<h2 ${dataAttr} class="${doneStyle}" style="font-size:1.6em; margin-top:40px; line-height:1.2; font-weight:800; font-family:var(--font-ui)">${txt}</h2>`;
         else if (b.type === 'h2') html += `<h3 ${dataAttr} class="${doneStyle}" style="color:var(--primary); margin-top:30px; font-size:1.3em; font-family:var(--font-ui)">${txt}</h3>`;
         else if (b.type === 'h3') html += `<p ${dataAttr} class="${doneStyle}" style="font-family:var(--font-ui);font-size:0.8em;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-secondary);margin-top:20px;">${txt}</p>`;
-        else if (b.type === 'bullet') html += `<p ${dataAttr} class="${doneStyle}" style="padding-left:36px; position:relative;"><span style="position:absolute;left:14px;color:var(--primary);font-size:1.2em;">›</span>${txt}</p>`;
+        else if (b.type === 'topic') html += `<p ${dataAttr} class="${doneStyle}" style="font-family:var(--font-ui);font-size:1.15em;font-weight:800;color:var(--text);margin-top:28px;border-left:3px solid var(--primary);padding-left:12px;"><span style="color:var(--primary)">${topicNum}. </span>${txt}</p>`;
+        else if (b.type === 'subtopic') html += `<p ${dataAttr} class="${doneStyle}" style="font-family:var(--font-ui);font-size:0.95em;font-weight:500;color:var(--text-secondary);padding-left:28px;margin-top:6px;"><span style="color:var(--primary);font-weight:700;font-size:0.85em">${Math.max(1,topicNum)}.${subNum++}  </span>${txt}</p>`;
+        else if (b.type === 'bullet') html += `<p ${dataAttr} class="${doneStyle}" style="font-family:var(--font-ui);font-size:0.9em;color:var(--text-secondary);padding-left:44px;margin-top:4px;"><span style="color:var(--primary);font-weight:700;">→  </span>${txt}</p>`;
         else if (b.type === 'quote') html += `<div ${dataAttr} class="preach-quote${doneStyle}">${txt}</div>`;
         else if (b.type === 'warn') html += `<div ${dataAttr} class="preach-warn${doneStyle}">${txt}</div>`;
         else if (b.type === 'box') html += `<div ${dataAttr} class="preach-box${doneStyle}">${txt}</div>`;

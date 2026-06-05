@@ -275,9 +275,78 @@ body.dark .toolbar-sticky { background: rgba(24,24,27,0.7); border-color: rgba(2
 
 .block[data-type="h1"] { font-family: var(--font-ui); font-size: 24px; font-weight: 800; margin-top: 32px; color: var(--text); line-height: 1.2; }
 .block[data-type="h2"] { font-family: var(--font-ui); font-size: 20px; font-weight: 700; color: var(--primary); margin-top: 24px; }
+/* ---- OUTLINE HIERÁRQUICO ---- */
+#editorBlocks { counter-reset: topic-counter subtopic-counter; }
+
+/* 1. Tópico principal — numerado automaticamente */
+.block[data-type="topic"] {
+    counter-increment: topic-counter;
+    counter-reset: subtopic-counter;
+    font-family: var(--font-ui);
+    font-size: 19px;
+    font-weight: 700;
+    color: var(--text);
+    padding-left: 4px;
+    margin-top: 20px;
+    border-left: 3px solid var(--primary);
+}
+.block[data-type="topic"]:not(:empty)::before {
+    content: counter(topic-counter) ". ";
+    color: var(--primary);
+    font-weight: 800;
+}
+.block[data-type="topic"]:empty::before {
+    content: counter(topic-counter) ". " attr(placeholder);
+    color: var(--primary);
+    opacity: 0.55;
+    font-weight: 700;
+}
+
+/* 1.1 Subtópico — numeração composta automática */
+.block[data-type="subtopic"] {
+    counter-increment: subtopic-counter;
+    font-family: var(--font-ui);
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    padding-left: 20px;
+    margin-top: 2px;
+    border-left: 2px solid var(--primary-soft);
+}
+.block[data-type="subtopic"]:not(:empty)::before {
+    content: counter(topic-counter) "." counter(subtopic-counter) "  ";
+    color: var(--primary);
+    font-weight: 700;
+    font-size: 13px;
+}
+.block[data-type="subtopic"]:empty::before {
+    content: counter(topic-counter) "." counter(subtopic-counter) "  " attr(placeholder);
+    color: var(--primary);
+    opacity: 0.5;
+    font-size: 13px;
+}
+
+/* → Ponto / detalhe — seta */
+.block[data-type="bullet"] {
+    font-family: var(--font-ui);
+    font-size: 15px;
+    color: var(--text-secondary);
+    padding-left: 36px;
+    border-left: none;
+}
+.block[data-type="bullet"]:not(:empty)::before {
+    content: "→  ";
+    color: var(--primary);
+    font-weight: 700;
+}
+.block[data-type="bullet"]:empty::before {
+    content: "→  " attr(placeholder);
+    color: var(--text-muted);
+    opacity: 0.5;
+}
+
+/* h3 — mantido para compatibilidade com dados antigos */
 .block[data-type="h3"] { font-family: var(--font-ui); font-size: 15px; font-weight: 700; color: var(--text-secondary); padding-left: 24px; text-transform: uppercase; letter-spacing: 0.5px; }
-.block[data-type="bullet"] { padding-left: 36px; position: relative; }
-.block[data-type="bullet"]::before { content: '›'; position: absolute; left: 14px; color: var(--primary); font-size: 20px; line-height: 1.7; }
 
 /* Ministrado (riscado) */
 .block[data-done="true"] { text-decoration: line-through; opacity: 0.45; color: var(--text-muted); }
