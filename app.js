@@ -145,8 +145,16 @@ function bindEvents() {
         if (e.target === e.currentTarget) toggleAIStudy(false);
     });
     document.getElementById('btn-ai-close').addEventListener('click', () => toggleAIStudy(false));
-    document.getElementById('btn-generate-study').addEventListener('click', generateAIStudy);
+    document.getElementById('btn-generate-study').addEventListener('click', generateAIContent);
     document.getElementById('btn-export-study').addEventListener('click', exportAIStudyPDF);
+
+    // AI type tabs
+    document.querySelectorAll('.ai-type-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.ai-type-tab').forEach(t => t.classList.toggle('active', t === tab));
+            aiCurrentMode = tab.dataset.mode;
+        });
+    });
 
     // Event delegation for dynamic sermon cards
     document.getElementById('sermonList').addEventListener('click', (e) => {
@@ -214,6 +222,7 @@ function undoAction() {
     const container = document.getElementById('editorBlocks');
     container.innerHTML = '';
     snapshot.forEach(b => createBlockUI(b.type, b.text, null, b.done));
+    updateOutlineNumbers();
     triggerSave();
 }
 
@@ -272,6 +281,7 @@ function openSermon(id) {
     container.innerHTML = '';
     const blocks = s.content.length ? s.content : [{ type: 'p', text: '', done: false }];
     blocks.forEach(b => createBlockUI(b.type, b.text, null, b.done));
+    updateOutlineNumbers();
     showScreen('editorScreen');
 }
 
@@ -306,20 +316,32 @@ function createBlockUI(type, text, after = null, done = false) {
 
     if (done) div.dataset.done = 'true';
 
-    div.addEventListener('focus', () => { focusedBlock = div; });
+    div.addEventListener('focus', () => {
+        focusedBlock = div;
+        // Scroll para manter o bloco visível (especialmente no mobile com teclado)
+        setTimeout(() => div.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 300);
+    });
 
     div.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
+        if (e.key === 'Enter') {
             e.preventDefault();
-            const newBlock = createBlockUI('p', '');
-            const c = document.getElementById('editorBlocks');
-            c.insertBefore(newBlock, div.nextSibling);
-            newBlock.focus();
+            if (e.shiftKey) {
+                // Shift+Enter: criar novo bloco abaixo
+                saveSnapshot();
+                const newBlock = createBlockUI('p', '');
+                const c = document.getElementById('editorBlocks');
+                c.insertBefore(newBlock, div.nextSibling);
+                updateOutlineNumbers();
+                newBlock.focus();
+            } else {
+                // Enter: quebra de linha dentro do bloco
+                document.execCommand('insertLineBreak');
+            }
             triggerSave();
         }
         if (e.key === 'Backspace' && !e.target.innerText.trim()) {
             const prev = e.target.previousElementSibling;
-            if (prev) { e.preventDefault(); e.target.remove(); prev.focus(); triggerSave(); }
+            if (prev) { e.preventDefault(); e.target.remove(); prev.focus(); updateOutlineNumbers(); triggerSave(); }
         }
     });
     div.addEventListener('input', triggerSave);
@@ -330,12 +352,29 @@ function createBlockUI(type, text, after = null, done = false) {
     return div;
 }
 
+function updateOutlineNumbers() {
+    const blocks = document.querySelectorAll('#editorBlocks .block');
+    let topicNum = 0, subNum = 1;
+    blocks.forEach(b => {
+        const type = b.dataset.type;
+        if (type === 'topic') {
+            topicNum++;
+            subNum = 1;
+            b.dataset.number = `${topicNum}.`;
+        } else if (type === 'subtopic') {
+            b.dataset.number = `${Math.max(1, topicNum)}.${subNum++}`;
+        } else {
+            delete b.dataset.number;
+        }
+    });
+}
+
 function addNewBlock(e) {
     e.preventDefault();
     const newBlock = createBlockUI('p', '');
     document.getElementById('editorBlocks').appendChild(newBlock);
+    updateOutlineNumbers();
     newBlock.focus();
-    window.scrollTo(0, document.body.scrollHeight);
     triggerSave();
 }
 
@@ -360,6 +399,7 @@ function deleteCurrentBlock() {
     saveSnapshot();
     const prev = block.previousElementSibling || block.nextElementSibling;
     block.remove();
+    updateOutlineNumbers();
     if (prev) prev.focus();
     triggerSave();
 }
@@ -374,6 +414,7 @@ function moveBlock(direction) {
         node.parentNode.insertBefore(node.nextElementSibling, node);
         node.focus();
     }
+    updateOutlineNumbers();
     triggerSave();
 }
 
@@ -407,13 +448,13 @@ function applyFormat(e, type) {
     if (type === 'quote') node.classList.add('preach-quote');
     if (type === 'warn') node.classList.add('preach-warn');
     if (type === 'box') node.classList.add('preach-box');
-    // Manter o estado done ao mudar formato
     if (node.dataset.done === 'true') node.dataset.done = 'true';
 
     document.querySelectorAll('.tool-chip').forEach(b => b.classList.remove('active'));
     const btn = e.target.closest('.tool-chip');
     if (btn && !btn.classList.contains('action')) btn.classList.add('active');
 
+    updateOutlineNumbers();
     triggerSave();
     node.focus();
 }
@@ -842,6 +883,8 @@ function restoreBackup(input) {
 
 // ---- AI STUDY ----
 
+let aiCurrentMode = 'study';
+
 function toggleAIStudy(show) {
     document.getElementById('aiStudyModal').classList.toggle('active', show);
 }
@@ -877,7 +920,7 @@ function renderMarkdown(text) {
     return html;
 }
 
-async function generateAIStudy() {
+async function generateAIContent() {
     const apiKey = localStorage.getItem(API_KEY_STORAGE);
     if (!apiKey) {
         showToast('Configure a chave API nas Configurações');
@@ -893,11 +936,43 @@ async function generateAIStudy() {
 
     const contentEl = document.getElementById('aiStudyContent');
     const btn = document.getElementById('btn-generate-study');
-    contentEl.innerHTML = `<div style="text-align:center; padding:40px; color:var(--text-muted); font-family:var(--font-ui);"><div style="font-size:32px; margin-bottom:16px">⏳</div><p>Gerando estudo com IA...</p></div>`;
+    contentEl.innerHTML = `<div style="text-align:center; padding:40px; color:var(--text-muted); font-family:var(--font-ui);"><div style="font-size:32px; margin-bottom:16px">⏳</div><p>Gerando com IA...</p></div>`;
     btn.disabled = true;
     btn.textContent = 'Gerando...';
 
-    const prompt = `Você é um pastor experiente. Com base na mensagem abaixo, gere um estudo de células completo em português brasileiro.
+    const isDevotional = aiCurrentMode === 'devotional';
+
+    const prompt = isDevotional
+        ? `Você é um pastor experiente. Com base na mensagem abaixo, gere um devocional completo em português brasileiro para leitura diária.
+
+**Título da Mensagem:** ${title}
+**Referência Bíblica:** ${ref}
+**Conteúdo da Mensagem:**
+${content}
+
+Estruture o devocional com:
+
+## Título do Devocional
+(título inspirador relacionado ao tema)
+
+## Texto Base
+(versículo principal do dia)
+
+## Contexto Bíblico
+(breve explicação do contexto histórico e espiritual)
+
+## Reflexão
+(3 parágrafos de meditação espiritual profunda baseados no texto)
+
+## Aplicação Pessoal
+(como viver este ensinamento hoje na prática)
+
+## Oração
+(oração pessoal baseada no tema)
+
+## Declaração de Fé
+(uma afirmação de fé para declarar ao longo do dia)`
+        : `Você é um pastor experiente. Com base na mensagem abaixo, gere um estudo de células completo em português brasileiro.
 
 **Título da Mensagem:** ${title}
 **Referência Bíblica:** ${ref}
@@ -961,13 +1036,14 @@ Estruture o estudo de células com:
         contentEl.innerHTML = `<p style="color:var(--danger); padding:20px;">Erro de conexão: ${escapeHtml(err.message || 'Verifique sua internet e tente novamente.')}</p>`;
     } finally {
         btn.disabled = false;
-        btn.textContent = '✦ Gerar Estudo com IA';
+        btn.textContent = '✦ Gerar com IA';
     }
 }
 
 function exportAIStudyPDF() {
     const s = STATE.sermons.find(x => x.id === STATE.currentId);
-    const title = s ? (s.title || 'Estudo de Células') : 'Estudo de Células';
+    const sermonTitle = s ? (s.title || 'Mensagem') : 'Mensagem';
+    const typeLabel = aiCurrentMode === 'devotional' ? 'Devocional' : 'Estudo de Células';
     const content = document.getElementById('aiStudyContent').innerHTML;
 
     const win = window.open('', '_blank');
@@ -977,7 +1053,7 @@ function exportAIStudyPDF() {
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>${escapeHtml(title)} - Estudo de Células</title>
+<title>${escapeHtml(sermonTitle)} - ${escapeHtml(typeLabel)}</title>
 <style>
   body { font-family: 'Georgia', serif; max-width: 800px; margin: 40px auto; padding: 0 24px; color: #111; font-size: 14pt; line-height: 1.7; }
   h1 { font-size: 24pt; font-weight: 800; text-align: center; margin-bottom: 8px; }
@@ -991,8 +1067,8 @@ function exportAIStudyPDF() {
 </style>
 </head>
 <body>
-<h1>${escapeHtml(title)}</h1>
-<h2>Estudo de Células</h2>
+<h1>${escapeHtml(sermonTitle)}</h1>
+<h2>${escapeHtml(typeLabel)}</h2>
 ${content}
 </body>
 </html>`);

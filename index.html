@@ -236,21 +236,25 @@
 <div id="aiStudyModal" class="modal-overlay">
     <div class="modal-sheet" style="max-height:95vh">
         <div class="modal-header">
-            <h3 class="modal-title">Estudo de Células</h3>
+            <h3 class="modal-title">Assistente IA</h3>
             <div style="display:flex;gap:8px">
                 <button id="btn-export-study" class="btn" style="background:var(--primary);color:white;padding:8px 16px">Exportar PDF</button>
                 <button id="btn-ai-close" class="icon-btn">×</button>
             </div>
         </div>
+        <div class="ai-type-tabs">
+            <button class="ai-type-tab active" data-mode="study">📋 Estudo de Células</button>
+            <button class="ai-type-tab" data-mode="devotional">🙏 Devocional</button>
+        </div>
         <div id="aiStudyContent" class="ai-study-content">
             <div style="text-align:center; padding:40px; color:var(--text-muted); font-family:var(--font-ui);">
                 <div style="font-size:48px; margin-bottom:16px">🤖</div>
-                <p style="margin:0; font-size:15px">Clique em "Gerar Estudo com IA" para criar um estudo de células baseado na mensagem atual.</p>
+                <p style="margin:0; font-size:15px">Selecione o tipo e clique em Gerar para criar conteúdo baseado na mensagem atual.</p>
             </div>
         </div>
         <div style="padding-top:16px;border-top:1px solid var(--border);flex-shrink:0">
             <button id="btn-generate-study" class="btn" style="width:100%;background:var(--primary);color:white;padding:14px;border-radius:10px;font-size:15px;font-weight:600">
-                ✦ Gerar Estudo com IA
+                ✦ Gerar com IA
             </button>
         </div>
     </div>
