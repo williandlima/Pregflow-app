@@ -168,18 +168,40 @@ h1 { font-size: 24px; margin: 0; letter-spacing: -0.02em; font-weight: 700; colo
 }
 .fab-main:hover { transform: scale(1.05) rotate(90deg); background: var(--primary); color: white; }
 
-/* EDITOR */
-.editor-nav {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
+/* EDITOR STICKY HEADER — nav + toolbar juntos, nunca desaparecem */
+.editor-header {
     position: sticky;
     top: 0;
     z-index: 40;
     background: var(--bg);
-    padding: 12px 0;
+    /* negativa da margem do .screen para cobrir toda a largura */
+    margin: 0 -24px;
+    padding: 0 24px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 24px;
+    box-shadow: 0 2px 8px -2px rgba(0,0,0,0.06);
 }
+body.dark .editor-header { box-shadow: 0 2px 8px -2px rgba(0,0,0,0.3); }
+
+.editor-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0 6px 0;
+}
+
+/* TOOLBAR — dentro do editor-header */
+.editor-toolbar {
+    display: flex;
+    gap: 3px;
+    overflow-x: auto;
+    padding: 4px 0 8px 0;
+    align-items: center;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    background: transparent;
+}
+.editor-toolbar::-webkit-scrollbar { display: none; }
 
 .status-badge {
     font-size: 11px;
@@ -215,29 +237,6 @@ h1 { font-size: 24px; margin: 0; letter-spacing: -0.02em; font-weight: 700; colo
     font-family: var(--font-ui);
 }
 
-/* TOOLBAR GLASSMORPHISM */
-.toolbar-sticky {
-    position: sticky;
-    top: 64px;
-    z-index: 50;
-    background: rgba(255,255,255,0.85);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    padding: 6px;
-    border-radius: 14px;
-    border: 1px solid rgba(0,0,0,0.08);
-    display: flex;
-    gap: 4px;
-    overflow-x: auto;
-    margin-bottom: 30px;
-    box-shadow: var(--shadow-sm);
-    align-items: center;
-    /* hide scrollbar but keep scrollable */
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-}
-.toolbar-sticky::-webkit-scrollbar { display: none; }
-body.dark .toolbar-sticky { background: rgba(24,24,27,0.88); border-color: rgba(255,255,255,0.1); }
 
 .tool-chip {
     padding: 8px 12px;
@@ -260,9 +259,9 @@ body.dark .toolbar-sticky { background: rgba(24,24,27,0.88); border-color: rgba(
 .tool-chip.action { color: var(--primary); background: var(--primary-soft); }
 .tool-divider { width: 1px; height: 16px; background: var(--border); margin: 0 4px; flex-shrink: 0; }
 
-/* Color dot buttons */
-.color-btn { font-size: 15px; padding: 6px 7px; }
-.color-btn:hover { opacity: 0.8; transform: scale(1.2); }
+/* Color text buttons (Word-style: A with colored underline) */
+.color-btn { padding: 6px 8px; }
+.color-btn:hover { transform: scale(1.1); }
 
 /* EDITOR CONTENT */
 #editorBlocks { min-height: 60vh; padding-bottom: 100px; }
