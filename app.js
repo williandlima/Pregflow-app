@@ -383,8 +383,14 @@ function updateOutlineNumbers() {
 
 function addNewBlock(e) {
     e.preventDefault();
+    const focused = getFocusedBlock();
+    const container = document.getElementById('editorBlocks');
     const newBlock = createBlockUI('p', '');
-    document.getElementById('editorBlocks').appendChild(newBlock);
+    if (focused && focused.parentNode === container) {
+        container.insertBefore(newBlock, focused.nextSibling);
+    } else {
+        container.appendChild(newBlock);
+    }
     updateOutlineNumbers();
     newBlock.focus();
     triggerSave();
