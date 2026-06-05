@@ -218,9 +218,9 @@ h1 { font-size: 24px; margin: 0; letter-spacing: -0.02em; font-weight: 700; colo
 /* TOOLBAR GLASSMORPHISM */
 .toolbar-sticky {
     position: sticky;
-    top: 10px;
+    top: 64px;
     z-index: 50;
-    background: rgba(255,255,255,0.7);
+    background: rgba(255,255,255,0.85);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     padding: 6px;
@@ -232,8 +232,12 @@ h1 { font-size: 24px; margin: 0; letter-spacing: -0.02em; font-weight: 700; colo
     margin-bottom: 30px;
     box-shadow: var(--shadow-sm);
     align-items: center;
+    /* hide scrollbar but keep scrollable */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
 }
-body.dark .toolbar-sticky { background: rgba(24,24,27,0.7); border-color: rgba(255,255,255,0.1); }
+.toolbar-sticky::-webkit-scrollbar { display: none; }
+body.dark .toolbar-sticky { background: rgba(24,24,27,0.88); border-color: rgba(255,255,255,0.1); }
 
 .tool-chip {
     padding: 8px 12px;
@@ -255,6 +259,10 @@ body.dark .toolbar-sticky { background: rgba(24,24,27,0.7); border-color: rgba(2
 .tool-chip.active { background: var(--surface); color: var(--primary); border-color: var(--border); box-shadow: var(--shadow-xs); }
 .tool-chip.action { color: var(--primary); background: var(--primary-soft); }
 .tool-divider { width: 1px; height: 16px; background: var(--border); margin: 0 4px; flex-shrink: 0; }
+
+/* Color dot buttons */
+.color-btn { font-size: 15px; padding: 6px 7px; }
+.color-btn:hover { opacity: 0.8; transform: scale(1.2); }
 
 /* EDITOR CONTENT */
 #editorBlocks { min-height: 60vh; padding-bottom: 100px; }

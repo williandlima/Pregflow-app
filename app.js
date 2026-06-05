@@ -94,6 +94,16 @@ function bindEvents() {
     document.getElementById('btn-fmt-bold').addEventListener('mousedown', (e) => { e.preventDefault(); formatText('bold'); });
     document.getElementById('btn-fmt-italic').addEventListener('mousedown', (e) => { e.preventDefault(); formatText('italic'); });
     document.getElementById('btn-fmt-underline').addEventListener('mousedown', (e) => { e.preventDefault(); formatText('underline'); });
+    document.getElementById('btn-fmt-strike').addEventListener('mousedown', (e) => { e.preventDefault(); formatText('strikeThrough'); });
+    document.getElementById('btn-fmt-clear').addEventListener('mousedown', (e) => { e.preventDefault(); formatText('removeFormat'); });
+
+    // Cores de texto
+    document.querySelectorAll('.color-btn').forEach(btn => {
+        btn.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            document.execCommand('foreColor', false, btn.dataset.color);
+        });
+    });
 
     // Toolbar: Ações
     document.getElementById('btn-done').addEventListener('mousedown', (e) => { e.preventDefault(); toggleBlockDone(); });
@@ -163,6 +173,28 @@ function bindEvents() {
         const card = e.target.closest('[data-sermon-id]');
         if (card) openSermon(parseInt(card.dataset.sermonId));
     });
+
+    // Mobile: pin toolbar above virtual keyboard when it opens
+    if ('visualViewport' in window) {
+        window.visualViewport.addEventListener('resize', () => {
+            const editorActive = document.getElementById('editorScreen').style.display !== 'none';
+            const toolbar = document.querySelector('.toolbar-sticky');
+            if (!toolbar || !editorActive) return;
+            const kbHeight = window.innerHeight - window.visualViewport.height;
+            if (kbHeight > 100) {
+                toolbar.style.cssText = [
+                    'position:fixed',
+                    'top:auto',
+                    `bottom:${kbHeight}px`,
+                    'left:8px', 'right:8px',
+                    'z-index:1000',
+                    'margin-bottom:0'
+                ].join(';');
+            } else {
+                toolbar.style.cssText = '';
+            }
+        });
+    }
 }
 
 // ---- PERSISTENCE ----
