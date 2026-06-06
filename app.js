@@ -311,21 +311,10 @@ function renderExtrato() {
   });
 }
 
-function addLongPress(el, fn) {
-  let timer;
-  el.addEventListener('touchstart', e => {
-    timer = setTimeout(() => { e.preventDefault(); fn(); }, 600);
-  }, { passive: false });
-  el.addEventListener('touchend', () => clearTimeout(timer));
-  el.addEventListener('touchmove', () => clearTimeout(timer));
-  el.addEventListener('contextmenu', e => { e.preventDefault(); fn(); });
-}
-
 function makeTxItem(t, showDelete) {
   const cat = getCat(t.category);
   const div = document.createElement('div');
   div.className = 'tx-item' + (t.recurring_id ? ' tx-recurring' : '');
-  div.onclick = () => editTransaction(t);
   div.innerHTML = `
     <div class="tx-cat-icon" style="background:${cat.bg};color:${cat.color}">${cat.emoji}</div>
     <div class="tx-info">
@@ -333,7 +322,29 @@ function makeTxItem(t, showDelete) {
       <div class="tx-date">${cat.label} · ${fmtDate(t.date)}</div>
     </div>
     <div class="tx-amount ${t.type}">${t.type==='income'?'+':'-'}${fmtCurrency(t.amount)}</div>`;
-  addLongPress(div, () => promptRecorrente(t));
+
+  let pressTimer = null;
+  let longFired = false;
+
+  div.addEventListener('touchstart', () => {
+    longFired = false;
+    pressTimer = setTimeout(() => {
+      longFired = true;
+      if (navigator.vibrate) navigator.vibrate(40);
+      promptRecorrente(t);
+    }, 600);
+  }, { passive: true });
+
+  div.addEventListener('touchmove', () => clearTimeout(pressTimer));
+  div.addEventListener('touchend', () => clearTimeout(pressTimer));
+
+  div.addEventListener('click', () => {
+    if (longFired) { longFired = false; return; }
+    editTransaction(t);
+  });
+
+  div.addEventListener('contextmenu', e => { e.preventDefault(); promptRecorrente(t); });
+
   return div;
 }
 
