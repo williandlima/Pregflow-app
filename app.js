@@ -311,19 +311,74 @@ function renderExtrato() {
   });
 }
 
+function addLongPress(el, fn) {
+  let timer;
+  el.addEventListener('touchstart', e => {
+    timer = setTimeout(() => { e.preventDefault(); fn(); }, 600);
+  }, { passive: false });
+  el.addEventListener('touchend', () => clearTimeout(timer));
+  el.addEventListener('touchmove', () => clearTimeout(timer));
+  el.addEventListener('contextmenu', e => { e.preventDefault(); fn(); });
+}
+
 function makeTxItem(t, showDelete) {
   const cat = getCat(t.category);
   const div = document.createElement('div');
-  div.className = 'tx-item';
+  div.className = 'tx-item' + (t.recurring_id ? ' tx-recurring' : '');
   div.onclick = () => editTransaction(t);
   div.innerHTML = `
     <div class="tx-cat-icon" style="background:${cat.bg};color:${cat.color}">${cat.emoji}</div>
     <div class="tx-info">
-      <div class="tx-desc">${t.description || cat.label}</div>
+      <div class="tx-desc">${t.description || cat.label}${t.recurring_id ? ' <span class="rec-badge">🔄</span>' : ''}</div>
       <div class="tx-date">${cat.label} · ${fmtDate(t.date)}</div>
     </div>
     <div class="tx-amount ${t.type}">${t.type==='income'?'+':'-'}${fmtCurrency(t.amount)}</div>`;
+  addLongPress(div, () => promptRecorrente(t));
   return div;
+}
+
+function promptRecorrente(t) {
+  if (t.recurring_id) {
+    confirmAction(
+      'Remover das recorrentes?',
+      `"${t.description || getCat(t.category).label}" vai parar de aparecer automaticamente nos próximos meses.`,
+      () => removeFromRecurring(t.recurring_id),
+      '🔄'
+    );
+  } else {
+    const dia = new Date(t.date + 'T12:00:00').getDate();
+    confirmAction(
+      'Tornar recorrente?',
+      `"${t.description || getCat(t.category).label}" vai aparecer automaticamente todo mês no dia ${dia}.`,
+      () => makeRecurring(t),
+      '🔁'
+    );
+  }
+}
+
+function makeRecurring(t) {
+  const dia = new Date(t.date + 'T12:00:00').getDate();
+  const recId = uid();
+  db.recurring.push({
+    id: recId,
+    name: t.description || getCat(t.category).label,
+    amount: t.amount,
+    day: dia,
+    type: t.type,
+    category: t.category,
+    active: true
+  });
+  const idx = db.transactions.findIndex(tx => tx.id === t.id);
+  if (idx !== -1) db.transactions[idx].recurring_id = recId;
+  saveDB();
+  renderPage(ui.page);
+}
+
+function removeFromRecurring(recurringId) {
+  db.recurring = db.recurring.filter(r => r.id !== recurringId);
+  db.transactions.forEach(tx => { if (tx.recurring_id === recurringId) delete tx.recurring_id; });
+  saveDB();
+  renderPage(ui.page);
 }
 
 function changeMonth(delta) {

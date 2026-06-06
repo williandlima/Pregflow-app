@@ -270,6 +270,7 @@ a { color: inherit; text-decoration: none; }
 .tx-amount { font-size: 1rem; font-weight: 700; flex-shrink: 0; }
 .tx-amount.income { color: var(--green); }
 .tx-amount.expense { color: var(--red); }
+.rec-badge { font-size: .75rem; opacity: .7; }
 
 /* ---- UPCOMING BILLS ---- */
 .upcoming-item {
