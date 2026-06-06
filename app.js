@@ -271,6 +271,7 @@ function renderDashboardChart(curM, curY) {
 // =============================================
 function renderExtrato() {
   const m = ui.extratoMonth, y = ui.extratoYear;
+  ensureRecurringForMonth(m, y);
   document.getElementById('extrato-month-label').textContent = monthLabel(m, y);
 
   let txs = getTransactionsForMonth(m, y);
@@ -599,12 +600,28 @@ function toggleRecurring(id, active) {
   if (r) { r.active = active; saveDB(); renderRecorrentes(); }
 }
 
+function ensureRecurringForMonth(m, y) {
+  const key = `ff_gen_${y}-${m}`;
+  if (localStorage.getItem(key)) return;
+  if (!db.recurring.some(r => r.active)) return;
+  const monthStr = `${y}-${String(m+1).padStart(2,'0')}`;
+  db.recurring.filter(r => r.active).forEach(r => {
+    const day = Math.min(r.day, new Date(y, m+1, 0).getDate());
+    const date = `${monthStr}-${String(day).padStart(2,'0')}`;
+    const alreadyExists = db.transactions.some(t => t.recurring_id === r.id && t.date.startsWith(monthStr));
+    if (!alreadyExists) {
+      db.transactions.push({ id: uid(), amount: r.amount, description: r.name, date, type: r.type, category: r.category, recurring_id: r.id });
+    }
+  });
+  saveDB();
+  localStorage.setItem(key, '1');
+}
+
 function generateMonthlyRecurring() {
   const now = new Date();
   const m = now.getMonth(), y = now.getFullYear();
   const monthStr = `${y}-${String(m+1).padStart(2,'0')}`;
   let added = 0;
-
   db.recurring.filter(r => r.active).forEach(r => {
     const day = Math.min(r.day, new Date(y, m+1, 0).getDate());
     const date = `${monthStr}-${String(day).padStart(2,'0')}`;
@@ -614,8 +631,8 @@ function generateMonthlyRecurring() {
       added++;
     }
   });
-
   saveDB();
+  localStorage.setItem(`ff_gen_${y}-${m}`, '1');
   alert(added > 0 ? `${added} lançamento(s) gerado(s) com sucesso!` : 'Todos os lançamentos recorrentes já foram gerados este mês.');
   if (ui.page === 'extrato') renderExtrato();
   else if (ui.page === 'dashboard') renderDashboard();
@@ -1231,13 +1248,9 @@ function init() {
   loadDB();
   applyTheme();
 
-  // Check recurring generation (once per month)
-  const lastGen = localStorage.getItem('ff_last_gen');
-  const nowKey = `${new Date().getFullYear()}-${new Date().getMonth()}`;
-  if (lastGen !== nowKey && db.recurring.some(r => r.active)) {
-    generateMonthlyRecurring();
-    localStorage.setItem('ff_last_gen', nowKey);
-  }
+  // Ensure recurring for current month on startup
+  const _now = new Date();
+  ensureRecurringForMonth(_now.getMonth(), _now.getFullYear());
 
   navigate('dashboard');
 
