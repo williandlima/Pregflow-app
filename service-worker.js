@@ -1,76 +1,70 @@
-const CACHE_NAME = 'financeflow-v2';
-const APP_ORIGIN = self.location.origin;
-const APP_SCOPE = self.registration.scope;
-
+const CACHE_NAME = 'pregflow-v13';
 const STATIC_ASSETS = [
-  './index.html',
-  './styles.css',
-  './app.js',
-  './manifest.json',
-  './icons/icon.svg',
-  './icons/icon-192.png',
-  './icons/icon-512.png',
+    '/',
+    '/index.html',
+    '/styles.css',
+    '/app.js',
+    '/manifest.json',
+    '/icons/icon-192.png',
+    '/icons/icon-512.png'
 ];
 
-const CDN_ASSETS = [
-  'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js',
-];
-
-self.addEventListener('install', e => {
-  e.waitUntil(
-    caches.open(CACHE_NAME).then(cache =>
-      Promise.all([
-        cache.addAll(STATIC_ASSETS),
-        ...CDN_ASSETS.map(url =>
-          fetch(url).then(r => r.ok ? cache.put(url, r) : null).catch(() => null)
-        ),
-      ])
-    )
-  );
-  self.skipWaiting();
-});
-
-self.addEventListener('activate', e => {
-  // Só apaga caches antigos do próprio FinanceFlow — não toca em caches de outros apps
-  e.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(
-        keys
-          .filter(k => k.startsWith('financeflow-') && k !== CACHE_NAME)
-          .map(k => caches.delete(k))
-      )
-    )
-  );
-  self.clients.claim();
-});
-
-self.addEventListener('fetch', e => {
-  const url = new URL(e.request.url);
-
-  // Só intercepta requisições do escopo desta app ou da CDN autorizada
-  const isAppScope = url.origin === APP_ORIGIN && url.pathname.startsWith(new URL(APP_SCOPE).pathname);
-  const isCDN = CDN_ASSETS.some(a => e.request.url.startsWith(a));
-
-  if (!isAppScope && !isCDN) return;
-
-  // Navegação (HTML): network-first, fallback para cache
-  if (e.request.mode === 'navigate') {
-    e.respondWith(
-      fetch(e.request).catch(() => caches.match('./index.html'))
+self.addEventListener('install', (event) => {
+    event.waitUntil(
+        caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS))
     );
-    return;
-  }
+    self.skipWaiting();
+});
 
-  // Demais assets: cache-first
-  e.respondWith(
-    caches.match(e.request).then(cached => {
-      if (cached) return cached;
-      return fetch(e.request).then(res => {
-        if (!res || res.status !== 200 || res.type === 'opaque') return res;
-        const clone = res.clone();
-        caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
-        return res;
-      });
-    })
-  );
+self.addEventListener('activate', (event) => {
+    event.waitUntil(
+        caches.keys().then(keys =>
+            Promise.all(keys.filter(k => k.startsWith('pregflow-') && k !== CACHE_NAME).map(k => caches.delete(k)))
+        )
+    );
+    clients.claim();
+});
+
+self.addEventListener('fetch', (event) => {
+    const url = new URL(event.request.url);
+
+    // Network-first for Bible API (always try fresh data)
+    if (url.hostname === 'bible-api.com') {
+        event.respondWith(
+            fetch(event.request).catch(() =>
+                new Response(JSON.stringify({ error: 'offline' }), {
+                    headers: { 'Content-Type': 'application/json' }
+                })
+            )
+        );
+        return;
+    }
+
+    // Network-first for Google Fonts (external CDN)
+    if (url.hostname.includes('fonts.gstatic.com') || url.hostname.includes('fonts.googleapis.com')) {
+        event.respondWith(
+            caches.match(event.request).then(cached => {
+                const network = fetch(event.request).then(res => {
+                    const clone = res.clone();
+                    caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+                    return res;
+                });
+                return cached || network;
+            })
+        );
+        return;
+    }
+
+    // Cache-first for all other static assets
+    event.respondWith(
+        caches.match(event.request).then(cached => {
+            if (cached) return cached;
+            return fetch(event.request).then(res => {
+                if (!res || res.status !== 200 || res.type === 'opaque') return res;
+                const clone = res.clone();
+                caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+                return res;
+            });
+        })
+    );
 });

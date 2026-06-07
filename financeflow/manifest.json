@@ -1,22 +1,21 @@
 {
-  "name": "PregFlow Pro",
-  "short_name": "PregFlow",
-  "description": "Gerencie e apresente suas mensagens e pregações com facilidade.",
-  "lang": "pt-BR",
-  "start_url": "/Pregflow-app/",
-  "scope": "/Pregflow-app/",
+  "name": "FinanceFlow - Controle Financeiro",
+  "short_name": "FinanceFlow",
+  "description": "Seu controle financeiro pessoal inteligente",
+  "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
-  "background_color": "#6D28D9",
+  "background_color": "#0D1117",
   "theme_color": "#7C3AED",
   "orientation": "portrait-primary",
-  "categories": ["productivity", "education"],
-  "prefer_related_applications": false,
+  "lang": "pt-BR",
+  "categories": ["finance", "productivity"],
   "icons": [
     {
       "src": "icons/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any"
+      "purpose": "any maskable"
     },
     {
       "src": "icons/icon-192.png",
