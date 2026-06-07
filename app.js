@@ -1150,7 +1150,7 @@ function renderMarkdown(text) {
 async function generateAIContent() {
     const apiKey = localStorage.getItem(API_KEY_STORAGE);
     if (!apiKey) {
-        showToast('Configure a chave API nas Configurações');
+        showToast('Configure a chave Gemini nas Configurações (gratuito)');
         toggleAIStudy(false);
         toggleSettings(true);
         return;
@@ -1230,33 +1230,30 @@ Estruture o estudo de células com:
 (um versículo para a semana)`;
 
     try {
-        const res = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': apiKey,
-                'anthropic-version': '2023-06-01',
-                'anthropic-dangerous-direct-browser-access': 'true'
-            },
-            body: JSON.stringify({
-                model: 'claude-opus-4-8',
-                max_tokens: 2048,
-                messages: [{ role: 'user', content: prompt }]
-            })
-        });
+        const res = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: { maxOutputTokens: 2048 }
+                })
+            }
+        );
 
         if (!res.ok) {
-            if (res.status === 401) {
-                contentEl.innerHTML = `<p style="color:var(--danger); padding:20px;">Chave API inválida. Verifique nas configurações.</p>`;
+            const errData = await res.json().catch(() => ({}));
+            if (res.status === 400 || res.status === 401 || res.status === 403) {
+                contentEl.innerHTML = `<p style="color:var(--danger); padding:20px;">Chave API inválida. Obtenha a sua em <strong>aistudio.google.com/apikey</strong> e salve nas Configurações.</p>`;
             } else {
-                const errData = await res.json().catch(() => ({}));
-                contentEl.innerHTML = `<p style="color:var(--danger); padding:20px;">Erro ${res.status}: ${errData.error?.message || 'Erro desconhecido. Tente novamente.'}</p>`;
+                contentEl.innerHTML = `<p style="color:var(--danger); padding:20px;">Erro ${res.status}: ${errData.error?.message || 'Tente novamente.'}</p>`;
             }
             return;
         }
 
         const data = await res.json();
-        const text = data.content && data.content[0] ? data.content[0].text : '';
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
         contentEl.innerHTML = renderMarkdown(text);
 
     } catch (err) {
