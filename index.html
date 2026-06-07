@@ -1,546 +1,326 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0">
-  <meta name="theme-color" content="#7C3AED">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="FinanceFlow">
-  <meta name="description" content="Controle financeiro pessoal inteligente">
-  <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css">
-  <title>FinanceFlow</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#7C3AED">
+<meta name="description" content="Gerencie e apresente suas mensagens e pregações.">
+<title>PregFlow Pro</title>
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&family=Merriweather:ital,wght@0,300;0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
-<!-- Splash -->
-<div id="splash" class="splash">
-  <div class="splash-icon">
-    <svg viewBox="0 0 80 80" width="80" height="80">
-      <rect width="80" height="80" rx="18" fill="#7C3AED"/>
-      <rect x="14" y="44" width="14" height="20" rx="3" fill="rgba(255,255,255,0.7)"/>
-      <rect x="33" y="32" width="14" height="32" rx="3" fill="rgba(255,255,255,0.85)"/>
-      <rect x="52" y="18" width="14" height="46" rx="3" fill="white"/>
-      <polyline points="21,44 40,32 59,18" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="3" stroke-linecap="round"/>
-    </svg>
-  </div>
-  <h1 class="splash-title">FinanceFlow</h1>
-  <p class="splash-sub">Controle Financeiro Inteligente</p>
-  <div class="splash-loader"><div></div></div>
+<svg style="display:none">
+    <symbol id="icon-back" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></symbol>
+    <symbol id="icon-settings" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="3"></circle>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+    </symbol>
+    <symbol id="icon-plus" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></symbol>
+    <symbol id="icon-trash" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></symbol>
+    <symbol id="icon-pdf" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></symbol>
+    <symbol id="icon-book" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></symbol>
+    <symbol id="icon-play" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"></polygon></symbol>
+    <symbol id="icon-chevron-up" viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"></polyline></symbol>
+    <symbol id="icon-chevron-down" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"></polyline></symbol>
+    <symbol id="icon-x" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></symbol>
+    <symbol id="icon-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></symbol>
+</svg>
+
+<!-- SPLASH -->
+<div id="splash">
+    <div class="logo-container">✝🔥</div>
+    <div style="font-weight:700; font-size:24px; letter-spacing:-0.5px; color:var(--text);">PregFlow Pro</div>
 </div>
 
-<div id="app" class="app hidden">
+<!-- HOME SCREEN -->
+<div id="homeScreen" class="screen">
+    <header>
+        <h1>Mensagens</h1>
+        <button id="btn-settings" class="icon-btn" title="Configurações">
+            <svg class="icon"><use href="#icon-settings"></use></svg>
+        </button>
+    </header>
 
-  <!-- Header -->
-  <header class="app-header" id="app-header">
-    <button id="btn-back" class="btn-icon btn-back hidden" onclick="navigateBack()">
-      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
-    </button>
-    <span id="page-title" class="page-title">Início</span>
-    <div class="header-right">
-      <button class="btn-icon" id="btn-header-action" style="display:none" onclick="headerAction()"></button>
+    <div id="sermonList" class="sermon-list"></div>
+
+    <div id="emptyState" style="text-align:center; margin-top:100px; display:none;">
+        <div style="font-size:48px; margin-bottom:20px; opacity:0.2;">✝🔥</div>
+        <p style="color:var(--text-muted);">Comece a escrever sua primeira mensagem.</p>
     </div>
-  </header>
 
-  <!-- Main -->
-  <main class="app-main" id="app-main">
+    <button id="btn-new-sermon" class="fab-main" title="Nova mensagem">
+        <svg class="icon icon-lg" style="stroke-width:3"><use href="#icon-plus"></use></svg>
+    </button>
+</div>
 
-    <!-- PAGE: DASHBOARD -->
-    <section id="page-dashboard" class="page active">
-      <div class="hero-card">
-        <div class="hero-greeting" id="hero-greeting">Olá!</div>
-        <div class="hero-label">Saldo do Mês</div>
-        <div class="hero-balance" id="hero-balance">R$ 0,00</div>
-        <div class="hero-period" id="hero-period"></div>
-        <div class="hero-pills">
-          <div class="hero-pill income-pill">
-            <span class="pill-arrow">↑</span>
-            <div>
-              <div class="pill-label">Entradas</div>
-              <div class="pill-value" id="dash-income">R$ 0,00</div>
+<!-- EDITOR HEADER — fixo no topo, controlado via JS -->
+<div class="editor-header" style="display:none">
+        <div class="editor-nav">
+            <button id="btn-back" class="icon-btn" title="Voltar">
+                <svg class="icon"><use href="#icon-back"></use></svg>
+            </button>
+
+            <div id="saveStatus" class="status-badge">Salvo</div>
+
+            <div style="display:flex; gap:4px;">
+                <button id="btn-pdf" class="icon-btn" title="Exportar PDF">
+                    <svg class="icon"><use href="#icon-pdf"></use></svg>
+                </button>
+                <button id="btn-bible" class="icon-btn" title="Bíblia">
+                    <svg class="icon"><use href="#icon-book"></use></svg>
+                </button>
+                <button id="btn-preach" class="icon-btn" style="color:var(--primary); background:var(--primary-soft)" title="Modo Pregação">
+                    <svg class="icon" style="fill:currentColor"><use href="#icon-play"></use></svg>
+                </button>
             </div>
-          </div>
-          <div class="hero-pill expense-pill">
-            <span class="pill-arrow">↓</span>
-            <div>
-              <div class="pill-label">Saídas</div>
-              <div class="pill-value" id="dash-expense">R$ 0,00</div>
+        </div>
+
+        <!-- Barra de ferramentas — sempre junto com o nav -->
+        <div class="editor-toolbar">
+            <!-- Novo bloco -->
+            <button id="btn-new-block" class="tool-chip action">
+                <svg class="icon icon-sm"><use href="#icon-plus"></use></svg> Novo
+            </button>
+            <div class="tool-divider"></div>
+
+            <!-- Formatação inline — padrão Word / OneNote -->
+            <button id="btn-fmt-bold" class="tool-chip" title="Negrito"><strong>B</strong></button>
+            <button id="btn-fmt-italic" class="tool-chip" title="Itálico"><em style="font-style:italic">I</em></button>
+            <button id="btn-fmt-underline" class="tool-chip" title="Sublinhado"><span style="text-decoration:underline">U</span></button>
+            <button id="btn-fmt-strike" class="tool-chip" title="Tachado"><span style="text-decoration:line-through">S</span></button>
+            <div class="tool-divider"></div>
+
+            <!-- Cor de texto — A colorido (texto + sublinhado na mesma cor) -->
+            <button class="tool-chip color-btn" data-color="#7C3AED" title="Texto roxo"><span style="font-weight:800;color:#7C3AED;border-bottom:2.5px solid #7C3AED;padding-bottom:1px">A</span></button>
+            <button class="tool-chip color-btn" data-color="#EF4444" title="Texto vermelho"><span style="font-weight:800;color:#EF4444;border-bottom:2.5px solid #EF4444;padding-bottom:1px">A</span></button>
+            <button class="tool-chip color-btn" data-color="#F59E0B" title="Texto laranja"><span style="font-weight:800;color:#F59E0B;border-bottom:2.5px solid #F59E0B;padding-bottom:1px">A</span></button>
+            <button class="tool-chip color-btn" data-color="#16A34A" title="Texto verde"><span style="font-weight:800;color:#16A34A;border-bottom:2.5px solid #16A34A;padding-bottom:1px">A</span></button>
+            <button id="btn-highlight" class="tool-chip" title="Realçar texto (amarelo)"><span style="background:#FEF08A;padding:1px 4px;border-radius:2px;color:#111;font-weight:700;font-size:12px">A</span></button>
+            <button id="btn-fmt-clear" class="tool-chip" title="Limpar toda formatação do trecho selecionado" style="font-size:11px">↻ Fmt</button>
+            <div class="tool-divider"></div>
+
+            <!-- Estrutura de pregação -->
+            <button class="tool-chip" data-format="topic" title="Tópico principal (1. 2. 3.)">1.</button>
+            <button class="tool-chip" data-format="subtopic" title="Subtópico (1.1 1.2…)">1.1</button>
+            <button class="tool-chip" data-format="bullet" title="Ponto / detalhe">→</button>
+            <button class="tool-chip" data-format="p" title="Parágrafo normal">Aa</button>
+            <button class="tool-chip" data-format="h1" title="Título principal">H1</button>
+            <button class="tool-chip" data-format="h2" title="Subtítulo">H2</button>
+            <div class="tool-divider"></div>
+
+            <!-- Blocos especiais -->
+            <button class="tool-chip" data-format="quote" title="Citação bíblica">" "</button>
+            <button class="tool-chip" data-format="warn" title="Aviso / atenção">⚠</button>
+            <button class="tool-chip" data-format="box" title="Bloco destaque">★</button>
+            <div class="tool-divider"></div>
+
+            <!-- Ações de bloco -->
+            <button id="btn-done" class="tool-chip" title="Marcar como ministrado">✓</button>
+            <button id="btn-delete-block" class="tool-chip" title="Deletar bloco" style="color:var(--danger)">
+                <svg class="icon icon-sm"><use href="#icon-trash"></use></svg>
+            </button>
+            <button id="btn-move-up" class="tool-chip" title="Mover bloco para cima">
+                <svg class="icon icon-sm"><use href="#icon-chevron-up"></use></svg>
+            </button>
+            <button id="btn-move-down" class="tool-chip" title="Mover bloco para baixo">
+                <svg class="icon icon-sm"><use href="#icon-chevron-down"></use></svg>
+            </button>
+            <button id="btn-undo" class="tool-chip" title="Desfazer">↺</button>
+            <div class="tool-divider"></div>
+
+            <!-- IA -->
+            <button id="btn-ai-study" class="tool-chip" title="Assistente IA" style="color:var(--primary);background:var(--primary-soft)">🤖 IA</button>
+        </div>
+    </div>
+</div>
+
+<!-- BARRA FLUTUANTE — acompanha o bloco em foco, opções completas -->
+<div id="floatingBar" class="floating-bar hidden" onmousedown="event.preventDefault()">
+    <!-- Novo bloco -->
+    <button class="ftool" id="fbt-new" title="Novo bloco">+ Novo</button>
+    <div class="ftool-div"></div>
+
+    <!-- Inline -->
+    <button class="ftool" id="fbt-bold" title="Negrito"><strong>B</strong></button>
+    <button class="ftool" id="fbt-italic" title="Itálico"><em style="font-style:italic">I</em></button>
+    <button class="ftool" id="fbt-underline" title="Sublinhado"><span style="text-decoration:underline">U</span></button>
+    <button class="ftool" id="fbt-strike" title="Tachado"><span style="text-decoration:line-through">S</span></button>
+    <div class="ftool-div"></div>
+
+    <!-- Cores de texto -->
+    <button class="ftool fcolor" data-color="#7C3AED" title="Roxo"><span style="font-weight:800;color:#7C3AED;border-bottom:2px solid #7C3AED;padding-bottom:1px">A</span></button>
+    <button class="ftool fcolor" data-color="#EF4444" title="Vermelho"><span style="font-weight:800;color:#EF4444;border-bottom:2px solid #EF4444;padding-bottom:1px">A</span></button>
+    <button class="ftool fcolor" data-color="#F59E0B" title="Laranja"><span style="font-weight:800;color:#F59E0B;border-bottom:2px solid #F59E0B;padding-bottom:1px">A</span></button>
+    <button class="ftool fcolor" data-color="#16A34A" title="Verde"><span style="font-weight:800;color:#16A34A;border-bottom:2px solid #16A34A;padding-bottom:1px">A</span></button>
+    <button class="ftool" id="fbt-highlight" title="Realçar"><span style="background:#FEF08A;padding:1px 4px;border-radius:2px;color:#111;font-weight:700;font-size:11px">A</span></button>
+    <button class="ftool" id="fbt-clear" title="Limpar formatação" style="font-size:11px">↻ Fmt</button>
+    <div class="ftool-div"></div>
+
+    <!-- Tipo de bloco -->
+    <button class="ftool" data-format="topic" title="Tópico">1.</button>
+    <button class="ftool" data-format="subtopic" title="Subtópico">1.1</button>
+    <button class="ftool" data-format="bullet" title="Ponto">→</button>
+    <button class="ftool" data-format="p" title="Parágrafo">Aa</button>
+    <button class="ftool" data-format="h1" title="Título H1">H1</button>
+    <button class="ftool" data-format="h2" title="Subtítulo H2">H2</button>
+    <div class="ftool-div"></div>
+
+    <!-- Blocos especiais -->
+    <button class="ftool" data-format="quote" title="Citação">" "</button>
+    <button class="ftool" data-format="warn" title="Aviso">⚠</button>
+    <button class="ftool" data-format="box" title="Caixa destaque">★</button>
+    <div class="ftool-div"></div>
+
+    <!-- Ações de bloco -->
+    <button class="ftool" id="fbt-done" title="Marcar ministrado">✓</button>
+    <button class="ftool" id="fbt-up" title="Mover para cima">↑</button>
+    <button class="ftool" id="fbt-down" title="Mover para baixo">↓</button>
+    <button class="ftool" id="fbt-undo" title="Desfazer">↺</button>
+    <button class="ftool" id="fbt-del" title="Deletar bloco" style="color:var(--danger)">✕</button>
+    <div class="ftool-div"></div>
+
+    <!-- IA -->
+    <button class="ftool" id="fbt-ai" title="Assistente IA" style="color:var(--primary)">🤖 IA</button>
+</div>
+
+<!-- EDITOR SCREEN -->
+<div id="editorScreen" class="screen">
+    <div class="input-wrapper">
+        <input id="docTitle" class="input-title" placeholder="Título da Mensagem" autocomplete="off">
+        <input id="docRef" class="input-ref" placeholder="Referência (ex: Romanos 8:28)" autocomplete="off">
+    </div>
+
+    <div id="editorBlocks"></div>
+</div>
+
+<!-- PREACH MODE -->
+<div id="preachScreen" class="hidden">
+    <div id="preachContent"></div>
+
+    <div id="hud" class="hud-float">
+        <button id="btn-font-dec" class="hud-btn" title="Diminuir fonte">A-</button>
+        <div id="timerDisplay" style="font-family:monospace; font-size:20px; font-weight:bold; min-width:60px; text-align:center; color:white;">00:00</div>
+        <button id="btn-timer" class="hud-btn" title="Iniciar/pausar cronômetro">▶</button>
+        <button id="btn-font-inc" class="hud-btn" title="Aumentar fonte">A+</button>
+        <div style="width:1px; height:20px; background:#444; margin:0 8px;"></div>
+        <button id="btn-ministrado" class="hud-btn" title="Marcar como ministrado" style="font-size:13px; color:#86efac; padding:0 10px; width:auto;">✓ Ministrado</button>
+        <div style="width:1px; height:20px; background:#444; margin:0 4px;"></div>
+        <button id="btn-exit-preach" class="hud-btn hud-exit">Sair</button>
+    </div>
+
+    <div id="hud-tap-zone" style="position:fixed; bottom:0; left:0; right:0; height:120px; z-index:499;"></div>
+</div>
+
+<!-- BIBLE MODAL -->
+<div id="bibleModal" class="modal-overlay">
+    <div class="modal-sheet">
+        <div class="modal-header">
+            <h3 class="modal-title">Bíblia (Almeida)</h3>
+            <button id="btn-bible-close" class="icon-btn" title="Fechar">
+                <svg class="icon"><use href="#icon-x"></use></svg>
+            </button>
+        </div>
+
+        <!-- Busca na Bíblia -->
+        <div class="bible-search-wrapper">
+            <input id="bibleSearch" class="bible-search" type="text" placeholder="Ex: João 3:16, Salmos 23, Davi..." autocomplete="off">
+            <span class="bible-search-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            </span>
+        </div>
+
+        <!-- Resultados de busca por tema / personagem -->
+        <div id="bibleSearchResults" style="display:none; background:var(--primary-soft); border-radius:10px; padding:10px 12px; margin-bottom:12px; flex-shrink:0;">
+            <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:var(--primary); margin-bottom:8px; font-family:var(--font-ui)">Referências encontradas</div>
+            <div id="bibleIndexList" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
+        </div>
+
+        <div class="bible-controls">
+            <select id="bibleBook" class="bible-select"></select>
+            <select id="bibleChapter" class="bible-select"></select>
+        </div>
+
+        <div id="bibleText" class="bible-text-area">
+            <div style="color:var(--text-muted); text-align:center; margin-top:40px; font-family:var(--font-ui);">
+                Selecione um livro e capítulo acima.
             </div>
-          </div>
         </div>
-      </div>
-
-      <div class="section-card" id="upcoming-section">
-        <div class="section-header">
-          <h3>Contas a Vencer</h3>
-          <span class="badge-pill" id="upcoming-badge"></span>
-        </div>
-        <div id="upcoming-list"></div>
-        <div id="upcoming-empty" class="empty-mini hidden">Nenhuma conta nos próximos 7 dias 👍</div>
-      </div>
-
-      <div class="section-card">
-        <div class="section-header">
-          <h3>Últimos Lançamentos</h3>
-          <button class="btn-link" onclick="navigate('extrato')">Ver todos →</button>
-        </div>
-        <div id="recent-list"></div>
-        <div id="recent-empty" class="empty-mini hidden">Nenhum lançamento ainda</div>
-      </div>
-
-      <div class="section-card">
-        <div class="section-header"><h3>Últimos 6 Meses</h3></div>
-        <div class="chart-wrap"><canvas id="chart-dashboard"></canvas></div>
-      </div>
-    </section>
-
-    <!-- PAGE: EXTRATO -->
-    <section id="page-extrato" class="page">
-      <div class="month-nav-bar">
-        <button class="month-btn" onclick="changeMonth(-1)">‹</button>
-        <span id="extrato-month-label" class="month-nav-label"></span>
-        <button class="month-btn" onclick="changeMonth(1)">›</button>
-      </div>
-      <div class="triple-cards">
-        <div class="triple-card income-card">
-          <div class="tc-label">Entradas</div>
-          <div class="tc-value" id="ext-income">R$ 0,00</div>
-        </div>
-        <div class="triple-card expense-card">
-          <div class="tc-label">Saídas</div>
-          <div class="tc-value" id="ext-expense">R$ 0,00</div>
-        </div>
-        <div class="triple-card neutral-card">
-          <div class="tc-label">Saldo</div>
-          <div class="tc-value" id="ext-balance">R$ 0,00</div>
-        </div>
-      </div>
-      <div class="chip-row" id="cat-filter-row">
-        <button class="chip active" data-cat="all" onclick="filterCat(this,'all')">Todos</button>
-      </div>
-      <div id="extrato-list" class="tx-list"></div>
-      <div id="extrato-empty" class="empty-state hidden">
-        <div class="empty-icon">💸</div>
-        <p>Nenhum lançamento neste mês</p>
-        <button class="btn-primary" onclick="openModalLancamento()">Adicionar</button>
-      </div>
-    </section>
-
-    <!-- PAGE: INVESTIMENTOS -->
-    <section id="page-investimentos" class="page">
-      <div class="invest-hero">
-        <div class="invest-hero-label">Total Investido</div>
-        <div class="invest-hero-value" id="invest-total">R$ 0,00</div>
-        <div class="invest-hero-sub">
-          <span>Projeção 12 meses: <strong id="invest-proj12">R$ 0,00</strong></span>
-        </div>
-      </div>
-      <div id="invest-list" class="inv-list"></div>
-      <div id="invest-empty" class="empty-state hidden">
-        <div class="empty-icon">📈</div>
-        <p>Nenhum investimento cadastrado</p>
-      </div>
-      <div class="section-card" id="invest-pie-section">
-        <div class="section-header"><h3>Composição da Carteira</h3></div>
-        <div class="chart-wrap chart-pie"><canvas id="chart-invest-pie"></canvas></div>
-        <div id="invest-pie-legend" class="pie-legend"></div>
-      </div>
-      <div class="page-actions">
-        <button class="btn-primary" onclick="openModalInvestimento()">+ Novo Investimento</button>
-      </div>
-    </section>
-
-    <!-- PAGE: METAS -->
-    <section id="page-metas" class="page">
-      <div id="metas-list" class="goals-grid"></div>
-      <div id="metas-empty" class="empty-state hidden">
-        <div class="empty-icon">🎯</div>
-        <p>Nenhuma meta cadastrada</p>
-      </div>
-      <div class="page-actions">
-        <button class="btn-primary" onclick="openModalMeta()">+ Nova Meta</button>
-      </div>
-    </section>
-
-    <!-- PAGE: RECORRENTES -->
-    <section id="page-recorrentes" class="page">
-      <div class="triple-cards">
-        <div class="triple-card expense-card">
-          <div class="tc-label">Saídas Fixas</div>
-          <div class="tc-value" id="rec-total-exp">R$ 0,00</div>
-        </div>
-        <div class="triple-card income-card">
-          <div class="tc-label">Entradas Fixas</div>
-          <div class="tc-value" id="rec-total-inc">R$ 0,00</div>
-        </div>
-        <div class="triple-card neutral-card">
-          <div class="tc-label">Saldo Fixo</div>
-          <div class="tc-value" id="rec-total-bal">R$ 0,00</div>
-        </div>
-      </div>
-      <div id="recorrentes-list" class="tx-list"></div>
-      <div id="recorrentes-empty" class="empty-state hidden">
-        <div class="empty-icon">🔄</div>
-        <p>Nenhuma conta recorrente</p>
-      </div>
-      <div class="page-actions">
-        <button class="btn-primary" onclick="openModalRecorrente()">+ Nova Recorrente</button>
-      </div>
-    </section>
-
-    <!-- PAGE: RELATÓRIOS -->
-    <section id="page-relatorios" class="page">
-      <div class="month-nav-bar">
-        <button class="month-btn" onclick="changeReportMonth(-1)">‹</button>
-        <span id="report-month-label" class="month-nav-label"></span>
-        <button class="month-btn" onclick="changeReportMonth(1)">›</button>
-      </div>
-      <div class="section-card">
-        <div class="section-header"><h3>Gastos por Categoria</h3></div>
-        <div class="chart-wrap chart-pie"><canvas id="chart-cats"></canvas></div>
-        <div id="cats-legend" class="pie-legend"></div>
-      </div>
-      <div class="section-card">
-        <div class="section-header"><h3>Entradas vs Saídas — 6 Meses</h3></div>
-        <div class="chart-wrap"><canvas id="chart-monthly"></canvas></div>
-      </div>
-      <div class="section-card">
-        <div class="section-header"><h3>Evolução do Saldo</h3></div>
-        <div class="chart-wrap"><canvas id="chart-balance-line"></canvas></div>
-      </div>
-      <div class="page-actions">
-        <button class="btn-secondary" onclick="exportCSV()">⬇ Exportar CSV</button>
-      </div>
-    </section>
-
-    <!-- PAGE: ORÇAMENTO -->
-    <section id="page-orcamento" class="page">
-      <div class="month-nav-bar">
-        <button class="month-btn" onclick="changeOrcMonth(-1)">‹</button>
-        <span id="orc-month-label" class="month-nav-label"></span>
-        <button class="month-btn" onclick="changeOrcMonth(1)">›</button>
-      </div>
-      <div id="orc-list" class="orc-list"></div>
-      <div id="orc-empty" class="empty-state hidden">
-        <div class="empty-icon">💡</div>
-        <p>Nenhum orçamento definido para este mês</p>
-      </div>
-      <div class="page-actions">
-        <button class="btn-primary" onclick="openModalOrcamento()">+ Definir Orçamento</button>
-      </div>
-    </section>
-
-    <!-- PAGE: CONFIGURAÇÕES -->
-    <section id="page-configuracoes" class="page">
-      <div class="section-card">
-        <h3 class="section-title">Perfil</h3>
-        <div class="form-field">
-          <label>Seu nome</label>
-          <input type="text" id="cfg-name" placeholder="Como devo te chamar?" maxlength="30" oninput="saveCfgName()">
-        </div>
-      </div>
-
-      <div class="section-card">
-        <h3 class="section-title">Preferências</h3>
-        <div class="toggle-row">
-          <span>Tema Escuro</span>
-          <label class="toggle-sw">
-            <input type="checkbox" id="cfg-dark" onchange="toggleTheme()">
-            <span class="sw-track"><span class="sw-thumb"></span></span>
-          </label>
-        </div>
-      </div>
-
-      <div class="section-card">
-        <h3 class="section-title">Recorrentes</h3>
-        <p class="text-muted">Gera automaticamente os lançamentos das contas fixas no início de cada mês.</p>
-        <button class="btn-secondary mt8" onclick="generateMonthlyRecurring()">Gerar agora para este mês</button>
-      </div>
-
-      <div class="section-card danger-card">
-        <h3 class="section-title">Zona de Perigo</h3>
-        <button class="btn-danger" onclick="confirmAction('Apagar todos os dados?','Isso vai remover todos os lançamentos, metas, investimentos e configurações. Esta ação não pode ser desfeita.', clearAllData)">Apagar Todos os Dados</button>
-      </div>
-
-      <div class="app-credits">FinanceFlow v1.0 · Dados salvos localmente</div>
-    </section>
-
-  </main>
-
-  <!-- FAB -->
-  <button id="fab" class="fab" onclick="openModalLancamento()" aria-label="Novo lançamento">
-    <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-  </button>
-
-  <!-- Bottom Nav -->
-  <nav class="bottom-nav">
-    <button class="nav-btn active" data-page="dashboard" onclick="navigate('dashboard')">
-      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-      <span>Início</span>
-    </button>
-    <button class="nav-btn" data-page="extrato" onclick="navigate('extrato')">
-      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
-      <span>Extrato</span>
-    </button>
-    <div class="nav-fab-space"></div>
-    <button class="nav-btn" data-page="investimentos" onclick="navigate('investimentos')">
-      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
-      <span>Investir</span>
-    </button>
-    <button class="nav-btn" onclick="openModalMais()">
-      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="12" cy="19" r="1" fill="currentColor"/></svg>
-      <span>Mais</span>
-    </button>
-  </nav>
-
+    </div>
 </div>
 
-<!-- ======= MODALS ======= -->
+<!-- SETTINGS MODAL -->
+<div id="settingsModal" class="modal-overlay">
+    <div class="modal-sheet">
+        <div class="modal-header">
+            <h3 class="modal-title">Configurações</h3>
+            <button id="btn-settings-close" class="icon-btn" title="Fechar">
+                <svg class="icon"><use href="#icon-x"></use></svg>
+            </button>
+        </div>
 
-<!-- Modal Lançamento -->
-<div id="modal-lancamento" class="modal-overlay" onclick="overlayClose(event,'modal-lancamento')">
-  <div class="modal-sheet">
-    <div class="sheet-handle"></div>
-    <div class="modal-head">
-      <h2 id="lanc-modal-title">Novo Lançamento</h2>
-      <button class="btn-icon" onclick="closeModal('modal-lancamento')">✕</button>
+        <div class="settings-row">
+            <span>Modo Escuro</span>
+            <button id="btn-theme" class="icon-btn" title="Alternar tema">
+                <svg class="icon"><use href="#icon-moon"></use></svg>
+            </button>
+        </div>
+
+        <div class="settings-row">
+            <span>Backup (Download JSON)</span>
+            <button id="btn-backup-dl" class="btn" style="background:var(--border); padding:8px 16px;">Baixar</button>
+        </div>
+
+        <div class="settings-row">
+            <span>Restaurar Backup</span>
+            <button id="btn-backup-restore" class="btn" style="background:var(--border); padding:8px 16px;">Upload</button>
+            <input type="file" id="fileInput" accept=".json" hidden>
+        </div>
+
+        <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:8px">
+            <span style="font-weight:600">Chave API Claude (IA)</span>
+            <div style="display:flex;gap:8px;width:100%">
+                <input id="apiKeyInput" type="password" placeholder="sk-ant-..."
+                       style="flex:1;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:var(--font-ui);font-size:14px;outline:none">
+                <button id="btn-save-api-key" class="btn" style="background:var(--primary);color:white;padding:8px 16px;white-space:nowrap">Salvar</button>
+            </div>
+            <span style="font-size:12px;color:var(--text-muted)">Obtenha em console.anthropic.com</span>
+        </div>
     </div>
-    <div class="type-tab-row">
-      <button id="tab-income" class="type-tab active" onclick="setLancType('income')">↑ Entrada</button>
-      <button id="tab-expense" class="type-tab" onclick="setLancType('expense')">↓ Saída</button>
-    </div>
-    <div class="amount-row">
-      <span class="currency-sign">R$</span>
-      <input type="number" id="lanc-amount" class="amount-input" placeholder="0,00" step="0.01" min="0" inputmode="decimal">
-    </div>
-    <div class="modal-form">
-      <div class="form-field">
-        <label>Descrição</label>
-        <input type="text" id="lanc-desc" placeholder="Ex: Supermercado, Salário…" maxlength="80">
-      </div>
-      <div class="form-field">
-        <label>Data</label>
-        <input type="date" id="lanc-date">
-      </div>
-      <div class="form-field">
-        <label>Categoria</label>
-        <div id="lanc-cat-grid" class="cat-grid"></div>
-      </div>
-    </div>
-    <input type="hidden" id="lanc-id">
-    <button class="btn-primary btn-full" onclick="saveLancamento()">Salvar</button>
-  </div>
 </div>
 
-<!-- Modal Recorrente -->
-<div id="modal-recorrente" class="modal-overlay" onclick="overlayClose(event,'modal-recorrente')">
-  <div class="modal-sheet">
-    <div class="sheet-handle"></div>
-    <div class="modal-head">
-      <h2 id="rec-modal-title">Nova Recorrente</h2>
-      <button class="btn-icon" onclick="closeModal('modal-recorrente')">✕</button>
+<!-- AI STUDY MODAL -->
+<div id="aiStudyModal" class="modal-overlay">
+    <div class="modal-sheet" style="max-height:95vh">
+        <div class="modal-header">
+            <h3 class="modal-title">Assistente IA</h3>
+            <div style="display:flex;gap:8px">
+                <button id="btn-export-study" class="btn" style="background:var(--primary);color:white;padding:8px 16px">Exportar PDF</button>
+                <button id="btn-ai-close" class="icon-btn">×</button>
+            </div>
+        </div>
+        <div class="ai-type-tabs">
+            <button class="ai-type-tab active" data-mode="study">📋 Estudo de Células</button>
+            <button class="ai-type-tab" data-mode="devotional">🙏 Devocional</button>
+        </div>
+        <div id="aiStudyContent" class="ai-study-content">
+            <div style="text-align:center; padding:40px; color:var(--text-muted); font-family:var(--font-ui);">
+                <div style="font-size:48px; margin-bottom:16px">🤖</div>
+                <p style="margin:0; font-size:15px">Selecione o tipo e clique em Gerar para criar conteúdo baseado na mensagem atual.</p>
+            </div>
+        </div>
+        <div style="padding-top:16px;border-top:1px solid var(--border);flex-shrink:0">
+            <button id="btn-generate-study" class="btn" style="width:100%;background:var(--primary);color:white;padding:14px;border-radius:10px;font-size:15px;font-weight:600">
+                ✦ Gerar com IA
+            </button>
+        </div>
     </div>
-    <div class="type-tab-row">
-      <button id="tab-rec-income" class="type-tab" onclick="setRecType('income')">↑ Entrada</button>
-      <button id="tab-rec-expense" class="type-tab active" onclick="setRecType('expense')">↓ Saída</button>
-    </div>
-    <div class="modal-form">
-      <div class="form-field">
-        <label>Nome</label>
-        <input type="text" id="rec-name" placeholder="Ex: Aluguel, Salário, Netflix…" maxlength="60">
-      </div>
-      <div class="form-field">
-        <label>Valor (R$)</label>
-        <input type="number" id="rec-amount" placeholder="0,00" step="0.01" min="0" inputmode="decimal">
-      </div>
-      <div class="form-field">
-        <label>Dia do mês</label>
-        <input type="number" id="rec-day" placeholder="Ex: 5" min="1" max="31" inputmode="numeric">
-      </div>
-      <div class="form-field">
-        <label>Categoria</label>
-        <div id="rec-cat-grid" class="cat-grid"></div>
-      </div>
-    </div>
-    <input type="hidden" id="rec-id">
-    <button class="btn-primary btn-full" onclick="saveRecorrente()">Salvar</button>
-  </div>
 </div>
 
-<!-- Modal Investimento -->
-<div id="modal-investimento" class="modal-overlay" onclick="overlayClose(event,'modal-investimento')">
-  <div class="modal-sheet">
-    <div class="sheet-handle"></div>
-    <div class="modal-head">
-      <h2 id="inv-modal-title">Novo Investimento</h2>
-      <button class="btn-icon" onclick="closeModal('modal-investimento')">✕</button>
-    </div>
-    <div class="modal-form">
-      <div class="form-field">
-        <label>Nome / Descrição</label>
-        <input type="text" id="inv-name" placeholder="Ex: CDB Nubank, LCI BTG…" maxlength="60">
-      </div>
-      <div class="form-field">
-        <label>Banco / Instituição</label>
-        <input type="text" id="inv-bank" placeholder="Ex: Nubank, XP, Itaú…" maxlength="40">
-      </div>
-      <div class="form-field">
-        <label>Tipo</label>
-        <select id="inv-type">
-          <option value="CDB">CDB</option>
-          <option value="Poupança">Poupança</option>
-          <option value="LCI/LCA">LCI / LCA</option>
-          <option value="Tesouro Direto">Tesouro Direto</option>
-          <option value="Ações">Ações</option>
-          <option value="FII">FII</option>
-          <option value="Crypto">Criptomoedas</option>
-          <option value="Outros">Outros</option>
-        </select>
-      </div>
-      <div class="form-field">
-        <label>Valor Aplicado (R$)</label>
-        <input type="number" id="inv-amount" placeholder="0,00" step="0.01" min="0" inputmode="decimal">
-      </div>
-      <div class="form-field">
-        <label>Taxa de Rendimento (% ao mês)</label>
-        <input type="number" id="inv-rate" placeholder="Ex: 0.8" step="0.001" min="0" inputmode="decimal">
-      </div>
-      <div class="form-field">
-        <label>Data de Início</label>
-        <input type="date" id="inv-date">
-      </div>
-    </div>
-    <input type="hidden" id="inv-id">
-    <button class="btn-primary btn-full" onclick="saveInvestimento()">Salvar</button>
-  </div>
-</div>
-
-<!-- Modal Meta -->
-<div id="modal-meta" class="modal-overlay" onclick="overlayClose(event,'modal-meta')">
-  <div class="modal-sheet">
-    <div class="sheet-handle"></div>
-    <div class="modal-head">
-      <h2 id="meta-modal-title">Nova Meta</h2>
-      <button class="btn-icon" onclick="closeModal('modal-meta')">✕</button>
-    </div>
-    <div class="modal-form">
-      <div class="form-field">
-        <label>Nome da Meta</label>
-        <input type="text" id="meta-name" placeholder="Ex: Viagem, Reserva de Emergência…" maxlength="60">
-      </div>
-      <div class="form-field">
-        <label>Emoji</label>
-        <div id="meta-emoji-grid" class="emoji-grid"></div>
-      </div>
-      <div class="form-field">
-        <label>Cor</label>
-        <div id="meta-color-grid" class="color-grid"></div>
-      </div>
-      <div class="form-field">
-        <label>Valor Alvo (R$)</label>
-        <input type="number" id="meta-target" placeholder="0,00" step="0.01" min="0" inputmode="decimal">
-      </div>
-      <div class="form-field">
-        <label>Já tenho guardado (R$)</label>
-        <input type="number" id="meta-saved" placeholder="0,00" step="0.01" min="0" inputmode="decimal">
-      </div>
-      <div class="form-field">
-        <label>Prazo</label>
-        <input type="month" id="meta-deadline">
-      </div>
-    </div>
-    <input type="hidden" id="meta-id">
-    <button class="btn-primary btn-full" onclick="saveMeta()">Salvar</button>
-  </div>
-</div>
-
-<!-- Modal Deposito em Meta -->
-<div id="modal-deposito" class="modal-overlay" onclick="overlayClose(event,'modal-deposito')">
-  <div class="modal-sheet modal-sm">
-    <div class="sheet-handle"></div>
-    <div class="modal-head">
-      <h2 id="dep-modal-title">Adicionar à Meta</h2>
-      <button class="btn-icon" onclick="closeModal('modal-deposito')">✕</button>
-    </div>
-    <div class="modal-form">
-      <div class="form-field">
-        <label>Valor a adicionar (R$)</label>
-        <input type="number" id="dep-amount" placeholder="0,00" step="0.01" min="0" inputmode="decimal">
-      </div>
-    </div>
-    <input type="hidden" id="dep-meta-id">
-    <button class="btn-primary btn-full" onclick="saveDeposito()">Confirmar</button>
-  </div>
-</div>
-
-<!-- Modal Orçamento -->
-<div id="modal-orcamento" class="modal-overlay" onclick="overlayClose(event,'modal-orcamento')">
-  <div class="modal-sheet modal-sm">
-    <div class="sheet-handle"></div>
-    <div class="modal-head">
-      <h2 id="orc-modal-title">Definir Orçamento</h2>
-      <button class="btn-icon" onclick="closeModal('modal-orcamento')">✕</button>
-    </div>
-    <div class="modal-form">
-      <div class="form-field">
-        <label>Categoria</label>
-        <select id="orc-cat"></select>
-      </div>
-      <div class="form-field">
-        <label>Limite Mensal (R$)</label>
-        <input type="number" id="orc-limit" placeholder="0,00" step="0.01" min="0" inputmode="decimal">
-      </div>
-    </div>
-    <input type="hidden" id="orc-id">
-    <button class="btn-primary btn-full" onclick="saveOrcamento()">Salvar</button>
-  </div>
-</div>
-
-<!-- Modal Mais -->
-<div id="modal-mais" class="modal-overlay" onclick="overlayClose(event,'modal-mais')">
-  <div class="modal-sheet modal-sm">
-    <div class="sheet-handle"></div>
-    <div class="mais-grid">
-      <button class="mais-btn" onclick="navFromMais('metas')">
-        <span class="mais-icon">🎯</span><span>Metas</span>
-      </button>
-      <button class="mais-btn" onclick="navFromMais('recorrentes')">
-        <span class="mais-icon">🔄</span><span>Recorrentes</span>
-      </button>
-      <button class="mais-btn" onclick="navFromMais('relatorios')">
-        <span class="mais-icon">📊</span><span>Relatórios</span>
-      </button>
-      <button class="mais-btn" onclick="navFromMais('orcamento')">
-        <span class="mais-icon">💡</span><span>Orçamento</span>
-      </button>
-      <button class="mais-btn" onclick="exportCSV();closeModal('modal-mais')">
-        <span class="mais-icon">⬇</span><span>Exportar</span>
-      </button>
-      <button class="mais-btn" onclick="navFromMais('configuracoes')">
-        <span class="mais-icon">⚙️</span><span>Config.</span>
-      </button>
-    </div>
-  </div>
-</div>
-
-<!-- Modal Confirmar -->
-<div id="modal-confirmar" class="modal-overlay" onclick="overlayClose(event,'modal-confirmar')">
-  <div class="modal-sheet modal-sm">
-    <div class="sheet-handle"></div>
-    <div class="confirm-body">
-      <div class="confirm-icon" id="confirm-emoji">⚠️</div>
-      <h3 id="confirm-title">Confirmar</h3>
-      <p id="confirm-msg" class="text-muted"></p>
-      <div class="confirm-actions">
-        <button class="btn-secondary" onclick="closeModal('modal-confirmar')">Cancelar</button>
-        <button class="btn-danger" id="confirm-ok">Confirmar</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
