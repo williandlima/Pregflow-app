@@ -45,6 +45,15 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('beforeunload', performSave);
 
     if ('serviceWorker' in navigator) {
+        // Desregistrar qualquer SW com escopo errado (versões antigas usavam '/' — domínio inteiro)
+        navigator.serviceWorker.getRegistrations().then(registrations => {
+            registrations.forEach(reg => {
+                const scope = reg.scope;
+                if (!scope.includes('/Pregflow-app/') && !scope.includes('/FinanceFlow/')) {
+                    reg.unregister();
+                }
+            });
+        });
         navigator.serviceWorker.register('./service-worker.js').catch(() => {});
     }
 });
