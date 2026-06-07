@@ -31,9 +31,14 @@ self.addEventListener('install', e => {
 });
 
 self.addEventListener('activate', e => {
+  // Só apaga caches antigos do próprio FinanceFlow — não toca em caches de outros apps
   e.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+      Promise.all(
+        keys
+          .filter(k => k.startsWith('financeflow-') && k !== CACHE_NAME)
+          .map(k => caches.delete(k))
+      )
     )
   );
   self.clients.claim();
