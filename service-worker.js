@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pregflow-v16';
+const CACHE_NAME = 'pregflow-v17';
 const STATIC_ASSETS = [
     './',
     './index.html',
@@ -28,8 +28,8 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
 
-    // Network-first for Bible API (always try fresh data)
-    if (url.hostname === 'bible-api.com') {
+    // Network-first for external APIs (always try fresh data)
+    if (url.hostname === 'bible-api.com' || url.hostname === 'api.anthropic.com') {
         event.respondWith(
             fetch(event.request).catch(() =>
                 new Response(JSON.stringify({ error: 'offline' }), {

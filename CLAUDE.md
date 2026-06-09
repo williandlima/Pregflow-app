@@ -38,7 +38,7 @@ STATE = { sermons: [], currentId: null, timer: null, seconds: 0, isRunning: fals
 Persistence is entirely via `localStorage`:
 - `pregflow_db` — JSON array of sermon objects
 - `pregflow_theme` — `'dark'` or absent
-- `pregflow_api_key` — Gemini API key
+- `pregflow_api_key` — Claude (Anthropic) API key
 
 `loadDB()` / `saveDB()` handle serialization. Auto-save is debounced 800ms via `triggerSave()` → `performSave()`. Undo history is capped at 30 snapshots in `undoStack[]`.
 
@@ -60,16 +60,18 @@ The editor renders blocks as `contentEditable` divs. `createBlockUI(type, text, 
 
 Cache name is `pregflow-v{N}` — **increment `N` in `service-worker.js` whenever static assets change** to bust the cache on next visit. Strategy:
 - Cache-first for all local static assets
-- Network-first for `bible-api.com` requests
+- Network-first for `bible-api.com` and `api.anthropic.com` requests
 - Stale-while-revalidate for Google Fonts
 
 ### AI Integration
 
-Uses Google Gemini (`gemini-1.5-flash`) via `generativelanguage.googleapis.com`. The user supplies their own API key (stored in `pregflow_api_key`). Two generation modes: cell group study guide and daily devotional. The markdown response is rendered to HTML by a local `markdownToHtml()` function — no external markdown library.
+Uses Claude (`claude-opus-4-8`) via `https://api.anthropic.com/v1/messages`. The user supplies their own Anthropic API key (stored in `pregflow_api_key`; obtain at `console.anthropic.com`). Browser-side requests require the `anthropic-dangerous-direct-browser-access: true` header. Two generation modes: cell group study guide and daily devotional. The markdown response is rendered to HTML by a local `markdownToHtml()` function — no external markdown library.
+
+Service worker treats `api.anthropic.com` as network-first (never cached).
 
 ### Design System
 
-Purple primary (`#7C3AED`) with CSS custom properties at `:root` for all colors. Dark mode applies via `body.dark` class, which overrides the same variables. Font stack: Inter (UI) and Merriweather (preach reading view), both loaded from Google Fonts.
+Purple primary (`#7C3AED`) with CSS custom properties at `:root` for all colors. Dark mode applies via `body.dark` class toggle, which overrides the same variables. Font stack: Inter (UI) and Merriweather (preach reading view), both loaded from Google Fonts.
 
 ## Conventions
 
