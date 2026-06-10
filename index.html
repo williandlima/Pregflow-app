@@ -2,316 +2,1131 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="theme-color" content="#f59e0b">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="CifraPro">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0f0a1e">
 <title>CifraPro</title>
-<link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="styles.css">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  :root {
+    --bg: #0f0a1e;
+    --bg2: #160f2b;
+    --card: rgba(255,255,255,0.08);
+    --border: rgba(255,255,255,0.12);
+    --primary: #f59e0b;
+    --accent: #a855f7;
+    --text: #f0e6ff;
+    --muted: #9a8fb5;
+    --radius: 16px;
+    --safe: env(safe-area-inset-bottom, 0px);
+  }
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    overscroll-behavior: none;
+  }
+  body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+  button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+  input, textarea, select { font-family: inherit; }
+
+  /* HEADER */
+  #header {
+    height: 56px; min-height: 56px;
+    display: flex; align-items: center; gap: 12px;
+    padding: 0 16px;
+    background: linear-gradient(180deg, var(--bg2), var(--bg));
+    border-bottom: 1px solid var(--border);
+    z-index: 20;
+  }
+  #header .title { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; flex: 1; }
+  #header .title b { color: var(--primary); }
+  #header .back {
+    width: 36px; height: 36px; border-radius: 12px;
+    display: none; align-items: center; justify-content: center;
+    background: var(--card); border: 1px solid var(--border); font-size: 18px;
+  }
+  #header.show-back .back { display: flex; }
+
+  /* CONTENT */
+  #content { flex: 1; overflow: hidden; position: relative; }
+  .screen {
+    position: absolute; inset: 0; overflow-y: auto;
+    display: none; padding: 16px; -webkit-overflow-scrolling: touch;
+  }
+  .screen.active { display: flex; flex-direction: column; gap: 16px; }
+
+  /* BOTTOM NAV */
+  #nav {
+    height: calc(64px + var(--safe)); min-height: calc(64px + var(--safe));
+    padding-bottom: var(--safe);
+    display: flex; background: linear-gradient(0deg, var(--bg2), var(--bg));
+    border-top: 1px solid var(--border); z-index: 20;
+  }
+  #nav button {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 2px; font-size: 11px; color: var(--muted); transition: color .2s;
+  }
+  #nav button .ic { font-size: 24px; line-height: 1; }
+  #nav button.active { color: var(--primary); }
+
+  /* CARDS / COMPONENTS */
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px;
+  }
+  .section-title { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); font-weight: 600; }
+
+  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .stat {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 18px 16px; display: flex; flex-direction: column; gap: 4px;
+  }
+  .stat .num { font-size: 36px; font-weight: 800; line-height: 1; color: var(--primary); }
+  .stat.accent .num { color: var(--accent); }
+  .stat .lbl { font-size: 13px; color: var(--muted); }
+
+  .quick-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .quick {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 18px 12px; display: flex; flex-direction: column; align-items: center; gap: 8px;
+    transition: transform .1s, background .2s;
+  }
+  .quick:active { transform: scale(.96); background: rgba(255,255,255,0.13); }
+  .quick .ic { font-size: 30px; }
+  .quick .lbl { font-size: 13px; font-weight: 600; }
+
+  .list { display: flex; flex-direction: column; gap: 10px; }
+  .song-item {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 14px 16px; display: flex; align-items: center; gap: 12px;
+    transition: transform .1s, background .2s;
+  }
+  .song-item:active { transform: scale(.98); background: rgba(255,255,255,0.13); }
+  .song-item .info { flex: 1; min-width: 0; }
+  .song-item .info .t { font-weight: 600; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .song-item .info .a { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .key-badge {
+    background: rgba(245,158,11,0.18); color: var(--primary);
+    border: 1px solid rgba(245,158,11,0.4); border-radius: 10px;
+    padding: 4px 10px; font-weight: 700; font-size: 13px; min-width: 38px; text-align: center;
+  }
+
+  .empty { text-align: center; color: var(--muted); padding: 40px 20px; }
+  .empty .ic { font-size: 48px; display: block; margin-bottom: 12px; opacity: .5; }
+
+  /* BUTTONS */
+  .btn {
+    background: var(--primary); color: #1a1205; font-weight: 700; font-size: 15px;
+    border-radius: 14px; padding: 14px; display: flex; align-items: center; justify-content: center; gap: 8px;
+    transition: transform .1s, filter .2s;
+  }
+  .btn:active { transform: scale(.97); filter: brightness(1.1); }
+  .btn.accent { background: var(--accent); color: #fff; }
+  .btn.ghost { background: var(--card); border: 1px solid var(--border); color: var(--text); }
+  .btn.danger { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.4); }
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .btn-row .btn { flex: 1; min-width: 0; }
+  .btn.small { padding: 9px 12px; font-size: 13px; border-radius: 11px; }
+
+  /* FORM */
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-size: 13px; color: var(--muted); font-weight: 600; }
+  .input, .textarea, .select {
+    background: rgba(0,0,0,0.25); border: 1px solid var(--border); border-radius: 12px;
+    padding: 13px 14px; color: var(--text); font-size: 15px; width: 100%;
+  }
+  .input:focus, .textarea:focus, .select:focus { outline: none; border-color: var(--primary); }
+  .textarea { resize: vertical; min-height: 120px; font-family: ui-monospace, monospace; line-height: 1.5; }
+  .select { appearance: none; -webkit-appearance: none; }
+
+  /* TABS */
+  .tabs { display: flex; gap: 6px; background: rgba(0,0,0,0.25); padding: 5px; border-radius: 14px; }
+  .tabs button {
+    flex: 1; padding: 10px; border-radius: 10px; font-size: 14px; font-weight: 600; color: var(--muted);
+    transition: all .2s;
+  }
+  .tabs button.active { background: var(--primary); color: #1a1205; }
+
+  .row-inline { display: flex; gap: 10px; }
+  .row-inline > * { flex: 1; }
+
+  /* PROGRESS */
+  .progress { height: 8px; background: rgba(0,0,0,0.3); border-radius: 8px; overflow: hidden; }
+  .progress > i { display: block; height: 100%; width: 0; background: var(--primary); transition: width .3s; }
+
+  /* SONG VIEW */
+  .song-header { display: flex; flex-direction: column; gap: 2px; }
+  .song-header .t { font-size: 24px; font-weight: 800; letter-spacing: -0.5px; }
+  .song-header .a { font-size: 15px; color: var(--muted); }
+
+  .transpose-bar {
+    display: flex; align-items: center; gap: 8px; justify-content: center;
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px;
+  }
+  .transpose-bar button {
+    background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 12px;
+    width: 48px; height: 48px; font-size: 18px; font-weight: 700; color: var(--text);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .transpose-bar button:active { background: var(--primary); color: #1a1205; }
+  .transpose-bar .cur {
+    flex: 1; text-align: center; font-size: 32px; font-weight: 800; color: var(--primary);
+  }
+
+  .key-chips { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+  .key-chips button {
+    background: rgba(0,0,0,0.25); border: 1px solid var(--border); border-radius: 11px;
+    padding: 10px 0; font-weight: 700; font-size: 14px; color: var(--text);
+  }
+  .key-chips button.active { background: var(--primary); color: #1a1205; border-color: var(--primary); }
+
+  .chord-content {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px; font-family: ui-monospace, "SF Mono", monospace; font-size: 15px;
+    line-height: 1.7; white-space: pre-wrap; word-break: break-word; overflow-x: auto;
+  }
+  .chord-line { color: var(--primary); font-weight: 700; }
+
+  /* DISPLAY MODE */
+  #display {
+    position: fixed; inset: 0; background: #000; z-index: 100; display: none;
+    flex-direction: column;
+  }
+  #display.active { display: flex; }
+  #display .dheader {
+    position: absolute; top: 0; left: 0; right: 0; z-index: 10;
+    display: flex; align-items: center; gap: 8px; padding: 10px 12px;
+    background: rgba(10,5,25,0.92); border-bottom: 1px solid var(--border);
+    transition: transform .25s; padding-top: max(10px, env(safe-area-inset-top));
+  }
+  #display.controls-hidden .dheader { transform: translateY(-110%); }
+  #display .dheader .dinfo { flex: 1; min-width: 0; }
+  #display .dheader .dinfo .dt { font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #display .dheader .dinfo .dk { font-size: 12px; color: var(--primary); }
+  #display .dheader button {
+    width: 40px; height: 40px; border-radius: 11px; background: rgba(255,255,255,0.08);
+    border: 1px solid var(--border); font-size: 15px; font-weight: 700; color: var(--text);
+    display: flex; align-items: center; justify-content: center;
+  }
+  #display .dheader button.on { background: var(--primary); color: #1a1205; }
+  #display .dbody {
+    flex: 1; overflow-y: auto; padding: 70px 18px 60px;
+    font-family: ui-monospace, monospace; white-space: pre-wrap; line-height: 1.6;
+    color: #fff; word-break: break-word;
+  }
+  #display.two-col .dbody { column-count: 2; column-gap: 28px; }
+  #display .dnext {
+    position: absolute; bottom: 0; left: 0; right: 0; padding: 12px;
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+    background: rgba(10,5,25,0.92); border-top: 1px solid var(--border);
+    transition: transform .25s; display: none;
+  }
+  #display.controls-hidden .dnext { transform: translateY(120%); }
+  #display.has-next .dnext { display: block; }
+
+  /* MODAL / BOTTOM SHEET */
+  #overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 200;
+    display: none; align-items: flex-end; backdrop-filter: blur(2px);
+  }
+  #overlay.active { display: flex; }
+  #sheet {
+    width: 100%; background: var(--bg2); border-top-left-radius: 22px; border-top-right-radius: 22px;
+    border-top: 1px solid var(--border); padding: 20px 16px;
+    padding-bottom: calc(20px + var(--safe)); max-height: 88vh; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 14px;
+    animation: slideUp .25s ease;
+  }
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  #sheet .grip { width: 40px; height: 4px; background: var(--border); border-radius: 4px; margin: -8px auto 4px; }
+  #sheet h3 { font-size: 18px; font-weight: 700; }
+
+  /* TOAST */
+  #toast {
+    position: fixed; bottom: calc(80px + var(--safe)); left: 50%; transform: translateX(-50%) translateY(20px);
+    background: rgba(20,12,40,0.97); border: 1px solid var(--border); color: var(--text);
+    padding: 12px 20px; border-radius: 14px; font-size: 14px; font-weight: 600; z-index: 300;
+    opacity: 0; transition: all .3s; pointer-events: none; max-width: 90%; text-align: center;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  .sheet-key-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .sheet-key-grid button {
+    background: rgba(0,0,0,0.25); border: 1px solid var(--border); border-radius: 11px;
+    padding: 14px 0; font-weight: 700; color: var(--text);
+  }
+  .sheet-key-grid button:active { background: var(--primary); color: #1a1205; }
+
+  .pick-song {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 12px 14px; display: flex; align-items: center; gap: 10px;
+  }
+  .pick-song .info { flex: 1; min-width: 0; }
+  .pick-song .info .t { font-weight: 600; font-size: 14px; }
+  .pick-song .info .a { font-size: 12px; color: var(--muted); }
+</style>
 </head>
 <body>
-<div id="app">
 
-  <!-- HEADER -->
-  <header id="app-header">
-    <button id="header-back" onclick="App.goBack()" aria-label="Voltar">&#8592;</button>
-    <h1 id="header-title">🎸 CifraPro</h1>
-    <div id="header-actions"></div>
-  </header>
+<header id="header">
+  <button class="back" id="backBtn">‹</button>
+  <div class="title"><b>Cifra</b>Pro</div>
+</header>
 
-  <!-- SCREENS -->
-  <div id="screens">
+<main id="content">
 
-    <!-- HOME -->
-    <section id="screen-home" class="screen active">
-      <div class="stats-grid">
-        <div class="stat-card">
-          <span class="stat-icon">🎵</span>
-          <span class="stat-value" id="stat-songs">0</span>
-          <span class="stat-label">Cifras salvas</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-icon">📋</span>
-          <span class="stat-value" id="stat-setlists">0</span>
-          <span class="stat-label">Listas criadas</span>
-        </div>
-      </div>
-
-      <div>
-        <p class="section-title">Ações rápidas</p>
-        <div class="quick-actions">
-          <button class="quick-action" onclick="App.nav('search')">
-            <span class="qa-icon">🔍</span>
-            <span class="qa-label">Buscar cifra</span>
-          </button>
-          <button class="quick-action" onclick="App.nav('library')">
-            <span class="qa-icon">📚</span>
-            <span class="qa-label">Minha biblioteca</span>
-          </button>
-          <button class="quick-action" onclick="App.nav('setlists')">
-            <span class="qa-icon">🎼</span>
-            <span class="qa-label">Nova lista</span>
-          </button>
-          <button class="quick-action" onclick="App.openManualImport()">
-            <span class="qa-icon">✏️</span>
-            <span class="qa-label">Importar texto</span>
-          </button>
-        </div>
-      </div>
-
-      <div id="home-recent" style="display:none">
-        <p class="section-title">Recentes</p>
-        <div id="home-recent-list" class="flex flex-col gap-8"></div>
-      </div>
-    </section>
-
-    <!-- SEARCH -->
-    <section id="screen-search" class="screen">
-      <div class="search-tabs">
-        <button class="search-tab active" id="tab-search" onclick="App.switchSearchTab('search')">Buscar online</button>
-        <button class="search-tab" id="tab-batch" onclick="App.switchSearchTab('batch')">Baixar lista</button>
-        <button class="search-tab" id="tab-manual" onclick="App.switchSearchTab('manual')">Colar texto</button>
-      </div>
-
-      <!-- Search tab -->
-      <div id="search-pane">
-        <div class="flex gap-8">
-          <div class="input-group" style="flex:1">
-            <label>Música</label>
-            <input type="text" id="search-song" placeholder="Ex: Reckless Love" autocomplete="off">
-          </div>
-        </div>
-        <div class="input-group">
-          <label>Artista (opcional)</label>
-          <input type="text" id="search-artist" placeholder="Ex: Cory Asbury" autocomplete="off">
-        </div>
-        <button class="btn btn-primary btn-full" onclick="App.searchOnline()">
-          🔍 Buscar no Cifra Club
-        </button>
-        <div id="search-results-area"></div>
-      </div>
-
-      <!-- Batch tab -->
-      <div id="batch-pane" style="display:none">
-        <div class="import-help">
-          Cole uma lista de músicas (uma por linha).<br>
-          Formato: <strong>Artista - Música</strong> ou só o nome da música.
-        </div>
-        <div class="input-group">
-          <label>Lista de músicas</label>
-          <textarea id="batch-list" placeholder="Hillsong - What a Beautiful Name&#10;Diante do Trono - Quão Grande&#10;Gabriela Rocha - Aclame"></textarea>
-        </div>
-        <button class="btn btn-primary btn-full" onclick="App.startBatchDownload()">
-          ⬇️ Baixar todas
-        </button>
-        <div id="batch-progress-area"></div>
-      </div>
-
-      <!-- Manual tab -->
-      <div id="manual-pane" style="display:none">
-        <div class="input-group">
-          <label>Título da música</label>
-          <input type="text" id="manual-title" placeholder="Nome da música" autocomplete="off">
-        </div>
-        <div class="input-group">
-          <label>Artista</label>
-          <input type="text" id="manual-artist" placeholder="Nome do artista" autocomplete="off">
-        </div>
-        <div class="input-group">
-          <label>Tom</label>
-          <select id="manual-key">
-            <option value="C">C (Dó)</option>
-            <option value="C#">C# (Dó#)</option>
-            <option value="D">D (Ré)</option>
-            <option value="D#">D# (Ré#)</option>
-            <option value="E">E (Mi)</option>
-            <option value="F">F (Fá)</option>
-            <option value="F#">F# (Fá#)</option>
-            <option value="G" selected>G (Sol)</option>
-            <option value="G#">G# (Sol#)</option>
-            <option value="A">A (Lá)</option>
-            <option value="A#">A# (Lá#)</option>
-            <option value="B">B (Si)</option>
-          </select>
-        </div>
-        <div class="input-group">
-          <label>Cifra (cole o texto da cifra aqui)</label>
-          <textarea id="manual-content" placeholder="Cole a cifra aqui..." style="min-height:200px; font-family: monospace; font-size:0.85rem;"></textarea>
-        </div>
-        <button class="btn btn-primary btn-full" onclick="App.saveManualImport()">
-          💾 Salvar cifra
-        </button>
-      </div>
-    </section>
-
-    <!-- LIBRARY -->
-    <section id="screen-library" class="screen">
-      <div class="search-input-wrap">
-        <span class="search-input-icon">🔍</span>
-        <input type="text" id="library-search" placeholder="Buscar na biblioteca..." oninput="App.filterLibrary(this.value)">
-      </div>
-      <div class="flex justify-between items-center">
-        <span id="library-count" class="text-sm text-muted"></span>
-        <select id="library-sort" onchange="App.sortLibrary(this.value)" style="width:auto; font-size:0.8rem; padding:6px 30px 6px 10px;">
-          <option value="title">A→Z</option>
-          <option value="artist">Artista</option>
-          <option value="date">Mais recentes</option>
-          <option value="key">Tom</option>
-        </select>
-      </div>
-      <div id="library-list" class="flex flex-col gap-8"></div>
-    </section>
-
-    <!-- SONG VIEW -->
-    <section id="screen-song" class="screen">
-      <div class="song-header" id="song-header">
-        <div class="song-header-title" id="song-title">—</div>
-        <div class="song-header-artist" id="song-artist">—</div>
-
-        <div class="transpose-bar">
-          <button class="transpose-btn" onclick="App.transposeBy(-1)" title="-1 semitom">♭</button>
-          <button class="transpose-btn" onclick="App.transposeBy(-2)" style="font-size:0.75rem">−2</button>
-          <div>
-            <div class="transpose-key" id="current-key">G</div>
-            <div class="semitone-diff" id="semitone-diff"></div>
-          </div>
-          <button class="transpose-btn" onclick="App.transposeBy(2)" style="font-size:0.75rem">+2</button>
-          <button class="transpose-btn" onclick="App.transposeBy(1)" title="+1 semitom">♯</button>
-        </div>
-
-        <div class="key-selector" id="key-selector"></div>
-      </div>
-
-      <div class="song-actions">
-        <button class="btn btn-secondary btn-sm" onclick="App.toggleEdit()">✏️ Editar</button>
-        <button class="btn btn-secondary btn-sm" onclick="App.openDisplayMode()">🖥️ Exibição</button>
-        <button class="btn btn-secondary btn-sm" onclick="App.addToSetlistModal()">📋 Lista</button>
-        <button class="btn btn-secondary btn-sm" onclick="App.saveTransposedKey()">💾 Salvar tom</button>
-        <button class="btn btn-danger btn-sm" onclick="App.deleteSong()">🗑️</button>
-      </div>
-
-      <!-- View mode -->
-      <div class="chord-content" id="chord-view">
-        <div class="chord-text" id="chord-display"></div>
-      </div>
-
-      <!-- Edit mode -->
-      <div id="chord-edit-area" style="display:none">
-        <div class="input-group">
-          <label>Título</label>
-          <input type="text" id="edit-title">
-        </div>
-        <div class="input-group">
-          <label>Artista</label>
-          <input type="text" id="edit-artist">
-        </div>
-        <div class="input-group">
-          <label>Tom base</label>
-          <select id="edit-key">
-            <option value="C">C</option><option value="C#">C#</option>
-            <option value="D">D</option><option value="D#">D#</option>
-            <option value="E">E</option><option value="F">F</option>
-            <option value="F#">F#</option><option value="G">G</option>
-            <option value="G#">G#</option><option value="A">A</option>
-            <option value="A#">A#</option><option value="B">B</option>
-          </select>
-        </div>
-        <div class="input-group">
-          <label>Cifra</label>
-          <textarea id="edit-content" class="chord-edit-area"></textarea>
-        </div>
-        <div class="flex gap-8">
-          <button class="btn btn-primary" onclick="App.saveEdit()">💾 Salvar</button>
-          <button class="btn btn-ghost" onclick="App.cancelEdit()">Cancelar</button>
-        </div>
-      </div>
-    </section>
-
-    <!-- DISPLAY MODE -->
-    <section id="screen-display" class="screen">
-      <div class="display-header" id="display-header">
-        <div>
-          <div class="display-song-title" id="display-title"></div>
-          <div class="display-song-key" id="display-key-label"></div>
-        </div>
-        <div class="display-controls">
-          <button class="display-ctrl-btn" onclick="App.displayFontDown()">A−</button>
-          <button class="display-ctrl-btn" onclick="App.displayFontUp()">A+</button>
-          <button class="display-ctrl-btn" id="btn-two-col" onclick="App.toggleTwoCol()">⊞</button>
-          <button class="display-ctrl-btn" id="btn-autoscroll" onclick="App.toggleAutoScroll()">▶</button>
-          <button class="display-ctrl-btn" onclick="App.closeDisplay()">✕</button>
-        </div>
-      </div>
-      <div id="display-content">
-        <div id="display-chord-text"></div>
-      </div>
-      <div id="scroll-progress" style="width:0%"></div>
-    </section>
-
-    <!-- SETLISTS -->
-    <section id="screen-setlists" class="screen">
-      <button class="btn btn-primary btn-full" onclick="App.newSetlistModal()">
-        ＋ Nova lista / culto
-      </button>
-      <div id="setlists-list" class="flex flex-col gap-8"></div>
-    </section>
-
-    <!-- SETLIST VIEW -->
-    <section id="screen-setlist-view" class="screen">
-      <div class="card card-padded" id="setlist-view-header">
-        <div style="font-size:1.2rem; font-weight:700;" id="sv-name"></div>
-        <div class="flex gap-8 mt-8" style="flex-wrap:wrap">
-          <span class="badge badge-purple" id="sv-minister"></span>
-          <span class="badge badge-info" id="sv-date"></span>
-          <span class="badge" id="sv-count"></span>
-        </div>
-      </div>
-      <div class="flex gap-8">
-        <button class="btn btn-secondary btn-sm" onclick="App.addSongToSetlist()">＋ Adicionar música</button>
-        <button class="btn btn-secondary btn-sm" onclick="App.displaySetlist()">🖥️ Exibir</button>
-        <button class="btn btn-danger btn-sm" onclick="App.deleteCurrentSetlist()">🗑️</button>
-      </div>
-      <div id="setlist-songs-list" class="flex flex-col gap-8"></div>
-    </section>
-
-  </div><!-- /screens -->
-
-  <!-- BOTTOM NAV -->
-  <nav id="bottom-nav">
-    <button class="nav-btn active" id="nav-home" onclick="App.nav('home')">
-      <span class="nav-icon">🏠</span>
-      <span>Início</span>
-    </button>
-    <button class="nav-btn" id="nav-search" onclick="App.nav('search')">
-      <span class="nav-icon">🔍</span>
-      <span>Buscar</span>
-    </button>
-    <button class="nav-btn" id="nav-library" onclick="App.nav('library')">
-      <span class="nav-icon">📚</span>
-      <span>Biblioteca</span>
-    </button>
-    <button class="nav-btn" id="nav-setlists" onclick="App.nav('setlists')">
-      <span class="nav-icon">🎼</span>
-      <span>Listas</span>
-    </button>
-  </nav>
-
-  <!-- TOAST -->
-  <div id="toast-container"></div>
-
-  <!-- MODAL BACKDROP -->
-  <div class="modal-backdrop" id="modal-backdrop" onclick="App.closeModal()">
-    <div class="modal-sheet" onclick="event.stopPropagation()">
-      <div class="modal-handle"></div>
-      <div class="modal-title" id="modal-title"></div>
-      <div id="modal-body"></div>
+  <!-- HOME -->
+  <section class="screen active" id="screen-home">
+    <div class="section-title">Resumo</div>
+    <div class="stats-grid">
+      <div class="stat"><span class="num" id="statSongs">0</span><span class="lbl">Cifras salvas</span></div>
+      <div class="stat accent"><span class="num" id="statLists">0</span><span class="lbl">Listas criadas</span></div>
     </div>
+    <div class="section-title">Acoes rapidas</div>
+    <div class="quick-grid">
+      <button class="quick" onclick="go('search')"><span class="ic">🔍</span><span class="lbl">Buscar</span></button>
+      <button class="quick" onclick="go('library')"><span class="ic">📚</span><span class="lbl">Biblioteca</span></button>
+      <button class="quick" onclick="openCreateSetlist()"><span class="ic">🎵</span><span class="lbl">Nova Lista</span></button>
+      <button class="quick" onclick="switchTab('batch')"><span class="ic">⬇️</span><span class="lbl">Importar</span></button>
+    </div>
+    <div class="section-title">Recentes</div>
+    <div class="list" id="recentList"></div>
+  </section>
+
+  <!-- SEARCH -->
+  <section class="screen" id="screen-search">
+    <div class="tabs">
+      <button class="active" data-tab="online" onclick="switchTab('online')">Online</button>
+      <button data-tab="batch" onclick="switchTab('batch')">Em Lote</button>
+      <button data-tab="manual" onclick="switchTab('manual')">Manual</button>
+    </div>
+
+    <div id="tab-online" class="tab-panel" style="display:flex;flex-direction:column;gap:14px">
+      <div class="field"><label>Musica</label><input class="input" id="soMusic" placeholder="Nome da musica"></div>
+      <div class="field"><label>Artista</label><input class="input" id="soArtist" placeholder="Nome do artista (opcional)"></div>
+      <button class="btn" onclick="doOnlineSearch()">🔍 Buscar no Cifra Club</button>
+      <div class="list" id="onlineResults"></div>
+    </div>
+
+    <div id="tab-batch" class="tab-panel" style="display:none;flex-direction:column;gap:14px">
+      <div class="field">
+        <label>Lista (uma por linha: Artista - Musica)</label>
+        <textarea class="textarea" id="batchInput" placeholder="Fernandinho - Uma Nova Historia&#10;Gabriela Rocha - Lugar Secreto&#10;Isaias Saad - Ele Vem"></textarea>
+      </div>
+      <button class="btn" onclick="doBatchDownload()">⬇️ Baixar Todas</button>
+      <div class="progress" id="batchProgressWrap" style="display:none"><i id="batchProgress"></i></div>
+      <div id="batchLog" style="font-size:13px;color:var(--muted);display:flex;flex-direction:column;gap:4px"></div>
+    </div>
+
+    <div id="tab-manual" class="tab-panel" style="display:none;flex-direction:column;gap:14px">
+      <div class="field"><label>Titulo</label><input class="input" id="mTitle" placeholder="Titulo da musica"></div>
+      <div class="field"><label>Artista</label><input class="input" id="mArtist" placeholder="Artista"></div>
+      <div class="field"><label>Tom</label><select class="select" id="mKey"></select></div>
+      <div class="field"><label>Cifra</label><textarea class="textarea" id="mContent" placeholder="Cole aqui a cifra com os acordes..."></textarea></div>
+      <button class="btn" onclick="saveManual()">💾 Salvar Cifra</button>
+    </div>
+  </section>
+
+  <!-- LIBRARY -->
+  <section class="screen" id="screen-library">
+    <div class="field"><input class="input" id="libSearch" placeholder="🔍 Buscar na biblioteca" oninput="renderLibrary()"></div>
+    <div class="field">
+      <select class="select" id="libSort" onchange="renderLibrary()">
+        <option value="recent">Mais recentes</option>
+        <option value="title">Titulo (A-Z)</option>
+        <option value="artist">Artista (A-Z)</option>
+      </select>
+    </div>
+    <div class="list" id="libraryList"></div>
+  </section>
+
+  <!-- SONG VIEW -->
+  <section class="screen" id="screen-song">
+    <div class="song-header"><span class="t" id="svTitle"></span><span class="a" id="svArtist"></span></div>
+    <div class="transpose-bar">
+      <button onclick="transposeSong(-1,'flat')">♭</button>
+      <button onclick="transposeSong(-2)">-2</button>
+      <span class="cur" id="svKey">C</span>
+      <button onclick="transposeSong(2)">+2</button>
+      <button onclick="transposeSong(1,'sharp')">♯</button>
+    </div>
+    <div class="key-chips" id="svKeyChips"></div>
+    <div class="btn-row">
+      <button class="btn ghost small" onclick="editCurrentSong()">✏️ Editar</button>
+      <button class="btn ghost small" onclick="openDisplay()">🖥️ Tela</button>
+      <button class="btn ghost small" onclick="openAddToList()">➕ Lista</button>
+    </div>
+    <div class="btn-row">
+      <button class="btn small" onclick="saveCurrentKey()">💾 Salvar Tom</button>
+      <button class="btn danger small" onclick="deleteCurrentSong()">🗑️ Excluir</button>
+    </div>
+    <div class="chord-content" id="svContent"></div>
+  </section>
+
+  <!-- SETLISTS -->
+  <section class="screen" id="screen-setlists">
+    <button class="btn accent" onclick="openCreateSetlist()">➕ Nova Lista</button>
+    <div class="list" id="setlistsList"></div>
+  </section>
+
+  <!-- SETLIST VIEW -->
+  <section class="screen" id="screen-setlist-view">
+    <div class="song-header">
+      <span class="t" id="slvName"></span>
+      <span class="a" id="slvMeta"></span>
+    </div>
+    <div class="btn-row">
+      <button class="btn accent small" onclick="openAddSongToSetlist()">➕ Musica</button>
+      <button class="btn ghost small" onclick="displaySetlist()">🖥️ Apresentar</button>
+      <button class="btn danger small" onclick="deleteCurrentSetlist()">🗑️ Excluir</button>
+    </div>
+    <div class="list" id="slvSongs"></div>
+  </section>
+
+</main>
+
+<nav id="nav">
+  <button class="active" data-nav="home" onclick="go('home')"><span class="ic">🏠</span>Inicio</button>
+  <button data-nav="search" onclick="go('search')"><span class="ic">🔍</span>Buscar</button>
+  <button data-nav="library" onclick="go('library')"><span class="ic">📚</span>Biblioteca</button>
+  <button data-nav="setlists" onclick="go('setlists')"><span class="ic">🎵</span>Listas</button>
+</nav>
+
+<!-- DISPLAY MODE -->
+<div id="display">
+  <div class="dheader">
+    <div class="dinfo"><div class="dt" id="dTitle"></div><div class="dk" id="dKey"></div></div>
+    <button onclick="changeFont(-2)">A-</button>
+    <button onclick="changeFont(2)">A+</button>
+    <button id="dColBtn" onclick="toggleTwoCol()">▥</button>
+    <button id="dScrollBtn" onclick="toggleAutoScroll()">↡</button>
+    <button onclick="closeDisplay()">✕</button>
   </div>
+  <div class="dbody" id="dBody" onclick="toggleControls()"></div>
+  <div class="dnext"><button class="btn accent" onclick="nextSetlistSong()" id="dNextBtn">PROXIMA ›</button></div>
+</div>
 
-</div><!-- /app -->
+<!-- MODAL -->
+<div id="overlay" onclick="if(event.target===this)closeSheet()">
+  <div id="sheet"><div class="grip"></div></div>
+</div>
 
-<script src="app.js"></script>
+<div id="toast"></div>
+
+<script>
+// ============ STATE ============
+var db = null;
+var DB_NAME = 'cifrapro', DB_VER = 1;
+var state = {
+  screen: 'home',
+  history: [],
+  currentSong: null,
+  currentTranspose: 0,
+  currentSetlist: null,
+  display: { font: 24, twoCol: false, autoScroll: false, scrollTimer: null, setlist: null, setlistIndex: 0 }
+};
+
+// ============ MUSIC THEORY ============
+var NOTES_SHARP = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+var NOTES_FLAT  = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
+var CHORD_RE = /^[A-G][#b]?(m(?:aj)?7?|maj7?|dim7?|aug|sus[24]?|add\d+|\d+)*(\/[A-G][#b]?)?$/;
+var ROOT_RE = /^([A-G][#b]?)(.*)$/;
+
+function noteIndex(n){
+  var i = NOTES_SHARP.indexOf(n);
+  if(i>=0) return i;
+  i = NOTES_FLAT.indexOf(n);
+  return i;
+}
+function transposeNote(note, steps, prefer){
+  var idx = noteIndex(note);
+  if(idx < 0) return note;
+  var ni = ((idx + steps) % 12 + 12) % 12;
+  return (prefer === 'flat' ? NOTES_FLAT : NOTES_SHARP)[ni];
+}
+function transposeChord(chord, steps, prefer){
+  var m = chord.match(ROOT_RE);
+  if(!m) return chord;
+  var root = transposeNote(m[1], steps, prefer);
+  var rest = m[2];
+  var slash = rest.indexOf('/');
+  if(slash >= 0){
+    var bass = rest.substring(slash+1);
+    var bm = bass.match(/^([A-G][#b]?)(.*)$/);
+    if(bm){
+      rest = rest.substring(0, slash) + '/' + transposeNote(bm[1], steps, prefer) + bm[2];
+    }
+  }
+  return root + rest;
+}
+function isChordLine(line){
+  var t = line.trim();
+  if(!t) return false;
+  var tokens = t.split(/\s+/);
+  var chords = 0;
+  for(var i=0;i<tokens.length;i++){
+    if(CHORD_RE.test(tokens[i])) chords++;
+  }
+  return (chords / tokens.length) > 0.6;
+}
+function transposeText(text, steps, prefer){
+  var lines = (text||'').split('\n');
+  return lines.map(function(line){
+    if(!isChordLine(line)) return line;
+    return line.replace(/[A-G][#b]?(m(?:aj)?7?|maj7?|dim7?|aug|sus[24]?|add\d+|\d+)*(\/[A-G][#b]?)?/g, function(ch){
+      if(!CHORD_RE.test(ch)) return ch;
+      return transposeChord(ch, steps, prefer);
+    });
+  }).join('\n');
+}
+function detectKey(text){
+  var lines = (text||'').split('\n');
+  for(var i=0;i<lines.length;i++){
+    if(isChordLine(lines[i])){
+      var m = lines[i].trim().match(ROOT_RE);
+      if(m) return m[1];
+    }
+  }
+  return 'C';
+}
+function escapeHtml(s){
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function renderChordHTML(text){
+  var lines = (text||'').split('\n');
+  return lines.map(function(line){
+    var safe = escapeHtml(line);
+    if(isChordLine(line)) return '<span class="chord-line">'+safe+'</span>';
+    return safe;
+  }).join('\n');
+}
+
+// ============ INDEXEDDB ============
+function openDB(){
+  return new Promise(function(res, rej){
+    var req = indexedDB.open(DB_NAME, DB_VER);
+    req.onupgradeneeded = function(e){
+      var d = e.target.result;
+      if(!d.objectStoreNames.contains('songs')) d.createObjectStore('songs', {keyPath:'id'});
+      if(!d.objectStoreNames.contains('setlists')) d.createObjectStore('setlists', {keyPath:'id'});
+    };
+    req.onsuccess = function(e){ db = e.target.result; res(db); };
+    req.onerror = function(e){ rej(e); };
+  });
+}
+function tx(store, mode){ return db.transaction(store, mode).objectStore(store); }
+function dbGetAll(store){
+  return new Promise(function(res){
+    var r = tx(store,'readonly').getAll();
+    r.onsuccess = function(){ res(r.result || []); };
+    r.onerror = function(){ res([]); };
+  });
+}
+function dbGet(store, id){
+  return new Promise(function(res){
+    var r = tx(store,'readonly').get(id);
+    r.onsuccess = function(){ res(r.result || null); };
+    r.onerror = function(){ res(null); };
+  });
+}
+function dbPut(store, obj){
+  return new Promise(function(res){
+    var r = tx(store,'readwrite').put(obj);
+    r.onsuccess = function(){ res(obj); };
+    r.onerror = function(){ res(null); };
+  });
+}
+function dbDelete(store, id){
+  return new Promise(function(res){
+    var r = tx(store,'readwrite').delete(id);
+    r.onsuccess = function(){ res(true); };
+    r.onerror = function(){ res(false); };
+  });
+}
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+
+// ============ NAVIGATION ============
+var SCREENS = ['home','search','library','song','setlists','setlist-view'];
+var NAV_FOR = { home:'home', search:'search', library:'library', song:'library', setlists:'setlists', 'setlist-view':'setlists' };
+
+function go(screen, noHistory){
+  if(!noHistory && state.screen !== screen) state.history.push(state.screen);
+  state.screen = screen;
+  SCREENS.forEach(function(s){
+    document.getElementById('screen-'+s).classList.toggle('active', s===screen);
+  });
+  var navKey = NAV_FOR[screen];
+  document.querySelectorAll('#nav button').forEach(function(b){
+    b.classList.toggle('active', b.getAttribute('data-nav')===navKey);
+  });
+  var sub = (screen==='song' || screen==='setlist-view');
+  document.getElementById('header').classList.toggle('show-back', sub);
+  if(screen==='home') renderHome();
+  if(screen==='library') renderLibrary();
+  if(screen==='setlists') renderSetlists();
+  document.getElementById('content').scrollTop = 0;
+}
+function goBack(){
+  if(state.history.length){
+    var prev = state.history.pop();
+    go(prev, true);
+  } else { go('home', true); }
+}
+document.getElementById('backBtn').onclick = goBack;
+
+function switchTab(tab){
+  go('search');
+  document.querySelectorAll('#screen-search .tabs button').forEach(function(b){
+    b.classList.toggle('active', b.getAttribute('data-tab')===tab);
+  });
+  ['online','batch','manual'].forEach(function(t){
+    var el = document.getElementById('tab-'+t);
+    el.style.display = (t===tab) ? 'flex' : 'none';
+  });
+}
+
+// ============ TOAST ============
+var toastTimer;
+function toast(msg){
+  var el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ el.classList.remove('show'); }, 2600);
+}
+
+// ============ MODAL ============
+function openSheet(html){
+  var s = document.getElementById('sheet');
+  s.innerHTML = '<div class="grip"></div>' + html;
+  document.getElementById('overlay').classList.add('active');
+}
+function closeSheet(){ document.getElementById('overlay').classList.remove('active'); }
+
+// ============ HOME ============
+async function renderHome(){
+  var songs = await dbGetAll('songs');
+  var lists = await dbGetAll('setlists');
+  document.getElementById('statSongs').textContent = songs.length;
+  document.getElementById('statLists').textContent = lists.length;
+  var recent = songs.slice().sort(function(a,b){ return (b.dateAdded||0)-(a.dateAdded||0); }).slice(0,5);
+  var el = document.getElementById('recentList');
+  if(!recent.length){ el.innerHTML = '<div class="empty"><span class="ic">🎶</span>Nenhuma cifra ainda. Comece buscando uma!</div>'; return; }
+  el.innerHTML = recent.map(songItemHTML).join('');
+}
+function songItemHTML(s){
+  return '<div class="song-item" onclick="openSong(\''+s.id+'\')">'+
+    '<div class="info"><div class="t">'+escapeHtml(s.title)+'</div><div class="a">'+escapeHtml(s.artist||'')+'</div></div>'+
+    '<div class="key-badge">'+escapeHtml(s.key||'?')+'</div></div>';
+}
+
+// ============ LIBRARY ============
+async function renderLibrary(){
+  var songs = await dbGetAll('songs');
+  var q = (document.getElementById('libSearch').value||'').toLowerCase();
+  var sort = document.getElementById('libSort').value;
+  if(q) songs = songs.filter(function(s){ return (s.title+' '+(s.artist||'')).toLowerCase().indexOf(q)>=0; });
+  if(sort==='title') songs.sort(function(a,b){ return a.title.localeCompare(b.title); });
+  else if(sort==='artist') songs.sort(function(a,b){ return (a.artist||'').localeCompare(b.artist||''); });
+  else songs.sort(function(a,b){ return (b.dateAdded||0)-(a.dateAdded||0); });
+  var el = document.getElementById('libraryList');
+  if(!songs.length){ el.innerHTML = '<div class="empty"><span class="ic">📚</span>Biblioteca vazia.</div>'; return; }
+  el.innerHTML = songs.map(songItemHTML).join('');
+}
+
+// ============ SONG VIEW ============
+async function openSong(id){
+  var s = await dbGet('songs', id);
+  if(!s){ toast('Cifra nao encontrada'); return; }
+  state.currentSong = JSON.parse(JSON.stringify(s));
+  state.currentTranspose = 0;
+  go('song');
+  renderSongView();
+}
+function renderSongView(){
+  var s = state.currentSong;
+  document.getElementById('svTitle').textContent = s.title;
+  document.getElementById('svArtist').textContent = s.artist || '';
+  var curKey = transposeNote(s.key || 'C', state.currentTranspose);
+  document.getElementById('svKey').textContent = curKey;
+  var chips = NOTES_SHARP.map(function(n){
+    var active = (n===curKey) ? ' active' : '';
+    return '<button class="'+active.trim()+'" onclick="transposeToKey(\''+n+'\')">'+n+'</button>';
+  }).join('');
+  document.getElementById('svKeyChips').innerHTML = chips;
+  var content = transposeText(s.content || '', state.currentTranspose);
+  document.getElementById('svContent').innerHTML = renderChordHTML(content);
+}
+function transposeSong(steps, prefer){
+  state.currentTranspose += steps;
+  renderSongView();
+}
+function transposeToKey(targetKey){
+  var orig = state.currentSong.key || 'C';
+  var from = noteIndex(orig), to = noteIndex(targetKey);
+  var steps = ((to - from) % 12 + 12) % 12;
+  state.currentTranspose = steps;
+  renderSongView();
+}
+async function saveCurrentKey(){
+  var s = state.currentSong;
+  var newContent = transposeText(s.content || '', state.currentTranspose);
+  var newKey = transposeNote(s.key || 'C', state.currentTranspose);
+  s.content = newContent;
+  s.key = newKey;
+  state.currentTranspose = 0;
+  await dbPut('songs', {
+    id:s.id, title:s.title, artist:s.artist, key:newKey, originalKey:s.originalKey||s.key,
+    content:newContent, source:s.source, dateAdded:s.dateAdded
+  });
+  renderSongView();
+  toast('Tom salvo: '+newKey);
+}
+function editCurrentSong(){
+  var s = state.currentSong;
+  switchTab('manual');
+  document.getElementById('mTitle').value = s.title;
+  document.getElementById('mArtist').value = s.artist || '';
+  setSelectKey('mKey', transposeNote(s.key||'C', state.currentTranspose));
+  document.getElementById('mContent').value = transposeText(s.content||'', state.currentTranspose);
+  state._editingId = s.id;
+  state._editingMeta = { originalKey:s.originalKey, source:s.source, dateAdded:s.dateAdded };
+  toast('Editando — salve para atualizar');
+}
+function deleteCurrentSong(){
+  openSheet('<h3>Excluir cifra?</h3><p style="color:var(--muted)">Essa acao nao pode ser desfeita.</p>'+
+    '<button class="btn danger" onclick="confirmDeleteSong()">Excluir</button>'+
+    '<button class="btn ghost" onclick="closeSheet()">Cancelar</button>');
+}
+async function confirmDeleteSong(){
+  await dbDelete('songs', state.currentSong.id);
+  closeSheet();
+  toast('Cifra excluida');
+  goBack();
+}
+
+// ============ MANUAL SAVE ============
+function setSelectKey(id, key){
+  var sel = document.getElementById(id);
+  for(var i=0;i<sel.options.length;i++){ if(sel.options[i].value===key){ sel.selectedIndex=i; return; } }
+  sel.selectedIndex = 0;
+}
+async function saveManual(){
+  var title = document.getElementById('mTitle').value.trim();
+  var artist = document.getElementById('mArtist').value.trim();
+  var key = document.getElementById('mKey').value;
+  var content = document.getElementById('mContent').value;
+  if(!title){ toast('Informe o titulo'); return; }
+  if(!content.trim()){ toast('Informe a cifra'); return; }
+  var id = state._editingId || uid();
+  var meta = state._editingMeta || {};
+  await dbPut('songs', {
+    id:id, title:title, artist:artist, key:key, originalKey: meta.originalKey || key,
+    content:content, source: meta.source || 'manual', dateAdded: meta.dateAdded || Date.now()
+  });
+  state._editingId = null; state._editingMeta = null;
+  document.getElementById('mTitle').value='';
+  document.getElementById('mArtist').value='';
+  document.getElementById('mContent').value='';
+  toast('Cifra salva!');
+  openSong(id);
+}
+
+// ============ CIFRA CLUB SCRAPING ============
+function proxy(url){ return 'https://api.allorigins.win/get?url=' + encodeURIComponent(url); }
+
+async function fetchHtml(url){
+  var res = await fetch(proxy(url));
+  if(!res.ok) throw new Error('proxy '+res.status);
+  var data = await res.json();
+  return data.contents || '';
+}
+
+async function searchCifraClub(song, artist){
+  var q = [song, artist].filter(Boolean).join(' ').trim();
+  var url = 'https://www.cifraclub.com.br/busca/?q=' + encodeURIComponent(q);
+  var html = await fetchHtml(url);
+  var doc = new DOMParser().parseFromString(html, 'text/html');
+  var results = [];
+  var all = doc.querySelectorAll('a');
+  for(var i=0;i<all.length && results.length<25;i++){
+    var a = all[i];
+    var href = a.getAttribute('href') || '';
+    if(!href) continue;
+    if(href.indexOf('//')===0) href = 'https:'+href;
+    if(href.indexOf('/')===0) href = 'https://www.cifraclub.com.br'+href;
+    if(!/cifraclub\.com\.br\/[^\/]+\/[^\/]+\/?$/.test(href)) continue;
+    if(/\/(busca|letras|tabs|noticias|aulas|playlist|user)\b/.test(href)) continue;
+    var txt = (a.textContent||'').trim();
+    if(txt.length < 2) continue;
+    if(results.some(function(r){ return r.url===href; })) continue;
+    results.push({ title: txt, url: href });
+  }
+  return results;
+}
+
+async function downloadCifra(url){
+  var html = await fetchHtml(url);
+  var doc = new DOMParser().parseFromString(html, 'text/html');
+  var title = '';
+  var h1 = doc.querySelector('h1.t1, h1');
+  if(h1) title = h1.textContent.trim();
+  var artist = '';
+  var h2 = doc.querySelector('h2.t3, h2 a, h2');
+  if(h2) artist = h2.textContent.trim();
+  var key = '';
+  var tom = doc.querySelector('#cifra_tom strong, #cifra_tom a, #cifra_tom');
+  if(tom) key = tom.textContent.trim();
+  var pre = doc.querySelector('pre.cifra_cnt, pre');
+  var content = '';
+  if(pre){ content = pre.textContent.replace(/\r/g,''); }
+  if(!key) key = detectKey(content);
+  key = normalizeKey(key);
+  if(!title){
+    var parts = url.replace(/\/$/,'').split('/');
+    title = decodeURIComponent(parts.pop()||'').replace(/-/g,' ');
+    if(!artist) artist = decodeURIComponent(parts.pop()||'').replace(/-/g,' ');
+  }
+  if(!content.trim()) throw new Error('Cifra vazia');
+  return { title:title, artist:artist, key:key, content:content };
+}
+function normalizeKey(k){
+  if(!k) return 'C';
+  k = k.trim().split(/\s+/)[0];
+  k = k.replace('♯','#').replace('♭','b');
+  var m = k.match(/^([A-G][#b]?)/);
+  return m ? m[1] : 'C';
+}
+
+async function doOnlineSearch(){
+  var song = document.getElementById('soMusic').value.trim();
+  var artist = document.getElementById('soArtist').value.trim();
+  if(!song && !artist){ toast('Informe a musica'); return; }
+  var el = document.getElementById('onlineResults');
+  el.innerHTML = '<div class="empty"><span class="ic">⏳</span>Buscando no Cifra Club...</div>';
+  try {
+    var results = await searchCifraClub(song, artist);
+    if(!results.length){ el.innerHTML = '<div class="empty"><span class="ic">😕</span>Nada encontrado.</div>'; return; }
+    el.innerHTML = results.map(function(r,i){
+      return '<div class="song-item">'+
+        '<div class="info"><div class="t">'+escapeHtml(r.title)+'</div><div class="a">'+escapeHtml(r.url.replace('https://www.cifraclub.com.br',''))+'</div></div>'+
+        '<button class="btn small" onclick="downloadResult('+i+')">⬇️</button></div>';
+    }).join('');
+    window._searchResults = results;
+  } catch(e){
+    el.innerHTML = '<div class="empty"><span class="ic">⚠️</span>Erro ao buscar. Tente novamente.</div>';
+  }
+}
+async function downloadResult(i){
+  var r = window._searchResults[i];
+  toast('Baixando...');
+  try {
+    var c = await downloadCifra(r.url);
+    var id = uid();
+    await dbPut('songs', {
+      id:id, title:c.title||r.title, artist:c.artist, key:c.key, originalKey:c.key,
+      content:c.content, source:r.url, dateAdded:Date.now()
+    });
+    toast('Salvo: '+(c.title||r.title));
+    openSong(id);
+  } catch(e){ toast('Falha ao baixar'); }
+}
+
+// ============ BATCH ============
+async function doBatchDownload(){
+  var raw = document.getElementById('batchInput').value.split('\n').map(function(l){return l.trim();}).filter(Boolean);
+  if(!raw.length){ toast('Lista vazia'); return; }
+  var wrap = document.getElementById('batchProgressWrap');
+  var bar = document.getElementById('batchProgress');
+  var log = document.getElementById('batchLog');
+  wrap.style.display = 'block'; log.innerHTML = '';
+  var ok = 0;
+  for(var i=0;i<raw.length;i++){
+    var line = raw[i];
+    var parts = line.split(/\s*[-–]\s*/);
+    var artist = parts.length>1 ? parts[0] : '';
+    var song = parts.length>1 ? parts.slice(1).join(' - ') : parts[0];
+    var logLine = document.createElement('div');
+    logLine.textContent = '⏳ '+line;
+    log.appendChild(logLine);
+    try {
+      var results = await searchCifraClub(song, artist);
+      if(!results.length) throw new Error('nf');
+      var c = await downloadCifra(results[0].url);
+      await dbPut('songs', {
+        id:uid(), title:c.title||song, artist:c.artist||artist, key:c.key, originalKey:c.key,
+        content:c.content, source:results[0].url, dateAdded:Date.now()+i
+      });
+      logLine.textContent = '✅ '+(c.title||song);
+      ok++;
+    } catch(e){
+      logLine.textContent = '❌ '+line;
+    }
+    bar.style.width = Math.round(((i+1)/raw.length)*100)+'%';
+    if(i < raw.length-1) await sleep(800);
+  }
+  toast(ok+' de '+raw.length+' baixadas');
+}
+function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+
+// ============ SETLISTS ============
+async function renderSetlists(){
+  var lists = await dbGetAll('setlists');
+  lists.sort(function(a,b){ return (b.createdAt||0)-(a.createdAt||0); });
+  var el = document.getElementById('setlistsList');
+  if(!lists.length){ el.innerHTML = '<div class="empty"><span class="ic">🎵</span>Nenhuma lista criada.</div>'; return; }
+  el.innerHTML = lists.map(function(l){
+    var meta = [l.minister, l.date].filter(Boolean).join(' • ');
+    return '<div class="song-item" onclick="openSetlist(\''+l.id+'\')">'+
+      '<div class="info"><div class="t">'+escapeHtml(l.name)+'</div><div class="a">'+escapeHtml(meta)+'</div></div>'+
+      '<div class="key-badge" style="background:rgba(168,85,247,0.18);color:var(--accent);border-color:rgba(168,85,247,0.4)">'+(l.items?l.items.length:0)+'</div></div>';
+  }).join('');
+}
+function openCreateSetlist(){
+  openSheet('<h3>Nova Lista</h3>'+
+    '<div class="field"><label>Nome</label><input class="input" id="nlName" placeholder="Ex: Culto Domingo"></div>'+
+    '<div class="field"><label>Ministro</label><input class="input" id="nlMinister" placeholder="Responsavel"></div>'+
+    '<div class="field"><label>Data</label><input class="input" id="nlDate" type="date"></div>'+
+    '<button class="btn accent" onclick="createSetlist()">Criar Lista</button>'+
+    '<button class="btn ghost" onclick="closeSheet()">Cancelar</button>');
+}
+async function createSetlist(){
+  var name = document.getElementById('nlName').value.trim();
+  if(!name){ toast('Informe o nome'); return; }
+  var l = {
+    id:uid(), name:name,
+    minister: document.getElementById('nlMinister').value.trim(),
+    date: document.getElementById('nlDate').value,
+    items: [], createdAt: Date.now()
+  };
+  await dbPut('setlists', l);
+  closeSheet();
+  toast('Lista criada');
+  go('setlists');
+  openSetlist(l.id);
+}
+async function openSetlist(id){
+  var l = await dbGet('setlists', id);
+  if(!l){ toast('Lista nao encontrada'); return; }
+  state.currentSetlist = l;
+  go('setlist-view');
+  renderSetlistView();
+}
+async function renderSetlistView(){
+  var l = state.currentSetlist;
+  document.getElementById('slvName').textContent = l.name;
+  var meta = [l.minister, l.date].filter(Boolean).join(' • ');
+  document.getElementById('slvMeta').textContent = meta;
+  var el = document.getElementById('slvSongs');
+  if(!l.items || !l.items.length){ el.innerHTML = '<div class="empty"><span class="ic">🎶</span>Sem musicas. Adicione uma!</div>'; return; }
+  var items = l.items.slice().sort(function(a,b){ return a.order-b.order; });
+  var rows = [];
+  for(var i=0;i<items.length;i++){
+    var it = items[i];
+    var s = await dbGet('songs', it.songId);
+    if(!s) continue;
+    rows.push('<div class="song-item">'+
+      '<div class="key-badge" style="background:rgba(168,85,247,0.18);color:var(--accent);border-color:rgba(168,85,247,0.4)">'+(i+1)+'</div>'+
+      '<div class="info" onclick="openSong(\''+s.id+'\')"><div class="t">'+escapeHtml(s.title)+'</div><div class="a">'+escapeHtml(s.artist||'')+'</div></div>'+
+      '<button class="key-badge" onclick="changeSetlistKey(\''+it.songId+'\')">'+escapeHtml(it.key||s.key)+'</button>'+
+      '<button class="btn ghost small" onclick="removeFromSetlist(\''+it.songId+'\')">✕</button></div>');
+  }
+  el.innerHTML = rows.join('');
+}
+async function openAddSongToSetlist(){
+  var songs = await dbGetAll('songs');
+  if(!songs.length){ toast('Sua biblioteca esta vazia'); return; }
+  songs.sort(function(a,b){ return a.title.localeCompare(b.title); });
+  var html = '<h3>Adicionar Musica</h3>'+
+    '<input class="input" id="addSongSearch" placeholder="🔍 Filtrar" oninput="filterAddSongs()">'+
+    '<div class="list" id="addSongList" style="max-height:50vh;overflow-y:auto">'+
+    songs.map(addSongRow).join('')+'</div>'+
+    '<button class="btn ghost" onclick="closeSheet()">Fechar</button>';
+  openSheet(html);
+}
+function addSongRow(s){
+  return '<div class="pick-song" data-search="'+escapeHtml((s.title+' '+(s.artist||'')).toLowerCase())+'">'+
+    '<div class="info"><div class="t">'+escapeHtml(s.title)+'</div><div class="a">'+escapeHtml(s.artist||'')+'</div></div>'+
+    '<div class="key-badge">'+escapeHtml(s.key||'?')+'</div>'+
+    '<button class="btn accent small" onclick="addSongToCurrentSetlist(\''+s.id+'\')">+</button></div>';
+}
+function filterAddSongs(){
+  var q = document.getElementById('addSongSearch').value.toLowerCase();
+  document.querySelectorAll('#addSongList .pick-song').forEach(function(r){
+    r.style.display = r.getAttribute('data-search').indexOf(q)>=0 ? 'flex' : 'none';
+  });
+}
+async function addSongToCurrentSetlist(songId){
+  var l = state.currentSetlist;
+  if(l.items.some(function(it){ return it.songId===songId; })){ toast('Ja esta na lista'); return; }
+  var s = await dbGet('songs', songId);
+  l.items.push({ songId:songId, key: s.key, order: l.items.length });
+  await dbPut('setlists', l);
+  toast('Adicionada');
+  closeSheet();
+  renderSetlistView();
+}
+async function removeFromSetlist(songId){
+  var l = state.currentSetlist;
+  l.items = l.items.filter(function(it){ return it.songId!==songId; });
+  l.items.forEach(function(it,i){ it.order = i; });
+  await dbPut('setlists', l);
+  renderSetlistView();
+}
+function changeSetlistKey(songId){
+  var html = '<h3>Escolher Tom</h3><div class="sheet-key-grid">'+
+    NOTES_SHARP.map(function(n){ return '<button onclick="setSetlistKey(\''+songId+'\',\''+n+'\')">'+n+'</button>'; }).join('')+
+    '</div><button class="btn ghost" onclick="closeSheet()">Cancelar</button>';
+  openSheet(html);
+}
+async function setSetlistKey(songId, key){
+  var l = state.currentSetlist;
+  var it = l.items.filter(function(x){ return x.songId===songId; })[0];
+  if(it) it.key = key;
+  await dbPut('setlists', l);
+  closeSheet();
+  renderSetlistView();
+}
+function deleteCurrentSetlist(){
+  openSheet('<h3>Excluir lista?</h3><p style="color:var(--muted)">As cifras nao serao apagadas.</p>'+
+    '<button class="btn danger" onclick="confirmDeleteSetlist()">Excluir</button>'+
+    '<button class="btn ghost" onclick="closeSheet()">Cancelar</button>');
+}
+async function confirmDeleteSetlist(){
+  await dbDelete('setlists', state.currentSetlist.id);
+  closeSheet();
+  toast('Lista excluida');
+  goBack();
+}
+
+// ============ ADD CURRENT SONG TO A LIST ============
+async function openAddToList(){
+  var lists = await dbGetAll('setlists');
+  if(!lists.length){ toast('Crie uma lista primeiro'); openCreateSetlist(); return; }
+  var curKey = transposeNote(state.currentSong.key||'C', state.currentTranspose);
+  var html = '<h3>Adicionar a Lista</h3><div class="list">'+
+    lists.map(function(l){
+      return '<div class="pick-song"><div class="info"><div class="t">'+escapeHtml(l.name)+'</div>'+
+        '<div class="a">'+(l.items?l.items.length:0)+' musicas</div></div>'+
+        '<button class="btn accent small" onclick="addCurrentSongToList(\''+l.id+'\',\''+curKey+'\')">+</button></div>';
+    }).join('')+'</div><button class="btn ghost" onclick="closeSheet()">Fechar</button>';
+  openSheet(html);
+}
+async function addCurrentSongToList(listId, key){
+  var l = await dbGet('setlists', listId);
+  if(l.items.some(function(it){ return it.songId===state.currentSong.id; })){ toast('Ja esta na lista'); closeSheet(); return; }
+  l.items.push({ songId: state.currentSong.id, key:key, order: l.items.length });
+  await dbPut('setlists', l);
+  closeSheet();
+  toast('Adicionada a '+l.name);
+}
+
+// ============ DISPLAY MODE ============
+function renderDisplayContent(content, font){
+  document.getElementById('dBody').innerHTML = renderChordHTML(content);
+  document.getElementById('dBody').style.fontSize = font+'px';
+}
+function openDisplay(){
+  var s = state.currentSong;
+  var content = transposeText(s.content||'', state.currentTranspose);
+  var key = transposeNote(s.key||'C', state.currentTranspose);
+  state.display.setlist = null;
+  document.getElementById('display').classList.remove('has-next');
+  showDisplay(s.title, key, content);
+}
+function showDisplay(title, key, content){
+  var d = document.getElementById('display');
+  document.getElementById('dTitle').textContent = title;
+  document.getElementById('dKey').textContent = 'Tom: '+key;
+  renderDisplayContent(content, state.display.font);
+  d.classList.add('active');
+  d.classList.remove('controls-hidden');
+  document.getElementById('dBody').scrollTop = 0;
+}
+function closeDisplay(){
+  stopAutoScroll();
+  document.getElementById('display').classList.remove('active','two-col','has-next');
+  state.display.setlist = null;
+}
+function toggleControls(){
+  document.getElementById('display').classList.toggle('controls-hidden');
+}
+function changeFont(delta){
+  state.display.font = Math.max(18, Math.min(40, state.display.font + delta));
+  document.getElementById('dBody').style.fontSize = state.display.font+'px';
+}
+function toggleTwoCol(){
+  state.display.twoCol = !state.display.twoCol;
+  document.getElementById('display').classList.toggle('two-col', state.display.twoCol);
+  document.getElementById('dColBtn').classList.toggle('on', state.display.twoCol);
+}
+function toggleAutoScroll(){
+  if(state.display.autoScroll){ stopAutoScroll(); } else { startAutoScroll(); }
+}
+function startAutoScroll(){
+  stopAutoScroll();
+  state.display.autoScroll = true;
+  document.getElementById('dScrollBtn').classList.add('on');
+  var body = document.getElementById('dBody');
+  state.display.scrollTimer = setInterval(function(){
+    body.scrollTop += 1;
+    if(body.scrollTop + body.clientHeight >= body.scrollHeight - 2) stopAutoScroll();
+  }, 60);
+}
+function stopAutoScroll(){
+  if(state.display.scrollTimer){ clearInterval(state.display.scrollTimer); state.display.scrollTimer = null; }
+  state.display.autoScroll = false;
+  document.getElementById('dScrollBtn').classList.remove('on');
+}
+
+// ============ DISPLAY SETLIST ============
+async function displaySetlist(){
+  var l = state.currentSetlist;
+  if(!l.items || !l.items.length){ toast('Lista vazia'); return; }
+  var items = l.items.slice().sort(function(a,b){ return a.order-b.order; });
+  state.display.setlist = items;
+  state.display.setlistIndex = 0;
+  document.getElementById('display').classList.add('has-next');
+  await showSetlistSong(0);
+}
+async function showSetlistSong(i){
+  var items = state.display.setlist;
+  if(!items || i >= items.length){ closeDisplay(); toast('Fim da lista'); return; }
+  state.display.setlistIndex = i;
+  var it = items[i];
+  var s = await dbGet('songs', it.songId);
+  if(!s){ return showSetlistSong(i+1); }
+  var orig = s.key||'C';
+  var steps = ((noteIndex(it.key||orig) - noteIndex(orig)) % 12 + 12) % 12;
+  var content = transposeText(s.content||'', steps);
+  showDisplay(s.title, it.key||orig, content);
+  document.getElementById('display').classList.add('has-next');
+  var nextBtn = document.getElementById('dNextBtn');
+  nextBtn.textContent = (i < items.length-1) ? 'PROXIMA ›' : 'FINALIZAR ✓';
+}
+function nextSetlistSong(){
+  showSetlistSong(state.display.setlistIndex + 1);
+}
+
+// ============ INIT ============
+function populateKeySelects(){
+  var html = NOTES_SHARP.map(function(n){ return '<option value="'+n+'">'+n+'</option>'; }).join('');
+  document.getElementById('mKey').innerHTML = html;
+}
+(async function init(){
+  populateKeySelects();
+  try { await openDB(); } catch(e){ toast('Erro ao abrir banco de dados'); }
+  go('home', true);
+})();
+
+window.addEventListener('keydown', function(e){
+  if(e.key === 'Escape'){
+    if(document.getElementById('overlay').classList.contains('active')) closeSheet();
+    else if(document.getElementById('display').classList.contains('active')) closeDisplay();
+    else goBack();
+  }
+});
+</script>
 </body>
 </html>
