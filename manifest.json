@@ -1,15 +1,15 @@
 {
-  "name": "PregFlow Pro",
-  "short_name": "PregFlow",
-  "description": "Gerencie e apresente suas mensagens e pregações com facilidade.",
+  "name": "CifraPro",
+  "short_name": "CifraPro",
+  "description": "Banco de cifras profissional para músicos de igreja",
   "lang": "pt-BR",
   "start_url": "/Pregflow-app/",
   "scope": "/Pregflow-app/",
   "display": "standalone",
-  "background_color": "#6D28D9",
-  "theme_color": "#7C3AED",
+  "background_color": "#0f172a",
+  "theme_color": "#f59e0b",
   "orientation": "portrait-primary",
-  "categories": ["productivity", "education"],
+  "categories": ["music", "productivity"],
   "prefer_related_applications": false,
   "icons": [
     {

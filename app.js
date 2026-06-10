@@ -1,1326 +1,1168 @@
 'use strict';
 
-const DB_KEY = 'pregflow_db';
-const THEME_KEY = 'pregflow_theme';
-const API_KEY_STORAGE = 'pregflow_api_key';
-const DB_VERSION = 1;
+// ============================================================
+// CIFRAPRO — Banco de Cifras para Músicos de Igreja
+// ============================================================
 
-// ---- UNDO STACK ----
-const undoStack = [];
+// ==================== MUSIC THEORY ====================
+const NOTES_SHARP = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const NOTES_FLAT  = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
+const NOTE_NAMES_PT = {
+  'C':'Dó','C#':'Dó#','Db':'Dób','D':'Ré','D#':'Ré#','Eb':'Réb',
+  'E':'Mi','F':'Fá','F#':'Fá#','Gb':'Fáb','G':'Sol','G#':'Sol#',
+  'Ab':'Láb','A':'Lá','A#':'Lá#','Bb':'Láb','B':'Si'
+};
+const ALL_KEYS = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+// Preferred flat display keys
+const PREFER_FLAT_KEYS = new Set(['F','Bb','Eb','Ab','Db','Gb']);
 
-const STATE = {
-    sermons: [],
-    currentId: null,
-    timer: null,
-    seconds: 0,
-    isRunning: false
+function noteIndex(note) {
+  let i = NOTES_SHARP.indexOf(note);
+  if (i === -1) i = NOTES_FLAT.indexOf(note);
+  return i;
+}
+
+function transposeNote(note, semitones, useFlat) {
+  const idx = noteIndex(note);
+  if (idx === -1) return note;
+  const newIdx = ((idx + semitones) % 12 + 12) % 12;
+  return useFlat ? NOTES_FLAT[newIdx] : NOTES_SHARP[newIdx];
+}
+
+// Regex to match a chord token: C, Am, F#m7, Gsus4, D/F#, etc.
+const CHORD_RE = /\b([A-G][#b]?)(m(?:aj)?7?|maj7?|M7?|dim7?|aug|sus[24]?|add\d+|\d+|[#b]\d+)*(\([^)]*\))?(\/[A-G][#b]?)?\b/g;
+
+function transposeChordToken(token, semitones, useFlat) {
+  return token.replace(CHORD_RE, (full, root, suffix = '', paren = '', bass = '') => {
+    const newRoot = transposeNote(root, semitones, useFlat);
+    let newBass = bass;
+    if (bass) {
+      const bassNote = bass.slice(1);
+      newBass = '/' + transposeNote(bassNote, semitones, useFlat);
+    }
+    return newRoot + suffix + paren + newBass;
+  });
+}
+
+function isChordLine(line) {
+  const trimmed = line.trim();
+  if (!trimmed) return false;
+  const tokens = trimmed.split(/\s+/);
+  let chordCount = 0;
+  for (const t of tokens) {
+    if (/^[A-G][#b]?(m(?:aj)?7?|maj7?|M7?|dim7?|aug|sus[24]?|add\d+|\d+|[#b]\d+)*(\([^)]*\))?(\/[A-G][#b]?)?$/.test(t)) {
+      chordCount++;
+    }
+  }
+  return chordCount > 0 && chordCount >= Math.ceil(tokens.length * 0.6);
+}
+
+function transposeText(text, semitones, useFlat) {
+  if (semitones === 0) return text;
+  return text.split('\n').map(line => {
+    if (isChordLine(line)) {
+      return line.replace(CHORD_RE, (full, root, suffix = '', paren = '', bass = '') => {
+        const newRoot = transposeNote(root, semitones, useFlat);
+        let newBass = bass;
+        if (bass) newBass = '/' + transposeNote(bass.slice(1), semitones, useFlat);
+        return newRoot + (suffix||'') + (paren||'') + newBass;
+      });
+    }
+    return line;
+  }).join('\n');
+}
+
+function detectKey(text) {
+  const tomMatch = text.match(/Tom\s*[:\-]\s*([A-G][#b]?m?)/i);
+  if (tomMatch) return tomMatch[1].replace('m','');
+  for (const line of text.split('\n')) {
+    if (isChordLine(line)) {
+      const m = line.trim().match(/^([A-G][#b]?)/);
+      if (m) return m[1];
+    }
+  }
+  return 'G';
+}
+
+function getSemitoneDiff(fromKey, toKey) {
+  const a = noteIndex(fromKey);
+  const b = noteIndex(toKey);
+  if (a === -1 || b === -1) return 0;
+  return ((b - a) + 12) % 12;
+}
+
+function renderChordHTML(text) {
+  return text.split('\n').map(line => {
+    if (isChordLine(line)) {
+      return `<span class="chord-line">${escHtml(line)}</span>`;
+    }
+    return escHtml(line);
+  }).join('\n');
+}
+
+// ==================== INDEXEDDB ====================
+const DB_NAME = 'cifrapro';
+const DB_VER  = 1;
+let db = null;
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VER);
+    req.onupgradeneeded = e => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains('songs')) {
+        const s = d.createObjectStore('songs', { keyPath: 'id' });
+        s.createIndex('title', 'title');
+        s.createIndex('artist', 'artist');
+        s.createIndex('dateAdded', 'dateAdded');
+      }
+      if (!d.objectStoreNames.contains('setlists')) {
+        d.createObjectStore('setlists', { keyPath: 'id' });
+      }
+    };
+    req.onsuccess = e => { db = e.target.result; resolve(db); };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function dbAll(store) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function dbGet(store, id) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).get(id);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function dbPut(store, obj) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readwrite');
+    const req = tx.objectStore(store).put(obj);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function dbDelete(store, id) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readwrite');
+    const req = tx.objectStore(store).delete(id);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+// ==================== SCRAPER ====================
+const CORS_PROXY = 'https://api.allorigins.win/get?url=';
+
+async function fetchHtml(url) {
+  const proxyUrl = CORS_PROXY + encodeURIComponent(url);
+  const resp = await fetch(proxyUrl, { cache: 'no-store' });
+  if (!resp.ok) throw new Error('Erro de rede: ' + resp.status);
+  const data = await resp.json();
+  return data.contents;
+}
+
+async function searchCifraClub(song, artist) {
+  const q = [artist, song].filter(Boolean).join(' ');
+  const url = `https://www.cifraclub.com.br/busca/?q=${encodeURIComponent(q)}&type=musica`;
+  const html = await fetchHtml(url);
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+
+  const results = [];
+  const seen = new Set();
+
+  // Try multiple selectors for search results
+  const selectors = [
+    'a.art_music-link',
+    '.js-song-link',
+    'h2.t1 a',
+    '.search-result a[href*="/"][href*=".com.br"]',
+    'ul.art_musics li a',
+    'a[href*="cifraclub.com.br/"]'
+  ];
+
+  for (const sel of selectors) {
+    doc.querySelectorAll(sel).forEach(a => {
+      const href = a.getAttribute('href') || '';
+      const text = a.textContent.trim();
+      if (!href || !text || seen.has(href)) return;
+      if (!href.includes('/') || href === '#') return;
+
+      const fullUrl = href.startsWith('http') ? href : 'https://www.cifraclub.com.br' + href;
+      // Filter to only song pages (not search pages, categories, etc.)
+      const parts = new URL(fullUrl).pathname.split('/').filter(Boolean);
+      if (parts.length < 2) return;
+
+      seen.add(href);
+      const [artistSlug, songSlug] = parts;
+      results.push({
+        url: fullUrl,
+        title: text,
+        artistSlug,
+        songSlug
+      });
+    });
+    if (results.length >= 10) break;
+  }
+
+  return results.slice(0, 12);
+}
+
+async function downloadCifra(url) {
+  const html = await fetchHtml(url);
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+
+  // Title
+  const titleEl = doc.querySelector('h1.t1, h1[class*="title"], h1');
+  const title = titleEl?.textContent?.trim() || 'Sem título';
+
+  // Artist
+  const artistEl = doc.querySelector('h2.t2 a, .t2 a, h2 a, [class*="artist"] a');
+  const artist = artistEl?.textContent?.trim() || '';
+
+  // Key/Tom
+  let key = 'G';
+  const tomEl = doc.querySelector('#cifra_tom strong, .cifra-tom strong, [id*="tom"] strong');
+  if (tomEl) key = tomEl.textContent.trim().split(' ')[0];
+
+  // Chord content
+  const preEl = doc.querySelector('pre.cifra_cnt, #cifra_original pre, #tablatura pre, .cifra pre');
+  if (!preEl) {
+    // Fallback: try to find any pre with chords
+    const allPres = doc.querySelectorAll('pre');
+    for (const pre of allPres) {
+      if (pre.textContent.match(/[A-G][#b]?m?\s/)) {
+        return buildSong(title, artist, key, parseCifraHTML(pre), url);
+      }
+    }
+    throw new Error('Cifra não encontrada na página. Tente importar manualmente.');
+  }
+
+  return buildSong(title, artist, key, parseCifraHTML(preEl), url);
+}
+
+function parseCifraHTML(preEl) {
+  // Clone to avoid mutating the DOM
+  const clone = preEl.cloneNode(true);
+  // <b> tags contain chord names in Cifra Club
+  clone.querySelectorAll('b').forEach(b => {
+    b.replaceWith(document.createTextNode(b.textContent));
+  });
+  clone.querySelectorAll('br').forEach(br => br.replaceWith('\n'));
+  let text = clone.textContent;
+  // Normalize line endings
+  text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  // Remove leading/trailing blank lines but keep internal structure
+  text = text.replace(/^\n+/, '').replace(/\n+$/, '');
+  return text;
+}
+
+function buildSong(title, artist, key, content, source) {
+  const detectedKey = detectKey(content) || key;
+  return {
+    id: uid(),
+    title: title || 'Sem título',
+    artist: artist || '',
+    key: detectedKey,
+    originalKey: detectedKey,
+    content,
+    source: source || '',
+    dateAdded: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+}
+
+// ==================== HELPERS ====================
+function escHtml(s) {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function fmtDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric' });
+}
+
+function toast(msg, type = '', duration = 2500) {
+  const el = document.createElement('div');
+  el.className = 'toast' + (type ? ' ' + type : '');
+  el.textContent = msg;
+  const container = document.getElementById('toast-container');
+  container.appendChild(el);
+  setTimeout(() => el.remove(), duration);
+}
+
+// ==================== APP STATE ====================
+const State = {
+  currentScreen: 'home',
+  screenStack: [],
+  currentSong: null,         // Song object being viewed/edited
+  currentSongSemitones: 0,  // Transposition offset from stored key
+  currentSetlist: null,
+  songs: [],
+  setlists: [],
+  displayFontSize: 18,
+  twoCol: false,
+  autoScrollActive: false,
+  autoScrollInterval: null,
+  editMode: false,
+  searchTab: 'search',
 };
 
-// Rastreia o bloco em foco
-let focusedBlock = null;
+// ==================== NAVIGATION ====================
+const MAIN_SCREENS = ['home', 'search', 'library', 'setlists'];
 
-// ---- INIT ----
+const App = {
+  // ---- NAV ----
+  nav(screen, pushHistory = true) {
+    const prev = State.currentScreen;
+    if (prev === screen) return;
 
-document.addEventListener('DOMContentLoaded', () => {
-    loadDB();
-    applyTheme();
-    initBibleData();
-    bindEvents();
-
-    // Pré-carregar API key salva no campo de configurações
-    const savedKey = localStorage.getItem(API_KEY_STORAGE);
-    if (savedKey) {
-        const apiInput = document.getElementById('apiKeyInput');
-        if (apiInput) apiInput.value = savedKey;
+    if (pushHistory && MAIN_SCREENS.includes(prev) && !MAIN_SCREENS.includes(screen)) {
+      State.screenStack.push(prev);
+    } else if (MAIN_SCREENS.includes(screen)) {
+      State.screenStack = [];
     }
 
-    setTimeout(() => {
-        const splash = document.getElementById('splash');
-        splash.style.opacity = '0';
-        setTimeout(() => { splash.style.display = 'none'; showScreen('homeScreen'); }, 500);
-    }, 1200);
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    const el = document.getElementById('screen-' + screen);
+    if (el) el.classList.add('active');
 
-    renderList();
+    State.currentScreen = screen;
+    this._updateNav(screen);
+    this._updateHeader(screen);
+    this._onScreenEnter(screen);
+  },
 
-    window.addEventListener('beforeunload', performSave);
-
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/service-worker.js').catch(() => {});
-    }
-});
-
-function loadDB() {
-    try {
-        const saved = localStorage.getItem(DB_KEY);
-        if (saved) {
-            const parsed = JSON.parse(saved);
-            if (Array.isArray(parsed)) STATE.sermons = parsed;
-        }
-    } catch {
-        STATE.sermons = [];
-    }
-}
-
-function applyTheme() {
-    if (localStorage.getItem(THEME_KEY) === 'dark') document.body.classList.add('dark');
-}
-
-// ---- EVENT BINDING ----
-
-function bindEvents() {
-    // Home
-    document.getElementById('btn-settings').addEventListener('click', () => toggleSettings(true));
-    document.getElementById('btn-new-sermon').addEventListener('click', createNewSermon);
-
-    // Editor nav
-    document.getElementById('btn-back').addEventListener('click', goHome);
-    document.getElementById('btn-pdf').addEventListener('click', exportPDF);
-    document.getElementById('btn-bible').addEventListener('click', () => toggleBible(true));
-    document.getElementById('btn-preach').addEventListener('click', startPreachMode);
-
-    // Toolbar: Novo bloco
-    document.getElementById('btn-new-block').addEventListener('mousedown', addNewBlock);
-
-    // Toolbar: Mover blocos
-    document.getElementById('btn-move-up').addEventListener('mousedown', (e) => { e.preventDefault(); saveSnapshot(); moveBlock(-1); });
-    document.getElementById('btn-move-down').addEventListener('mousedown', (e) => { e.preventDefault(); saveSnapshot(); moveBlock(1); });
-
-    // Toolbar: Formato de bloco
-    document.querySelectorAll('[data-format]').forEach(btn => {
-        btn.addEventListener('mousedown', (e) => { saveSnapshot(); applyFormat(e, btn.dataset.format); });
-    });
-
-    // Toolbar: Formatação inline
-    document.getElementById('btn-fmt-bold').addEventListener('mousedown', (e) => { e.preventDefault(); formatText('bold'); });
-    document.getElementById('btn-fmt-italic').addEventListener('mousedown', (e) => { e.preventDefault(); formatText('italic'); });
-    document.getElementById('btn-fmt-underline').addEventListener('mousedown', (e) => { e.preventDefault(); formatText('underline'); });
-    document.getElementById('btn-fmt-strike').addEventListener('mousedown', (e) => { e.preventDefault(); formatText('strikeThrough'); });
-    document.getElementById('btn-highlight').addEventListener('mousedown', (e) => { e.preventDefault(); document.execCommand('backColor', false, '#FEF08A'); });
-    document.getElementById('btn-fmt-clear').addEventListener('mousedown', (e) => { e.preventDefault(); formatText('removeFormat'); });
-
-    // Cores de texto
-    document.querySelectorAll('.color-btn').forEach(btn => {
-        btn.addEventListener('mousedown', (e) => {
-            e.preventDefault();
-            document.execCommand('foreColor', false, btn.dataset.color);
-        });
-    });
-
-    // Toolbar: Ações
-    document.getElementById('btn-done').addEventListener('mousedown', (e) => { e.preventDefault(); toggleBlockDone(); });
-    document.getElementById('btn-delete-block').addEventListener('mousedown', (e) => { e.preventDefault(); deleteCurrentBlock(); });
-    document.getElementById('btn-undo').addEventListener('mousedown', (e) => { e.preventDefault(); undoAction(); });
-
-    // Toolbar: IA
-    document.getElementById('btn-ai-study').addEventListener('mousedown', (e) => { e.preventDefault(); toggleAIStudy(true); });
-
-    // Preach HUD
-    document.getElementById('btn-font-dec').addEventListener('click', () => adjustFont(-4));
-    document.getElementById('btn-timer').addEventListener('click', toggleTimer);
-    document.getElementById('btn-font-inc').addEventListener('click', () => adjustFont(4));
-    document.getElementById('btn-exit-preach').addEventListener('click', exitPreach);
-    document.getElementById('hud-tap-zone').addEventListener('click', toggleHud);
-    document.getElementById('btn-ministrado').addEventListener('click', markCurrentPreachBlockDone);
-
-    // Bible modal
-    document.getElementById('bibleModal').addEventListener('click', (e) => {
-        if (e.target === e.currentTarget) toggleBible(false);
-    });
-    document.getElementById('btn-bible-close').addEventListener('click', () => toggleBible(false));
-    document.getElementById('bibleBook').addEventListener('change', loadChapters);
-    document.getElementById('bibleChapter').addEventListener('change', fetchBibleText);
-
-    // Bible search com debounce
-    let bibleSearchTimer;
-    document.getElementById('bibleSearch').addEventListener('input', (e) => {
-        clearTimeout(bibleSearchTimer);
-        bibleSearchTimer = setTimeout(() => handleBibleSearch(e.target.value.trim()), 600);
-    });
-
-    // Settings modal
-    document.getElementById('settingsModal').addEventListener('click', (e) => {
-        if (e.target === e.currentTarget) toggleSettings(false);
-    });
-    document.getElementById('btn-settings-close').addEventListener('click', () => toggleSettings(false));
-    document.getElementById('btn-theme').addEventListener('click', toggleTheme);
-    document.getElementById('btn-backup-dl').addEventListener('click', downloadBackup);
-    document.getElementById('btn-backup-restore').addEventListener('click', () => document.getElementById('fileInput').click());
-    document.getElementById('fileInput').addEventListener('change', (e) => restoreBackup(e.target));
-
-    // API Key
-    document.getElementById('btn-save-api-key').addEventListener('click', saveApiKey);
-    document.getElementById('apiKeyInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') saveApiKey(); });
-
-    // AI Study modal
-    document.getElementById('aiStudyModal').addEventListener('click', (e) => {
-        if (e.target === e.currentTarget) toggleAIStudy(false);
-    });
-    document.getElementById('btn-ai-close').addEventListener('click', () => toggleAIStudy(false));
-    document.getElementById('btn-generate-study').addEventListener('click', generateAIContent);
-    document.getElementById('btn-export-study').addEventListener('click', exportAIStudyPDF);
-
-    // AI type tabs
-    document.querySelectorAll('.ai-type-tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-            document.querySelectorAll('.ai-type-tab').forEach(t => t.classList.toggle('active', t === tab));
-            aiCurrentMode = tab.dataset.mode;
-        });
-    });
-
-    // Barra flutuante — tipo de bloco
-    document.querySelectorAll('#floatingBar [data-format]').forEach(btn => {
-        btn.addEventListener('mousedown', (e) => { saveSnapshot(); applyFormat(e, btn.dataset.format); });
-    });
-    // Barra flutuante — cores de texto
-    document.querySelectorAll('#floatingBar .fcolor').forEach(btn => {
-        btn.addEventListener('mousedown', (e) => { e.preventDefault(); document.execCommand('foreColor', false, btn.dataset.color); });
-    });
-    // Barra flutuante — inline
-    document.getElementById('fbt-bold').addEventListener('mousedown', (e) => { e.preventDefault(); formatText('bold'); });
-    document.getElementById('fbt-italic').addEventListener('mousedown', (e) => { e.preventDefault(); formatText('italic'); });
-    document.getElementById('fbt-underline').addEventListener('mousedown', (e) => { e.preventDefault(); formatText('underline'); });
-    document.getElementById('fbt-strike').addEventListener('mousedown', (e) => { e.preventDefault(); formatText('strikeThrough'); });
-    document.getElementById('fbt-highlight').addEventListener('mousedown', (e) => { e.preventDefault(); document.execCommand('backColor', false, '#FEF08A'); });
-    document.getElementById('fbt-clear').addEventListener('mousedown', (e) => { e.preventDefault(); formatText('removeFormat'); });
-    // Barra flutuante — ações de bloco
-    document.getElementById('fbt-new').addEventListener('mousedown', addNewBlock);
-    document.getElementById('fbt-done').addEventListener('mousedown', (e) => { e.preventDefault(); toggleBlockDone(); });
-    document.getElementById('fbt-up').addEventListener('mousedown', (e) => { e.preventDefault(); saveSnapshot(); moveBlock(-1); });
-    document.getElementById('fbt-down').addEventListener('mousedown', (e) => { e.preventDefault(); saveSnapshot(); moveBlock(1); });
-    document.getElementById('fbt-undo').addEventListener('mousedown', (e) => { e.preventDefault(); undoAction(); });
-    document.getElementById('fbt-del').addEventListener('mousedown', (e) => { e.preventDefault(); deleteCurrentBlock(); });
-    document.getElementById('fbt-ai').addEventListener('mousedown', (e) => { e.preventDefault(); toggleAIStudy(true); });
-
-    // Scroll do editor: reposicionar barra flutuante
-    document.getElementById('editorScreen').addEventListener('scroll', () => {
-        if (focusedBlock) updateFloatingBar(focusedBlock);
-    });
-
-    // Event delegation for dynamic sermon cards
-    document.getElementById('sermonList').addEventListener('click', (e) => {
-        const deleteBtn = e.target.closest('[data-delete-id]');
-        if (deleteBtn) { deleteSermon(parseInt(deleteBtn.dataset.deleteId)); return; }
-        const card = e.target.closest('[data-sermon-id]');
-        if (card) openSermon(parseInt(card.dataset.sermonId));
-    });
-
-}
-
-// ---- PERSISTENCE ----
-
-function saveDB() {
-    localStorage.setItem(DB_KEY, JSON.stringify(STATE.sermons));
-    updateSaveStatus('Salvo');
-}
-
-let saveTimer;
-
-function updateSaveStatus(msg) {
-    const el = document.getElementById('saveStatus');
-    if (!el) return;
-    el.textContent = msg;
-    el.classList.toggle('saving', msg === 'Salvando...');
-}
-
-function triggerSave() {
-    updateSaveStatus('Salvando...');
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(performSave, 800);
-}
-
-function performSave() {
-    if (!STATE.currentId) return;
-    const s = STATE.sermons.find(x => x.id === STATE.currentId);
-    if (!s) return;
-    s.title = document.getElementById('docTitle').value;
-    s.ref = document.getElementById('docRef').value;
-    s.updated = Date.now();
-    const domBlocks = document.querySelectorAll('#editorBlocks .block');
-    s.content = Array.from(domBlocks).map(b => ({
-        type: b.dataset.type,
-        text: b.innerText,
-        done: b.dataset.done === 'true'
-    }));
-    saveDB();
-}
-
-// ---- UNDO ----
-
-function saveSnapshot() {
-    const domBlocks = document.querySelectorAll('#editorBlocks .block');
-    const snapshot = Array.from(domBlocks).map(b => ({
-        type: b.dataset.type,
-        text: b.innerText,
-        done: b.dataset.done === 'true'
-    }));
-    undoStack.push(JSON.stringify(snapshot));
-    if (undoStack.length > 30) undoStack.shift();
-}
-
-function undoAction() {
-    if (undoStack.length === 0) { showToast('Nada para desfazer'); return; }
-    const snapshot = JSON.parse(undoStack.pop());
-    const container = document.getElementById('editorBlocks');
-    container.innerHTML = '';
-    snapshot.forEach(b => createBlockUI(b.type, b.text, null, b.done));
-    updateOutlineNumbers();
-    triggerSave();
-}
-
-// ---- SCREENS ----
-
-function showScreen(id) {
-    document.querySelectorAll('.screen, #preachScreen').forEach(el => {
-        el.classList.remove('active');
-        el.id === 'preachScreen' ? el.classList.add('hidden') : el.style.display = 'none';
-    });
-    const target = document.getElementById(id);
-    if (id === 'preachScreen') {
-        target.classList.remove('hidden');
+  goBack() {
+    if (State.screenStack.length) {
+      const prev = State.screenStack.pop();
+      this.nav(prev, false);
     } else {
-        target.style.display = 'block';
-        setTimeout(() => target.classList.add('active'), 10);
+      this.nav('home', false);
     }
-}
+  },
 
-// ---- SERMONS ----
+  _updateNav(screen) {
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    const mainScreen = MAIN_SCREENS.includes(screen) ? screen : null;
+    if (mainScreen) {
+      const btn = document.getElementById('nav-' + mainScreen);
+      if (btn) btn.classList.add('active');
+    }
+    const bottomNav = document.getElementById('bottom-nav');
+    bottomNav.style.display = screen === 'display' ? 'none' : '';
+  },
 
-function renderList() {
-    const list = document.getElementById('sermonList');
-    const empty = document.getElementById('emptyState');
-    list.innerHTML = '';
-    if (STATE.sermons.length === 0) { empty.style.display = 'block'; return; }
-    empty.style.display = 'none';
+  _updateHeader(screen) {
+    const backBtn = document.getElementById('header-back');
+    const headerTitle = document.getElementById('header-title');
+    const headerActions = document.getElementById('header-actions');
+    headerActions.innerHTML = '';
 
-    STATE.sermons.sort((a, b) => b.updated - a.updated).forEach(s => {
-        const div = document.createElement('div');
-        div.className = 'sermon-card';
-        div.dataset.sermonId = s.id;
-        div.innerHTML = `
-            <div class="card-info" style="flex-grow:1;">
-                <h3>${escapeHtml(s.title || 'Sem Título')}</h3>
-                <p>${escapeHtml(s.ref || 'Rascunho')} &bull; ${new Date(s.updated).toLocaleDateString('pt-BR')}</p>
+    const isMain = MAIN_SCREENS.includes(screen);
+    backBtn.style.display = isMain ? 'none' : 'block';
+
+    const titles = {
+      home: '🎸 CifraPro',
+      search: '🔍 Buscar Cifras',
+      library: '📚 Biblioteca',
+      setlists: '🎼 Listas',
+      song: '🎵 Cifra',
+      display: 'Exibição',
+      'setlist-view': '📋 Lista'
+    };
+    headerTitle.textContent = titles[screen] || 'CifraPro';
+
+    if (screen === 'display') {
+      document.getElementById('app-header').style.display = 'none';
+    } else {
+      document.getElementById('app-header').style.display = '';
+    }
+  },
+
+  _onScreenEnter(screen) {
+    if (screen === 'home') this.renderHome();
+    if (screen === 'library') this.renderLibrary();
+    if (screen === 'setlists') this.renderSetlists();
+    if (screen === 'song' && State.currentSong) this.renderSong();
+    if (screen === 'setlist-view' && State.currentSetlist) this.renderSetlistView();
+  },
+
+  // ---- SEARCH TAB ----
+  switchSearchTab(tab) {
+    State.searchTab = tab;
+    ['search','batch','manual'].forEach(t => {
+      document.getElementById(t + '-pane').style.display = t === tab ? '' : 'none';
+      document.getElementById('tab-' + t).classList.toggle('active', t === tab);
+    });
+  },
+
+  openManualImport() {
+    this.nav('search');
+    setTimeout(() => this.switchSearchTab('manual'), 100);
+  },
+
+  // ==================== HOME ====================
+  renderHome() {
+    document.getElementById('stat-songs').textContent = State.songs.length;
+    document.getElementById('stat-setlists').textContent = State.setlists.length;
+
+    const recent = [...State.songs]
+      .sort((a, b) => new Date(b.dateAdded) - new Date(a.dateAdded))
+      .slice(0, 5);
+
+    const recentSection = document.getElementById('home-recent');
+    const recentList = document.getElementById('home-recent-list');
+
+    if (recent.length) {
+      recentSection.style.display = '';
+      recentList.innerHTML = recent.map(s => this._songItemHTML(s)).join('');
+    } else {
+      recentSection.style.display = 'none';
+    }
+  },
+
+  _songItemHTML(song) {
+    return `
+      <div class="song-item" onclick="App.openSong('${song.id}')">
+        <div class="song-item-icon">🎵</div>
+        <div class="song-item-info">
+          <div class="song-item-title">${escHtml(song.title)}</div>
+          <div class="song-item-artist">${escHtml(song.artist || 'Sem artista')}</div>
+        </div>
+        <div class="song-item-key">${escHtml(song.key || '?')}</div>
+      </div>`;
+  },
+
+  // ==================== SEARCH ONLINE ====================
+  async searchOnline() {
+    const song = document.getElementById('search-song').value.trim();
+    const artist = document.getElementById('search-artist').value.trim();
+    if (!song && !artist) { toast('Digite o nome da música', 'error'); return; }
+
+    const area = document.getElementById('search-results-area');
+    area.innerHTML = '<div class="loading-spinner"><div class="spinner"></div><span>Buscando no Cifra Club...</span></div>';
+
+    try {
+      const results = await searchCifraClub(song, artist);
+      if (!results.length) {
+        area.innerHTML = '<div class="empty-state"><div class="empty-icon">😕</div><h3>Nenhum resultado</h3><p>Tente termos diferentes ou importe manualmente.</p></div>';
+        return;
+      }
+      area.innerHTML = '<div class="search-results">' +
+        results.map(r => `
+          <div class="result-item">
+            <div class="result-info">
+              <div class="result-title">${escHtml(r.title)}</div>
+              <div class="result-url">${escHtml(r.url)}</div>
             </div>
-            <button class="icon-btn" data-delete-id="${s.id}" title="Excluir">
-                <svg class="icon" style="stroke:var(--danger)"><use href="#icon-trash"></use></svg>
-            </button>
-        `;
-        list.appendChild(div);
-    });
-}
+            <div class="result-actions">
+              <button class="btn btn-primary btn-sm" onclick="App.downloadResult('${encodeURIComponent(r.url)}','${encodeURIComponent(r.title)}')">⬇️</button>
+            </div>
+          </div>`).join('') +
+        '</div>';
+    } catch (e) {
+      area.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><h3>Erro na busca</h3><p>${escHtml(e.message)}</p></div>`;
+    }
+  },
 
-function openSermon(id) {
-    STATE.currentId = id;
-    undoStack.length = 0;
-    const s = STATE.sermons.find(x => x.id === id);
-    document.getElementById('docTitle').value = s.title;
-    document.getElementById('docRef').value = s.ref;
-    document.getElementById('docTitle').addEventListener('input', triggerSave, { once: false });
-    document.getElementById('docRef').addEventListener('input', triggerSave, { once: false });
+  async downloadResult(encodedUrl, encodedTitle) {
+    const url = decodeURIComponent(encodedUrl);
+    toast('Baixando cifra...');
+    try {
+      const song = await downloadCifra(url);
+      await dbPut('songs', song);
+      State.songs = await dbAll('songs');
+      toast('Cifra salva!', 'success');
+      this.openSong(song.id);
+    } catch (e) {
+      toast('Erro: ' + e.message, 'error', 4000);
+    }
+  },
 
-    const container = document.getElementById('editorBlocks');
-    container.innerHTML = '';
-    const blocks = s.content.length ? s.content : [{ type: 'p', text: '', done: false }];
-    blocks.forEach(b => createBlockUI(b.type, b.text, null, b.done));
-    updateOutlineNumbers();
-    setEditorHeader(true);
-    showScreen('editorScreen');
-}
+  // ==================== BATCH DOWNLOAD ====================
+  async startBatchDownload() {
+    const raw = document.getElementById('batch-list').value.trim();
+    if (!raw) { toast('Cole a lista de músicas', 'error'); return; }
 
-function createNewSermon() {
-    const id = Date.now();
-    STATE.sermons.push({ id, title: '', ref: '', content: [{ type: 'p', text: '', done: false }], updated: id });
-    openSermon(id);
-}
+    const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+    const area = document.getElementById('batch-progress-area');
+    let done = 0, errors = 0;
 
-function deleteSermon(id) {
-    if (!confirm('Tem certeza que deseja excluir esta mensagem?')) return;
-    STATE.sermons = STATE.sermons.filter(s => s.id !== id);
-    saveDB();
-    renderList();
-}
+    area.innerHTML = `
+      <div class="card card-padded flex flex-col gap-12 mt-16">
+        <div class="flex justify-between items-center">
+          <span class="text-sm">Baixando <strong>${lines.length}</strong> músicas...</span>
+          <span id="batch-count" class="badge badge-primary">0/${lines.length}</span>
+        </div>
+        <div class="progress-bar-wrap"><div class="progress-bar-fill" id="batch-fill" style="width:0%"></div></div>
+        <div id="batch-log" class="flex flex-col gap-8" style="max-height:200px;overflow-y:auto;font-size:0.8rem;"></div>
+      </div>`;
 
-function setEditorHeader(show) {
-    const h = document.querySelector('.editor-header');
-    if (h) h.style.display = show ? 'block' : 'none';
-}
+    for (const line of lines) {
+      const [artist, ...songParts] = line.includes(' - ') ? line.split(' - ') : ['', line.split(' ')];
+      const song = songParts.join(' ') || line;
 
-function updateFloatingBar(block) {
-    const bar = document.getElementById('floatingBar');
-    if (!bar || !block) return;
-    const rect = block.getBoundingClientRect();
-    const headerH = 120;
-    const barH = 40;
-    const gap = 6;
-    let top = rect.top - barH - gap;
-    if (top < headerH + 4) top = rect.bottom + gap;
-    top = Math.min(top, window.innerHeight - barH - 8);
-    bar.style.top = top + 'px';
-    bar.classList.remove('hidden');
-}
+      const log = document.getElementById('batch-log');
+      const logItem = document.createElement('div');
+      logItem.textContent = `⏳ ${line}`;
+      logItem.style.color = 'var(--text-muted)';
+      log.appendChild(logItem);
+      log.scrollTop = log.scrollHeight;
 
-function hideFloatingBar() {
-    const bar = document.getElementById('floatingBar');
-    if (bar) bar.classList.add('hidden');
-}
-
-function goHome() { performSave(); setEditorHeader(false); hideFloatingBar(); renderList(); showScreen('homeScreen'); }
-
-// ---- EDITOR BLOCKS ----
-
-function createBlockUI(type, text, after = null, done = false) {
-    const div = document.createElement('div');
-    div.className = 'block';
-    if (type === 'quote') div.classList.add('preach-quote');
-    if (type === 'warn') div.classList.add('preach-warn');
-    if (type === 'box') div.classList.add('preach-box');
-
-    div.contentEditable = 'true';
-    div.dataset.type = type;
-    div.innerText = text;
-    div.setAttribute('placeholder', getPlaceholder(type));
-
-    if (done) div.dataset.done = 'true';
-
-    div.addEventListener('focus', () => {
-        focusedBlock = div;
-        setTimeout(() => {
-            div.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            updateFloatingBar(div);
-        }, 300);
-    });
-
-    div.addEventListener('blur', () => {
-        setTimeout(() => {
-            if (!document.activeElement || !document.activeElement.classList.contains('block')) {
-                hideFloatingBar();
-            }
-        }, 150);
-    });
-
-    div.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            if (e.shiftKey) {
-                // Shift+Enter: criar novo bloco abaixo
-                saveSnapshot();
-                const newBlock = createBlockUI('p', '');
-                const c = document.getElementById('editorBlocks');
-                c.insertBefore(newBlock, div.nextSibling);
-                updateOutlineNumbers();
-                newBlock.focus();
-            } else {
-                // Enter: quebra de linha dentro do bloco
-                document.execCommand('insertLineBreak');
-            }
-            triggerSave();
-        }
-        if (e.key === 'Backspace' && !e.target.innerText.trim()) {
-            const prev = e.target.previousElementSibling;
-            if (prev) { e.preventDefault(); e.target.remove(); prev.focus(); updateOutlineNumbers(); triggerSave(); }
-        }
-    });
-    div.addEventListener('input', triggerSave);
-
-    const c = document.getElementById('editorBlocks');
-    if (after) c.insertBefore(div, after.nextSibling);
-    else c.appendChild(div);
-    return div;
-}
-
-function updateOutlineNumbers() {
-    const blocks = document.querySelectorAll('#editorBlocks .block');
-    let topicNum = 0, subNum = 1;
-    blocks.forEach(b => {
-        const type = b.dataset.type;
-        if (type === 'topic') {
-            topicNum++;
-            subNum = 1;
-            b.dataset.number = `${topicNum}.`;
-        } else if (type === 'subtopic') {
-            b.dataset.number = `${Math.max(1, topicNum)}.${subNum++}`;
+      try {
+        const results = await searchCifraClub(song.trim(), typeof artist === 'string' ? artist.trim() : '');
+        if (results.length) {
+          const cifra = await downloadCifra(results[0].url);
+          await dbPut('songs', cifra);
+          done++;
+          logItem.textContent = `✅ ${line}`;
+          logItem.style.color = 'var(--success)';
         } else {
-            delete b.dataset.number;
+          errors++;
+          logItem.textContent = `❌ ${line} (não encontrado)`;
+          logItem.style.color = 'var(--danger)';
         }
+      } catch (e) {
+        errors++;
+        logItem.textContent = `❌ ${line} (erro)`;
+        logItem.style.color = 'var(--danger)';
+      }
+
+      const total = done + errors;
+      document.getElementById('batch-count').textContent = `${total}/${lines.length}`;
+      document.getElementById('batch-fill').style.width = `${(total / lines.length) * 100}%`;
+      await new Promise(r => setTimeout(r, 800)); // Rate limit
+    }
+
+    State.songs = await dbAll('songs');
+    toast(`Concluído! ${done} salvas, ${errors} erros.`, done > 0 ? 'success' : 'error', 4000);
+  },
+
+  // ==================== MANUAL IMPORT ====================
+  async saveManualImport() {
+    const title = document.getElementById('manual-title').value.trim();
+    const artist = document.getElementById('manual-artist').value.trim();
+    const key = document.getElementById('manual-key').value;
+    const content = document.getElementById('manual-content').value.trim();
+
+    if (!title) { toast('Digite o título', 'error'); return; }
+    if (!content) { toast('Cole a cifra', 'error'); return; }
+
+    const song = buildSong(title, artist, key, content, '');
+    await dbPut('songs', song);
+    State.songs = await dbAll('songs');
+    toast('Cifra salva!', 'success');
+
+    document.getElementById('manual-title').value = '';
+    document.getElementById('manual-artist').value = '';
+    document.getElementById('manual-content').value = '';
+
+    this.openSong(song.id);
+  },
+
+  // ==================== LIBRARY ====================
+  renderLibrary() {
+    const search = document.getElementById('library-search').value.toLowerCase();
+    const sort = document.getElementById('library-sort').value;
+
+    let songs = [...State.songs];
+    if (search) {
+      songs = songs.filter(s =>
+        s.title.toLowerCase().includes(search) ||
+        (s.artist || '').toLowerCase().includes(search)
+      );
+    }
+
+    songs.sort((a, b) => {
+      if (sort === 'title') return a.title.localeCompare(b.title, 'pt-BR');
+      if (sort === 'artist') return (a.artist || '').localeCompare(b.artist || '', 'pt-BR');
+      if (sort === 'date') return new Date(b.dateAdded) - new Date(a.dateAdded);
+      if (sort === 'key') return (a.key || '').localeCompare(b.key || '');
+      return 0;
     });
-}
 
-function addNewBlock(e) {
-    e.preventDefault();
-    const focused = getFocusedBlock();
-    const container = document.getElementById('editorBlocks');
-    const newBlock = createBlockUI('p', '');
-    if (focused && focused.parentNode === container) {
-        container.insertBefore(newBlock, focused.nextSibling);
-    } else {
-        container.appendChild(newBlock);
+    document.getElementById('library-count').textContent =
+      `${songs.length} cifra${songs.length !== 1 ? 's' : ''}`;
+
+    const list = document.getElementById('library-list');
+    if (!songs.length) {
+      list.innerHTML = '<div class="empty-state"><div class="empty-icon">🎵</div><h3>Nenhuma cifra</h3><p>Busque online ou importe manualmente.</p></div>';
+      return;
     }
-    updateOutlineNumbers();
-    newBlock.focus();
-    triggerSave();
-}
+    list.innerHTML = songs.map(s => this._songItemHTML(s)).join('');
+  },
 
-function getFocusedBlock() {
-    // Tenta via selection primeiro, depois cai para focusedBlock
-    const sel = window.getSelection();
-    if (sel && sel.rangeCount) {
-        let node = sel.anchorNode;
-        while (node && node !== document.body) {
-            if (node.classList && node.classList.contains('block')) return node;
-            node = node.parentNode;
-        }
-    }
-    return focusedBlock;
-}
+  filterLibrary(val) { this.renderLibrary(); },
+  sortLibrary(val) { this.renderLibrary(); },
 
-function deleteCurrentBlock() {
-    const allBlocks = document.querySelectorAll('#editorBlocks .block');
-    if (allBlocks.length <= 1) { showToast('Mantenha pelo menos 1 bloco'); return; }
-    const block = getFocusedBlock();
-    if (!block) { showToast('Selecione um bloco para deletar'); return; }
-    saveSnapshot();
-    const prev = block.previousElementSibling || block.nextElementSibling;
-    block.remove();
-    updateOutlineNumbers();
-    if (prev) prev.focus();
-    triggerSave();
-}
+  // ==================== SONG VIEW ====================
+  async openSong(id) {
+    const song = await dbGet('songs', id);
+    if (!song) { toast('Cifra não encontrada', 'error'); return; }
+    State.currentSong = song;
+    State.currentSongSemitones = 0;
+    State.editMode = false;
+    this.nav('song');
+  },
 
-function moveBlock(direction) {
-    const node = getFocusedBlock();
-    if (!node) return;
-    if (direction === -1 && node.previousElementSibling) {
-        node.parentNode.insertBefore(node, node.previousElementSibling);
-        node.focus();
-    } else if (direction === 1 && node.nextElementSibling) {
-        node.parentNode.insertBefore(node.nextElementSibling, node);
-        node.focus();
-    }
-    updateOutlineNumbers();
-    triggerSave();
-}
+  renderSong() {
+    const song = State.currentSong;
+    if (!song) return;
 
-function getPlaceholder(type) {
-    const map = {
-        p: 'Comece a escrever...',
-        h1: 'Título Principal',
-        h2: 'Subtítulo',
-        h3: 'Subtópico...',
-        topic: 'Primeiro ponto...',
-        subtopic: 'Aprofundamento...',
-        bullet: 'Detalhe...',
-        quote: 'Citação...',
-        warn: 'Aviso...',
-        box: 'Destaque...'
+    const semitones = State.currentSongSemitones;
+    const useFlat = PREFER_FLAT_KEYS.has(song.key);
+    const displayKey = semitones === 0 ? song.key : transposeNote(song.key, semitones, useFlat);
+    const transposedText = transposeText(song.content, semitones, useFlat);
+
+    document.getElementById('song-title').textContent = song.title;
+    document.getElementById('song-artist').textContent = song.artist || 'Sem artista';
+    document.getElementById('current-key').textContent = displayKey;
+
+    const diff = document.getElementById('semitone-diff');
+    diff.textContent = semitones === 0 ? '' : (semitones > 0 ? `+${semitones}` : `${semitones}`) + ' st';
+
+    // Render chord text with highlighted chord lines
+    document.getElementById('chord-display').innerHTML = renderChordHTML(transposedText);
+
+    // Build key selector chips
+    const keySel = document.getElementById('key-selector');
+    keySel.innerHTML = ALL_KEYS.map(k => {
+      const semi = getSemitoneDiff(song.key, k);
+      const isActive = semi === ((semitones % 12 + 12) % 12);
+      return `<button class="key-chip${isActive ? ' active' : ''}" onclick="App.selectKey('${k}')">${k}</button>`;
+    }).join('');
+
+    // Edit fields
+    document.getElementById('edit-title').value = song.title;
+    document.getElementById('edit-artist').value = song.artist || '';
+    document.getElementById('edit-key').value = song.key;
+    document.getElementById('edit-content').value = song.content;
+
+    this._applySongEditMode();
+  },
+
+  transposeBy(n) {
+    State.currentSongSemitones = ((State.currentSongSemitones + n) % 12 + 12) % 12;
+    this.renderSong();
+  },
+
+  selectKey(key) {
+    if (!State.currentSong) return;
+    const semi = getSemitoneDiff(State.currentSong.key, key);
+    State.currentSongSemitones = semi;
+    this.renderSong();
+  },
+
+  async saveTransposedKey() {
+    if (!State.currentSong) return;
+    const semitones = State.currentSongSemitones;
+    const useFlat = PREFER_FLAT_KEYS.has(State.currentSong.key);
+    const newKey = semitones === 0 ? State.currentSong.key : transposeNote(State.currentSong.key, semitones, useFlat);
+    const newContent = transposeText(State.currentSong.content, semitones, useFlat);
+
+    State.currentSong.key = newKey;
+    State.currentSong.content = newContent;
+    State.currentSong.updatedAt = new Date().toISOString();
+    State.currentSongSemitones = 0;
+
+    await dbPut('songs', State.currentSong);
+    State.songs = await dbAll('songs');
+    this.renderSong();
+    toast('Tom salvo: ' + newKey, 'success');
+  },
+
+  async deleteSong() {
+    if (!State.currentSong) return;
+    if (!confirm(`Excluir "${State.currentSong.title}"?`)) return;
+    await dbDelete('songs', State.currentSong.id);
+    State.songs = await dbAll('songs');
+    State.currentSong = null;
+    toast('Cifra excluída');
+    this.nav('library');
+  },
+
+  // ---- EDIT MODE ----
+  toggleEdit() {
+    State.editMode = !State.editMode;
+    this._applySongEditMode();
+  },
+
+  _applySongEditMode() {
+    document.getElementById('chord-view').style.display = State.editMode ? 'none' : '';
+    document.getElementById('chord-edit-area').style.display = State.editMode ? '' : 'none';
+  },
+
+  async saveEdit() {
+    if (!State.currentSong) return;
+    const title = document.getElementById('edit-title').value.trim();
+    const artist = document.getElementById('edit-artist').value.trim();
+    const key = document.getElementById('edit-key').value;
+    const content = document.getElementById('edit-content').value.trim();
+
+    if (!title) { toast('Digite o título', 'error'); return; }
+
+    State.currentSong.title = title;
+    State.currentSong.artist = artist;
+    State.currentSong.key = key;
+    State.currentSong.originalKey = key;
+    State.currentSong.content = content;
+    State.currentSong.updatedAt = new Date().toISOString();
+    State.currentSongSemitones = 0;
+
+    await dbPut('songs', State.currentSong);
+    State.songs = await dbAll('songs');
+    State.editMode = false;
+    this.renderSong();
+    toast('Salvo!', 'success');
+  },
+
+  cancelEdit() {
+    State.editMode = false;
+    this.renderSong();
+  },
+
+  // ==================== DISPLAY MODE ====================
+  openDisplayMode(songObj, keyOverride) {
+    const song = songObj || State.currentSong;
+    if (!song) return;
+
+    const semitones = keyOverride !== undefined
+      ? getSemitoneDiff(song.key, keyOverride)
+      : State.currentSongSemitones;
+
+    const useFlat = PREFER_FLAT_KEYS.has(song.key);
+    const displayKey = semitones === 0 ? song.key : transposeNote(song.key, semitones, useFlat);
+    const text = transposeText(song.content, semitones, useFlat);
+
+    document.getElementById('display-title').textContent = song.title;
+    document.getElementById('display-key-label').textContent = 'Tom: ' + displayKey;
+    document.getElementById('display-chord-text').innerHTML = renderChordHTML(text);
+
+    this._applyDisplayFont();
+    State.twoCol = false;
+    document.getElementById('display-content').classList.remove('two-col');
+    document.getElementById('btn-two-col').classList.remove('active-ctrl');
+    this.stopAutoScroll();
+
+    State.autoScrollActive = false;
+    document.getElementById('scroll-progress').style.width = '0%';
+
+    this.nav('song'); // ensure we can go back
+    State.screenStack.push('song');
+
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('screen-display').classList.add('active');
+    State.currentScreen = 'display';
+    document.getElementById('app-header').style.display = 'none';
+    document.getElementById('bottom-nav').style.display = 'none';
+    document.getElementById('display-content').scrollTop = 0;
+
+    // Tap anywhere to toggle header visibility
+    const content = document.getElementById('display-content');
+    content.onclick = null;
+    content.onclick = () => {
+      const h = document.getElementById('display-header');
+      h.classList.toggle('hidden');
     };
-    return map[type] || '...';
-}
+  },
 
-function applyFormat(e, type) {
-    e.preventDefault();
-    const node = getFocusedBlock() || (() => {
-        const blocks = document.querySelectorAll('.block');
-        return blocks.length > 0 ? blocks[blocks.length - 1] : createBlockUI('p', '');
-    })();
-    if (!node) return;
+  closeDisplay() {
+    this.stopAutoScroll();
+    this.nav('song', false);
+  },
 
-    node.className = 'block';
-    node.dataset.type = type;
-    node.setAttribute('placeholder', getPlaceholder(type));
-    if (type === 'quote') node.classList.add('preach-quote');
-    if (type === 'warn') node.classList.add('preach-warn');
-    if (type === 'box') node.classList.add('preach-box');
-    if (node.dataset.done === 'true') node.dataset.done = 'true';
+  displayFontUp() {
+    State.displayFontSize = Math.min(40, State.displayFontSize + 2);
+    this._applyDisplayFont();
+  },
 
-    document.querySelectorAll('.tool-chip').forEach(b => b.classList.remove('active'));
-    const btn = e.target.closest('.tool-chip');
-    if (btn && !btn.classList.contains('action')) btn.classList.add('active');
+  displayFontDown() {
+    State.displayFontSize = Math.max(10, State.displayFontSize - 2);
+    this._applyDisplayFont();
+  },
 
-    updateOutlineNumbers();
-    triggerSave();
-    node.focus();
-}
+  _applyDisplayFont() {
+    document.getElementById('display-chord-text').style.fontSize = State.displayFontSize + 'px';
+  },
 
-// ---- INLINE FORMATTING ----
+  toggleTwoCol() {
+    State.twoCol = !State.twoCol;
+    const content = document.getElementById('display-content');
+    content.classList.toggle('two-col', State.twoCol);
+    document.getElementById('btn-two-col').classList.toggle('active-ctrl', State.twoCol);
+  },
 
-function formatText(command) {
-    document.execCommand(command, false, null);
-}
-
-// ---- DONE (MINISTRADO) ----
-
-function toggleBlockDone() {
-    const block = getFocusedBlock();
-    if (!block) { showToast('Selecione um bloco'); return; }
-    const isDone = block.dataset.done === 'true';
-    block.dataset.done = isDone ? 'false' : 'true';
-    triggerSave();
-}
-
-// ---- BIBLE ----
-
-const bibleBooks = [
-    { n: 'Gênesis', c: 50 }, { n: 'Êxodo', c: 40 }, { n: 'Levítico', c: 27 }, { n: 'Números', c: 36 }, { n: 'Deuteronômio', c: 34 },
-    { n: 'Josué', c: 24 }, { n: 'Juízes', c: 21 }, { n: 'Rute', c: 4 }, { n: '1 Samuel', c: 31 }, { n: '2 Samuel', c: 24 },
-    { n: '1 Reis', c: 22 }, { n: '2 Reis', c: 25 }, { n: '1 Crônicas', c: 29 }, { n: '2 Crônicas', c: 36 }, { n: 'Esdras', c: 10 },
-    { n: 'Neemias', c: 13 }, { n: 'Ester', c: 10 }, { n: 'Jó', c: 42 }, { n: 'Salmos', c: 150 }, { n: 'Provérbios', c: 31 },
-    { n: 'Eclesiastes', c: 12 }, { n: 'Cânticos', c: 8 }, { n: 'Isaías', c: 66 }, { n: 'Jeremias', c: 52 }, { n: 'Lamentações', c: 5 },
-    { n: 'Ezequiel', c: 48 }, { n: 'Daniel', c: 12 }, { n: 'Oseias', c: 14 }, { n: 'Joel', c: 3 }, { n: 'Amós', c: 9 },
-    { n: 'Obadias', c: 1 }, { n: 'Jonas', c: 4 }, { n: 'Miqueias', c: 7 }, { n: 'Naum', c: 3 }, { n: 'Habacuque', c: 3 },
-    { n: 'Sofonias', c: 3 }, { n: 'Ageu', c: 2 }, { n: 'Zacarias', c: 14 }, { n: 'Malaquias', c: 4 },
-    { n: 'Mateus', c: 28 }, { n: 'Marcos', c: 16 }, { n: 'Lucas', c: 24 }, { n: 'João', c: 21 }, { n: 'Atos', c: 28 },
-    { n: 'Romanos', c: 16 }, { n: '1 Coríntios', c: 16 }, { n: '2 Coríntios', c: 13 }, { n: 'Gálatas', c: 6 }, { n: 'Efésios', c: 6 },
-    { n: 'Filipenses', c: 4 }, { n: 'Colossenses', c: 4 }, { n: '1 Tessalonicenses', c: 5 }, { n: '2 Tessalonicenses', c: 3 },
-    { n: '1 Timóteo', c: 6 }, { n: '2 Timóteo', c: 4 }, { n: 'Tito', c: 3 }, { n: 'Filemom', c: 1 }, { n: 'Hebreus', c: 13 },
-    { n: 'Tiago', c: 5 }, { n: '1 Pedro', c: 5 }, { n: '2 Pedro', c: 3 }, { n: '1 João', c: 5 }, { n: '2 João', c: 1 },
-    { n: '3 João', c: 1 }, { n: 'Judas', c: 1 }, { n: 'Apocalipse', c: 22 }
-];
-
-function initBibleData() {
-    const sel = document.getElementById('bibleBook');
-    bibleBooks.forEach((b, i) => {
-        const opt = document.createElement('option');
-        opt.value = i;
-        opt.textContent = b.n;
-        sel.appendChild(opt);
-    });
-    loadChapters();
-}
-
-function loadChapters() {
-    const bookIdx = parseInt(document.getElementById('bibleBook').value);
-    const chapSel = document.getElementById('bibleChapter');
-    chapSel.innerHTML = '';
-    for (let i = 1; i <= bibleBooks[bookIdx].c; i++) {
-        const opt = document.createElement('option');
-        opt.value = i;
-        opt.textContent = i;
-        chapSel.appendChild(opt);
+  toggleAutoScroll() {
+    if (State.autoScrollActive) {
+      this.stopAutoScroll();
+    } else {
+      this.startAutoScroll();
     }
-    fetchBibleText();
-}
+  },
 
-// ---- BIBLE SEARCH ----
+  startAutoScroll() {
+    const content = document.getElementById('display-content');
+    const btn = document.getElementById('btn-autoscroll');
+    State.autoScrollActive = true;
+    btn.textContent = '⏸';
+    btn.classList.add('active-ctrl');
 
-// Índice de temas, personagens e palavras-chave → referências bíblicas
-const VERSE_INDEX = {
-    // Temas principais
-    'amor': ['1 João 4:8','João 3:16','1 Coríntios 13:4-7','Romanos 8:38-39','João 15:13','1 João 4:16'],
-    'fé': ['Hebreus 11:1','Romanos 10:17','Gálatas 2:20','Tiago 2:17','Marcos 11:22','2 Coríntios 5:7'],
-    'esperança': ['Romanos 5:5','Jeremias 29:11','Romanos 15:13','1 Pedro 1:3','Hebreus 6:19','Salmos 33:18'],
-    'graça': ['Efésios 2:8-9','João 1:17','2 Coríntios 12:9','Romanos 5:20','Tito 2:11'],
-    'salvação': ['João 3:16','Atos 4:12','Romanos 10:9-10','Efésios 2:8','Tito 3:5','Atos 16:31'],
-    'perdão': ['Salmos 103:12','Efésios 4:32','1 João 1:9','Mateus 6:14-15','Colossenses 3:13'],
-    'paz': ['João 14:27','Filipenses 4:7','Isaías 26:3','Romanos 5:1','Salmos 29:11','João 16:33'],
-    'oração': ['Mateus 6:9-13','Filipenses 4:6','1 Tessalonicenses 5:17','Tiago 5:16','Jeremias 33:3'],
-    'cura': ['Isaías 53:5','1 Pedro 2:24','Salmos 103:3','Êxodo 15:26','Tiago 5:14-15'],
-    'bênção': ['Números 6:24-26','Salmos 1:1','Efésios 1:3','Malaquias 3:10','João 1:16'],
-    'adoração': ['João 4:23-24','Salmos 100:1-4','Romanos 12:1','Salmos 95:6','Apocalipse 4:11'],
-    'louvor': ['Salmos 150:1-6','Salmos 34:1','Efésios 5:19','Salmos 113:1','Atos 16:25'],
-    'poder': ['Filipenses 4:13','2 Timóteo 1:7','Atos 1:8','Efésios 3:20','Isaías 40:31'],
-    'força': ['Filipenses 4:13','Isaías 40:31','Salmos 28:7','Efésios 6:10','Neemias 8:10'],
-    'vitória': ['1 Coríntios 15:57','Romanos 8:37','1 João 5:4','2 Coríntios 2:14'],
-    'humildade': ['Filipenses 2:3-4','Tiago 4:10','Provérbios 22:4','Mateus 23:12','1 Pedro 5:6'],
-    'santidade': ['1 Pedro 1:16','Levítico 11:44','Hebreus 12:14','1 Tessalonicenses 4:3'],
-    'sabedoria': ['Provérbios 1:7','Tiago 1:5','Provérbios 3:5-6','Colossenses 2:3','1 Reis 3:9'],
-    'confiança': ['Provérbios 3:5-6','Salmos 37:5','Isaías 26:4','Jeremias 17:7','Salmos 56:11'],
-    'alegria': ['Neemias 8:10','Filipenses 4:4','Salmos 16:11','João 15:11','Romanos 15:13'],
-    'sofrimento': ['Romanos 8:18','2 Coríntios 1:3-4','1 Pedro 5:10','Salmos 34:18','Romanos 5:3-5'],
-    'perseverança': ['Tiago 1:2-4','Hebreus 12:1','Romanos 5:3-4','Gálatas 6:9','2 Timóteo 4:7'],
-    'tentação': ['1 Coríntios 10:13','Tiago 1:12','Mateus 26:41','Hebreus 2:18'],
-    'pecado': ['Romanos 3:23','1 João 1:9','Isaías 59:2','Romanos 6:23','Salmos 51:1-2'],
-    'redenção': ['Efésios 1:7','Colossenses 1:14','Gálatas 3:13','1 Pedro 1:18-19'],
-    'propósito': ['Jeremias 29:11','Romanos 8:28','Efésios 2:10','Provérbios 19:21'],
-    'missão': ['Mateus 28:19-20','Marcos 16:15','Atos 1:8','João 20:21'],
-    'obediência': ['João 14:15','Deuteronômio 28:1-2','1 Samuel 15:22','Romanos 6:17'],
-    'prosperidade': ['3 João 1:2','Josué 1:8','Salmos 1:3','Provérbios 10:22'],
-    'provisão': ['Filipenses 4:19','Mateus 6:33','Salmos 23:1','2 Coríntios 9:8'],
-    'proteção': ['Salmos 91:1-4','Isaías 43:2','Salmos 121:1-8','Provérbios 18:10'],
-    'livramento': ['Salmos 34:17','Daniel 6:27','1 Coríntios 10:13','Salmos 91:14'],
-    'resurreicao': ['1 Coríntios 15:14','João 11:25','Romanos 6:4','Mateus 28:6'],
-    'ressurreição': ['1 Coríntios 15:14','João 11:25','Romanos 6:4','Mateus 28:6'],
-    'vida eterna': ['João 3:16','João 17:3','1 João 5:13','João 10:10','Romanos 6:23'],
-    'morte': ['João 11:25-26','Romanos 6:23','1 Coríntios 15:55','Salmos 23:4'],
-    // Família
-    'família': ['Josué 24:15','Efésios 6:1-4','Colossenses 3:18-21','Provérbios 22:6'],
-    'familia': ['Josué 24:15','Efésios 6:1-4','Colossenses 3:18-21','Provérbios 22:6'],
-    'filhos': ['Provérbios 22:6','Efésios 6:1-3','Salmos 127:3','Mateus 19:14'],
-    'casamento': ['Gênesis 2:24','Efésios 5:25-33','Hebreus 13:4','Mateus 19:6'],
-    // Deus / Jesus / Espírito
-    'deus': ['João 3:16','1 João 4:8','Gênesis 1:1','Romanos 8:28','Hebreus 11:6'],
-    'jesus': ['João 14:6','Filipenses 2:9-11','Mateus 1:21','Atos 4:12','João 1:1'],
-    'cristo': ['Filipenses 4:13','Gálatas 2:20','Romanos 8:1','Colossenses 1:27','2 Coríntios 5:17'],
-    'espírito santo': ['João 14:16-17','Atos 1:8','Gálatas 5:22-23','João 16:13'],
-    'espirito': ['João 14:16-17','Atos 1:8','Gálatas 5:22-23','Romanos 8:26'],
-    'espírito': ['João 14:16-17','Atos 1:8','Gálatas 5:22-23','Romanos 8:26'],
-    'trindade': ['Mateus 28:19','2 Coríntios 13:14','João 1:1-3'],
-    // Igreja / Reino
-    'reino': ['Mateus 6:33','Mateus 5:3','Lucas 17:21','Marcos 1:15'],
-    'igreja': ['Mateus 16:18','Efésios 5:25-27','Atos 2:42-47','1 Coríntios 12:27'],
-    'discipulado': ['Mateus 28:19-20','Lucas 9:23','João 8:31','2 Timóteo 2:2'],
-    'unidade': ['João 17:21','Salmos 133:1','Efésios 4:3','Colossenses 3:14'],
-    'frutos': ['Gálatas 5:22-23','João 15:5','Mateus 7:17-18','João 15:8'],
-    'dons': ['1 Coríntios 12:4-11','Romanos 12:6-8','Efésios 4:11-12','1 Pedro 4:10'],
-    'batismo': ['Mateus 28:19','Atos 2:38','Romanos 6:3-4','Marcos 16:16'],
-    // Personagens
-    'davi': ['1 Samuel 16:13','Salmos 23:1','Salmos 51:1','Atos 13:22','2 Samuel 7:8'],
-    'abraão': ['Gênesis 12:1-3','Hebreus 11:8','Romanos 4:3','Gálatas 3:9'],
-    'abrao': ['Gênesis 12:1-3','Hebreus 11:8','Romanos 4:3'],
-    'moisés': ['Êxodo 3:10','Hebreus 11:24-26','Números 12:3'],
-    'moises': ['Êxodo 3:10','Hebreus 11:24-26','Números 12:3'],
-    'paulo': ['Filipenses 4:11-13','Gálatas 2:20','2 Coríntios 12:9','Atos 9:15'],
-    'pedro': ['Mateus 16:18','João 21:17','Atos 2:14','1 Pedro 5:7'],
-    'maria': ['Lucas 1:38','Lucas 1:46-49','João 2:5'],
-    'noé': ['Gênesis 6:9','Hebreus 11:7','Gênesis 6:22'],
-    'noe': ['Gênesis 6:9','Hebreus 11:7'],
-    'josé': ['Gênesis 37:28','Gênesis 50:20','Atos 7:9-10'],
-    'jose': ['Gênesis 37:28','Gênesis 50:20'],
-    'salomão': ['1 Reis 3:9-14','Provérbios 1:1','1 Reis 4:29'],
-    'salomao': ['1 Reis 3:9-14','Provérbios 1:1'],
-    'elias': ['1 Reis 18:36-38','1 Reis 19:11-12','Tiago 5:17'],
-    'daniel': ['Daniel 3:17-18','Daniel 6:10','Daniel 1:8'],
-    'israel': ['Êxodo 3:10','Isaías 43:1','Romanos 11:26','Jeremias 31:31'],
-    // Palavras-chave
-    'luz': ['João 8:12','Mateus 5:14-16','Salmos 119:105','1 João 1:5'],
-    'sal': ['Mateus 5:13','Colossenses 4:6'],
-    'caminho': ['João 14:6','Provérbios 3:6','Salmos 16:11','Isaías 30:21'],
-    'verdade': ['João 14:6','João 8:32','João 17:17','Efésios 4:15'],
-    'vida': ['João 14:6','João 10:10','1 João 5:12','Deuteronômio 30:19'],
-    'porta': ['João 10:9','Apocalipse 3:20','Mateus 7:7-8'],
-    'pão': ['João 6:35','Mateus 6:11','João 6:48'],
-    'agua': ['João 4:14','João 7:38','Apocalipse 22:17'],
-    'água': ['João 4:14','João 7:38','Apocalipse 22:17'],
-    'sangue': ['1 Pedro 1:19','Hebreus 9:22','Apocalipse 1:5','1 João 1:7'],
-    'cruz': ['1 Coríntios 1:18','Gálatas 2:20','Filipenses 2:8','Colossenses 2:14'],
-    'glória': ['Romanos 8:18','João 17:22','2 Coríntios 3:18','Salmos 19:1'],
-    'gloria': ['Romanos 8:18','João 17:22','2 Coríntios 3:18'],
-    'armadura': ['Efésios 6:10-18'],
-    'armadura de deus': ['Efésios 6:10-18'],
-    'pai nosso': ['Mateus 6:9-13','Lucas 11:2-4'],
-    'salmo 23': ['Salmos 23:1-6'],
-    'bem-aventuranças': ['Mateus 5:3-12'],
-    'novo nascimento': ['João 3:3-7','1 Pedro 1:23','2 Coríntios 5:17'],
-    'nova criatura': ['2 Coríntios 5:17','Gálatas 6:15','Efésios 4:24'],
-    'criação': ['Gênesis 1:1','João 1:3','Colossenses 1:16','Hebreus 11:3'],
-    'fogo': ['Atos 2:3','Jeremias 20:9','Deuteronômio 4:24','Lucas 12:49'],
-    'bênçãos': ['Deuteronômio 28:1-14','Efésios 1:3','Números 6:24-26'],
-    'gracas': ['1 Tessalonicenses 5:18','Filipenses 4:6','Colossenses 3:17'],
-    'graças': ['1 Tessalonicenses 5:18','Filipenses 4:6','Colossenses 3:17'],
-    'serviço': ['Mateus 20:28','Marcos 10:45','Gálatas 5:13'],
-    'servir': ['Mateus 20:28','Josué 24:15','Romanos 12:11'],
-    'libertação': ['Lucas 4:18','João 8:36','Gálatas 5:1','Romanos 8:2'],
-    'libertacao': ['Lucas 4:18','João 8:36','Gálatas 5:1'],
+    const scrollStep = 1;
+    const interval = 50; // ms per step
+
+    State.autoScrollInterval = setInterval(() => {
+      content.scrollTop += scrollStep;
+      const progress = content.scrollTop / (content.scrollHeight - content.clientHeight);
+      document.getElementById('scroll-progress').style.width = (progress * 100) + '%';
+      if (content.scrollTop >= content.scrollHeight - content.clientHeight) {
+        this.stopAutoScroll();
+      }
+    }, interval);
+  },
+
+  stopAutoScroll() {
+    if (State.autoScrollInterval) {
+      clearInterval(State.autoScrollInterval);
+      State.autoScrollInterval = null;
+    }
+    State.autoScrollActive = false;
+    const btn = document.getElementById('btn-autoscroll');
+    if (btn) { btn.textContent = '▶'; btn.classList.remove('active-ctrl'); }
+  },
+
+  // ==================== SETLISTS ====================
+  renderSetlists() {
+    const list = document.getElementById('setlists-list');
+    if (!State.setlists.length) {
+      list.innerHTML = '<div class="empty-state"><div class="empty-icon">🎼</div><h3>Nenhuma lista</h3><p>Crie uma lista para cada culto ou ministro.</p></div>';
+      return;
+    }
+    const sorted = [...State.setlists].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    list.innerHTML = sorted.map(sl => `
+      <div class="setlist-item" onclick="App.openSetlist('${sl.id}')">
+        <div class="setlist-item-icon">🎼</div>
+        <div class="setlist-item-info">
+          <div class="setlist-item-name">${escHtml(sl.name)}</div>
+          <div class="setlist-item-meta">
+            ${sl.minister ? '👤 ' + escHtml(sl.minister) + ' &nbsp;' : ''}
+            ${sl.date ? '📅 ' + fmtDate(sl.date) : ''}
+            &nbsp;🎵 ${sl.items.length} músicas
+          </div>
+        </div>
+        <span>›</span>
+      </div>`).join('');
+  },
+
+  newSetlistModal() {
+    this.openModal('Nova Lista', `
+      <div class="flex flex-col gap-12">
+        <div class="input-group">
+          <label>Nome do culto / evento</label>
+          <input type="text" id="new-sl-name" placeholder="Ex: Culto Domingo Manhã">
+        </div>
+        <div class="input-group">
+          <label>Ministro / Líder</label>
+          <input type="text" id="new-sl-minister" placeholder="Ex: João Silva">
+        </div>
+        <div class="input-group">
+          <label>Data</label>
+          <input type="date" id="new-sl-date" value="${new Date().toISOString().slice(0,10)}">
+        </div>
+        <button class="btn btn-primary btn-full" onclick="App.createSetlist()">✅ Criar lista</button>
+      </div>
+    `);
+  },
+
+  async createSetlist() {
+    const name = document.getElementById('new-sl-name').value.trim();
+    const minister = document.getElementById('new-sl-minister').value.trim();
+    const date = document.getElementById('new-sl-date').value;
+
+    if (!name) { toast('Digite o nome do culto', 'error'); return; }
+
+    const sl = {
+      id: uid(),
+      name,
+      minister,
+      date,
+      items: [],
+      createdAt: new Date().toISOString()
+    };
+    await dbPut('setlists', sl);
+    State.setlists = await dbAll('setlists');
+    this.closeModal();
+    this.openSetlist(sl.id);
+    toast('Lista criada!', 'success');
+  },
+
+  async openSetlist(id) {
+    const sl = await dbGet('setlists', id);
+    if (!sl) { toast('Lista não encontrada', 'error'); return; }
+    State.currentSetlist = sl;
+    this.nav('setlist-view');
+  },
+
+  renderSetlistView() {
+    const sl = State.currentSetlist;
+    if (!sl) return;
+
+    document.getElementById('sv-name').textContent = sl.name;
+    document.getElementById('sv-minister').textContent = sl.minister || 'Sem ministro';
+    document.getElementById('sv-date').textContent = sl.date ? fmtDate(sl.date) : 'Sem data';
+    document.getElementById('sv-count').textContent = sl.items.length + ' músicas';
+
+    const list = document.getElementById('setlist-songs-list');
+    if (!sl.items.length) {
+      list.innerHTML = '<div class="empty-state"><div class="empty-icon">🎵</div><h3>Nenhuma música</h3><p>Adicione músicas da sua biblioteca.</p></div>';
+      return;
+    }
+
+    list.innerHTML = sl.items.map((item, i) => {
+      const song = State.songs.find(s => s.id === item.songId);
+      if (!song) return '';
+      return `
+        <div class="setlist-song-row">
+          <div class="setlist-song-order">${i + 1}</div>
+          <div class="setlist-song-info">
+            <div class="setlist-song-title">${escHtml(song.title)}</div>
+            <div class="setlist-song-artist">${escHtml(song.artist || 'Sem artista')}</div>
+          </div>
+          <div class="setlist-song-key">${escHtml(item.key || song.key)}</div>
+          <div class="setlist-song-actions">
+            <button class="btn btn-secondary btn-sm btn-icon" onclick="App.viewSongInSetlist('${song.id}','${item.key || song.key}')" title="Ver cifra">👁️</button>
+            <button class="btn btn-secondary btn-sm btn-icon" onclick="App.editSetlistItemKey(${i})" title="Mudar tom">🎵</button>
+            <button class="btn btn-danger btn-sm btn-icon" onclick="App.removeFromSetlist(${i})" title="Remover">✕</button>
+          </div>
+        </div>`;
+    }).join('');
+  },
+
+  async viewSongInSetlist(songId, key) {
+    const song = await dbGet('songs', songId);
+    if (!song) return;
+    State.currentSong = song;
+    State.currentSongSemitones = getSemitoneDiff(song.key, key);
+    this.nav('song');
+  },
+
+  addSongToSetlist() {
+    if (!State.currentSetlist) return;
+    if (!State.songs.length) {
+      toast('Biblioteca vazia. Baixe cifras primeiro.', 'error'); return;
+    }
+
+    this.openModal('Adicionar Música', `
+      <div class="flex flex-col gap-12">
+        <div class="search-input-wrap">
+          <span class="search-input-icon">🔍</span>
+          <input type="text" id="setlist-add-search" placeholder="Buscar na biblioteca..." oninput="App.filterSetlistAdd(this.value)">
+        </div>
+        <div id="setlist-add-list" class="flex flex-col gap-8" style="max-height:55dvh;overflow-y:auto;">
+          ${this._setlistAddList(State.songs)}
+        </div>
+      </div>
+    `);
+  },
+
+  filterSetlistAdd(q) {
+    const filtered = q
+      ? State.songs.filter(s => s.title.toLowerCase().includes(q.toLowerCase()) || (s.artist||'').toLowerCase().includes(q.toLowerCase()))
+      : State.songs;
+    document.getElementById('setlist-add-list').innerHTML = this._setlistAddList(filtered);
+  },
+
+  _setlistAddList(songs) {
+    return [...songs]
+      .sort((a, b) => a.title.localeCompare(b.title, 'pt-BR'))
+      .map(s => `
+        <div class="song-item" onclick="App.addSongChooseKey('${s.id}')">
+          <div class="song-item-icon">🎵</div>
+          <div class="song-item-info">
+            <div class="song-item-title">${escHtml(s.title)}</div>
+            <div class="song-item-artist">${escHtml(s.artist || '')}</div>
+          </div>
+          <div class="song-item-key">${escHtml(s.key || '?')}</div>
+        </div>`).join('');
+  },
+
+  addSongChooseKey(songId) {
+    const song = State.songs.find(s => s.id === songId);
+    if (!song) return;
+
+    this.openModal(`Tom para "${song.title}"`, `
+      <div class="flex flex-col gap-12">
+        <p class="text-sm text-muted">Escolha o tom que será tocado nessa lista:</p>
+        <div class="key-selector" style="justify-content:center">
+          ${ALL_KEYS.map(k => `<button class="key-chip${k === song.key ? ' active' : ''}" onclick="App.confirmAddToSetlist('${songId}','${k}')">${k}</button>`).join('')}
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="App.confirmAddToSetlist('${songId}','${song.key}')">Usar tom original (${song.key})</button>
+      </div>
+    `);
+  },
+
+  async confirmAddToSetlist(songId, key) {
+    if (!State.currentSetlist) return;
+    State.currentSetlist.items.push({ songId, key, order: State.currentSetlist.items.length });
+    await dbPut('setlists', State.currentSetlist);
+    State.setlists = await dbAll('setlists');
+    this.closeModal();
+    this.renderSetlistView();
+    toast('Música adicionada!', 'success');
+  },
+
+  editSetlistItemKey(index) {
+    const sl = State.currentSetlist;
+    if (!sl) return;
+    const item = sl.items[index];
+    const song = State.songs.find(s => s.id === item.songId);
+    if (!song) return;
+
+    this.openModal(`Tom de "${song.title}"`, `
+      <div class="flex flex-col gap-12">
+        <p class="text-sm text-muted">Tom atual: <strong>${item.key || song.key}</strong></p>
+        <div class="key-selector" style="justify-content:center">
+          ${ALL_KEYS.map(k => `<button class="key-chip${k === (item.key||song.key) ? ' active' : ''}" onclick="App.saveSetlistItemKey(${index},'${k}')">${k}</button>`).join('')}
+        </div>
+      </div>
+    `);
+  },
+
+  async saveSetlistItemKey(index, key) {
+    State.currentSetlist.items[index].key = key;
+    await dbPut('setlists', State.currentSetlist);
+    State.setlists = await dbAll('setlists');
+    this.closeModal();
+    this.renderSetlistView();
+    toast('Tom atualizado: ' + key, 'success');
+  },
+
+  async removeFromSetlist(index) {
+    State.currentSetlist.items.splice(index, 1);
+    await dbPut('setlists', State.currentSetlist);
+    State.setlists = await dbAll('setlists');
+    this.renderSetlistView();
+    toast('Música removida');
+  },
+
+  async deleteCurrentSetlist() {
+    if (!State.currentSetlist) return;
+    if (!confirm(`Excluir lista "${State.currentSetlist.name}"?`)) return;
+    await dbDelete('setlists', State.currentSetlist.id);
+    State.setlists = await dbAll('setlists');
+    State.currentSetlist = null;
+    toast('Lista excluída');
+    this.nav('setlists');
+  },
+
+  // Display all songs in setlist one by one
+  displaySetlist() {
+    const sl = State.currentSetlist;
+    if (!sl || !sl.items.length) { toast('Nenhuma música na lista', 'error'); return; }
+
+    let idx = 0;
+    const showSong = async () => {
+      const item = sl.items[idx];
+      const song = State.songs.find(s => s.id === item.songId);
+      if (!song) return;
+      this.openDisplayMode(song, item.key || song.key);
+
+      // Override display title to show setlist context
+      document.getElementById('display-title').textContent =
+        `${idx + 1}/${sl.items.length} — ${song.title}`;
+
+      // Allow swiping to next song via a "PRÓXIMA" button
+      const displayHeader = document.getElementById('display-header');
+      // Remove existing next button if any
+      const existingNext = displayHeader.querySelector('.next-song-btn');
+      if (existingNext) existingNext.remove();
+
+      if (idx < sl.items.length - 1) {
+        const nextBtn = document.createElement('button');
+        nextBtn.className = 'display-ctrl-btn next-song-btn';
+        nextBtn.textContent = 'PRÓX ›';
+        nextBtn.onclick = (e) => {
+          e.stopPropagation();
+          idx++;
+          showSong();
+        };
+        displayHeader.querySelector('.display-controls').insertBefore(
+          nextBtn,
+          displayHeader.querySelector('#btn-two-col')
+        );
+      }
+    };
+
+    showSong();
+  },
+
+  // ==================== MODAL ====================
+  openModal(title, bodyHtml) {
+    document.getElementById('modal-title').textContent = title;
+    document.getElementById('modal-body').innerHTML = bodyHtml;
+    document.getElementById('modal-backdrop').classList.add('open');
+  },
+
+  closeModal() {
+    document.getElementById('modal-backdrop').classList.remove('open');
+  },
+
+  addToSetlistModal() {
+    if (!State.currentSong) return;
+    if (!State.setlists.length) {
+      toast('Crie uma lista primeiro', 'error'); return;
+    }
+    this.openModal('Adicionar a uma lista', `
+      <div class="flex flex-col gap-8">
+        ${State.setlists.map(sl => `
+          <button class="btn btn-secondary" onclick="App.addCurrentSongToSetlist('${sl.id}')">
+            🎼 ${escHtml(sl.name)}
+            ${sl.date ? ' — ' + fmtDate(sl.date) : ''}
+          </button>`).join('')}
+      </div>
+    `);
+  },
+
+  addCurrentSongToSetlist(setlistId) {
+    this.closeModal();
+    const sl = State.setlists.find(s => s.id === setlistId);
+    if (!sl) return;
+    State.currentSetlist = sl;
+    const song = State.currentSong;
+    this.addSongChooseKey(song.id);
+  },
 };
 
-function strNorm(s) {
-    return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+// ==================== INIT ====================
+async function init() {
+  await openDB();
+  State.songs = await dbAll('songs');
+  State.setlists = await dbAll('setlists');
+  App.renderHome();
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('service-worker.js').catch(() => {});
+  }
 }
 
-function parseBibleRef(query) {
-    const regex = /^(.+?)\s+(\d+)(?::(\d+))?$/;
-    const match = query.match(regex);
-    if (!match) return null;
-
-    const bookQuery = match[1].trim().toLowerCase();
-    const chapter = parseInt(match[2]);
-    const verse = match[3] ? parseInt(match[3]) : null;
-
-    // Busca por nome exato, startsWith e includes
-    let bookIdx = bibleBooks.findIndex(b => b.n.toLowerCase() === bookQuery);
-    if (bookIdx === -1) bookIdx = bibleBooks.findIndex(b => b.n.toLowerCase().startsWith(bookQuery));
-    if (bookIdx === -1) bookIdx = bibleBooks.findIndex(b => b.n.toLowerCase().includes(bookQuery));
-
-    if (bookIdx === -1 || chapter < 1 || chapter > bibleBooks[bookIdx].c) return null;
-    return { bookIdx, chapter, verse };
-}
-
-async function handleBibleSearch(query) {
-    const resultsPanel = document.getElementById('bibleSearchResults');
-    const indexList = document.getElementById('bibleIndexList');
-
-    if (!query) {
-        document.querySelectorAll('.verse-item.highlighted').forEach(el => el.classList.remove('highlighted'));
-        if (resultsPanel) resultsPanel.style.display = 'none';
-        return;
-    }
-
-    const ref = parseBibleRef(query);
-
-    if (ref) {
-        // Navigate to specific book/chapter/verse
-        if (resultsPanel) resultsPanel.style.display = 'none';
-        const bookSel = document.getElementById('bibleBook');
-        const chapSel = document.getElementById('bibleChapter');
-
-        bookSel.value = ref.bookIdx;
-        chapSel.innerHTML = '';
-        for (let i = 1; i <= bibleBooks[ref.bookIdx].c; i++) {
-            const opt = document.createElement('option');
-            opt.value = i;
-            opt.textContent = i;
-            chapSel.appendChild(opt);
-        }
-        chapSel.value = ref.chapter;
-
-        await fetchBibleText();
-
-        if (ref.verse) {
-            const items = document.querySelectorAll('.verse-item');
-            items.forEach(item => item.classList.remove('highlighted'));
-            if (items[ref.verse - 1]) {
-                items[ref.verse - 1].classList.add('highlighted');
-                items[ref.verse - 1].scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
-        }
-        return;
-    }
-
-    // Theme/keyword search via VERSE_INDEX
-    const norm = strNorm(query);
-    const matchedRefs = [];
-    for (const [key, refs] of Object.entries(VERSE_INDEX)) {
-        if (strNorm(key).includes(norm) || norm.includes(strNorm(key))) {
-            refs.forEach(r => { if (!matchedRefs.includes(r)) matchedRefs.push(r); });
-        }
-    }
-
-    if (matchedRefs.length > 0 && resultsPanel && indexList) {
-        indexList.innerHTML = '';
-        matchedRefs.forEach(refText => {
-            const chip = document.createElement('button');
-            chip.className = 'ref-chip';
-            chip.textContent = refText;
-            chip.addEventListener('click', () => {
-                document.getElementById('bibleSearch').value = refText;
-                handleBibleSearch(refText);
-            });
-            indexList.appendChild(chip);
-        });
-        resultsPanel.style.display = 'block';
-    } else if (resultsPanel) {
-        resultsPanel.style.display = 'none';
-    }
-
-    // Also search current chapter text
-    const items = document.querySelectorAll('.verse-item');
-    const lowerQuery = query.toLowerCase();
-    let found = false;
-    items.forEach(item => {
-        const textEl = item.querySelector('.verse-text');
-        if (textEl && textEl.textContent.toLowerCase().includes(lowerQuery)) {
-            item.classList.add('highlighted');
-            if (!found) {
-                item.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                found = true;
-            }
-        } else {
-            item.classList.remove('highlighted');
-        }
-    });
-    if (!found && matchedRefs.length === 0) showToast('Nenhuma referência encontrada');
-}
-
-async function fetchWithRetry(url, maxRetries = 3) {
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-        try {
-            const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            return res;
-        } catch (err) {
-            if (attempt === maxRetries - 1) throw err;
-            await new Promise(r => setTimeout(r, 500 * Math.pow(2, attempt)));
-        }
-    }
-}
-
-async function fetchBibleText() {
-    const bookIdx = parseInt(document.getElementById('bibleBook').value);
-    const bookName = bibleBooks[bookIdx].n;
-    const chapter = document.getElementById('bibleChapter').value;
-    const display = document.getElementById('bibleText');
-
-    display.innerHTML = "<div style='text-align:center; padding:20px; color:var(--text-muted); font-family:var(--font-ui)'>Carregando...</div>";
-
-    try {
-        const res = await fetchWithRetry(
-            `https://bible-api.com/${encodeURIComponent(bookName + ' ' + chapter)}?translation=almeida`
-        );
-        const data = await res.json();
-
-        if (data.error || !data.verses) {
-            display.innerHTML = "<div style='text-align:center; padding:20px; color:var(--text-muted); font-family:var(--font-ui)'>Capítulo não encontrado.</div>";
-            return;
-        }
-
-        display.innerHTML = '';
-        data.verses.forEach(v => {
-            const ref = `${bookName} ${chapter}:${v.verse}`;
-            const verseText = v.text.trim();
-
-            const item = document.createElement('div');
-            item.className = 'verse-item';
-            item.dataset.verse = v.verse;
-
-            const textEl = document.createElement('div');
-            textEl.className = 'verse-text';
-            textEl.innerHTML = `<b>${v.verse}.</b> ${verseText}`;
-
-            const copyBtn = document.createElement('button');
-            copyBtn.className = 'verse-btn';
-            copyBtn.textContent = 'Copiar';
-            copyBtn.addEventListener('click', () => copyVerseText(`${verseText} — ${ref}`, copyBtn));
-
-            const insertBtn = document.createElement('button');
-            insertBtn.className = 'verse-btn insert';
-            insertBtn.textContent = 'Inserir';
-            insertBtn.addEventListener('click', () => insertSingleVerse(`${verseText} (${ref})`));
-
-            const actions = document.createElement('div');
-            actions.className = 'verse-actions';
-            actions.appendChild(copyBtn);
-            actions.appendChild(insertBtn);
-
-            item.appendChild(textEl);
-            item.appendChild(actions);
-            display.appendChild(item);
-        });
-    } catch {
-        display.innerHTML = `
-            <div style='text-align:center; padding:24px; color:var(--text-muted); font-family:var(--font-ui)'>
-                <div style='font-size:32px; margin-bottom:12px'>📡</div>
-                <p style='margin:0 0 8px 0; font-weight:600'>Sem conexão</p>
-                <p style='margin:0; font-size:13px'>Verifique sua internet e tente novamente.</p>
-            </div>`;
-    }
-}
-
-function copyVerseText(text, btn) {
-    navigator.clipboard.writeText(text).then(() => {
-        const original = btn.textContent;
-        btn.textContent = 'OK!';
-        setTimeout(() => { btn.textContent = original; }, 1200);
-    }).catch(() => showToast('Não foi possível copiar'));
-}
-
-function insertSingleVerse(text) {
-    createBlockUI('quote', text);
-    toggleBible(false);
-    triggerSave();
-    window.scrollTo(0, document.body.scrollHeight);
-}
-
-function toggleBible(show) {
-    document.getElementById('bibleModal').classList.toggle('active', show);
-    if (show) {
-        const display = document.getElementById('bibleText');
-        if (!display.querySelector('.verse-item')) fetchBibleText();
-        // Limpar busca ao abrir
-        document.getElementById('bibleSearch').value = '';
-    }
-}
-
-// ---- PREACH MODE ----
-
-// Índice do bloco em foco no modo pregação
-let preachFocusIndex = 0;
-
-function startPreachMode() {
-    setEditorHeader(false);
-    hideFloatingBar();
-    performSave();
-    const s = STATE.sermons.find(x => x.id === STATE.currentId);
-    if (!s) return;
-
-    let html = `<div style="text-align:center; margin-bottom:40px; opacity:0.8; border-bottom:1px solid var(--border); padding-bottom:30px">
-        <h1 style="font-size:1.8em; margin:0; line-height:1.2; font-family:var(--font-ui)">${escapeHtml(s.title)}</h1>
-        <p style="font-size:1.2em; color:var(--primary); margin:10px 0 0 0; font-weight:600; font-family:var(--font-ui)">${escapeHtml(s.ref)}</p>
-    </div>`;
-
-    let topicNum = 0, subNum = 1;
-    s.content.forEach((b, idx) => {
-        const txt = escapeHtml(b.text) || '&nbsp;';
-        const doneStyle = b.done ? ' preach-block-done' : '';
-        const dataAttr = `data-preach-idx="${idx}"`;
-        if (b.type === 'topic') { topicNum++; subNum = 1; }
-
-        if (b.type === 'h1') html += `<h2 ${dataAttr} class="${doneStyle}" style="font-size:1.6em; margin-top:40px; line-height:1.2; font-weight:800; font-family:var(--font-ui)">${txt}</h2>`;
-        else if (b.type === 'h2') html += `<h3 ${dataAttr} class="${doneStyle}" style="color:var(--primary); margin-top:30px; font-size:1.3em; font-family:var(--font-ui)">${txt}</h3>`;
-        else if (b.type === 'h3') html += `<p ${dataAttr} class="${doneStyle}" style="font-family:var(--font-ui);font-size:0.8em;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-secondary);margin-top:20px;">${txt}</p>`;
-        else if (b.type === 'topic') html += `<p ${dataAttr} class="${doneStyle}" style="font-family:var(--font-ui);font-size:1.15em;font-weight:800;color:var(--text);margin-top:28px;border-left:3px solid var(--primary);padding-left:12px;"><span style="color:var(--primary)">${topicNum}. </span>${txt}</p>`;
-        else if (b.type === 'subtopic') html += `<p ${dataAttr} class="${doneStyle}" style="font-family:var(--font-ui);font-size:0.95em;font-weight:500;color:var(--text-secondary);padding-left:28px;margin-top:6px;"><span style="color:var(--primary);font-weight:700;font-size:0.85em">${Math.max(1,topicNum)}.${subNum++}  </span>${txt}</p>`;
-        else if (b.type === 'bullet') html += `<p ${dataAttr} class="${doneStyle}" style="font-family:var(--font-ui);font-size:0.9em;color:var(--text-secondary);padding-left:44px;margin-top:4px;"><span style="color:var(--primary);font-weight:700;">→  </span>${txt}</p>`;
-        else if (b.type === 'quote') html += `<div ${dataAttr} class="preach-quote${doneStyle}">${txt}</div>`;
-        else if (b.type === 'warn') html += `<div ${dataAttr} class="preach-warn${doneStyle}">${txt}</div>`;
-        else if (b.type === 'box') html += `<div ${dataAttr} class="preach-box${doneStyle}">${txt}</div>`;
-        else html += `<p ${dataAttr} class="${doneStyle}" style="margin-bottom:20px">${txt}</p>`;
-    });
-
-    preachFocusIndex = 0;
-    document.getElementById('preachContent').innerHTML = html;
-
-    // Clique em blocos do modo pregação atualiza preachFocusIndex
-    document.getElementById('preachContent').addEventListener('click', (e) => {
-        const el = e.target.closest('[data-preach-idx]');
-        if (el) preachFocusIndex = parseInt(el.dataset.preachIdx);
-    });
-
-    showScreen('preachScreen');
-    resetTimer();
-}
-
-function markCurrentPreachBlockDone() {
-    // Marcar o bloco no dado salvo e atualizar o DOM do modo pregação
-    const s = STATE.sermons.find(x => x.id === STATE.currentId);
-    if (!s || !s.content[preachFocusIndex]) return;
-
-    s.content[preachFocusIndex].done = !s.content[preachFocusIndex].done;
-    saveDB();
-
-    // Atualizar visual no preachContent
-    const el = document.querySelector(`[data-preach-idx="${preachFocusIndex}"]`);
-    if (el) {
-        el.classList.toggle('preach-block-done', s.content[preachFocusIndex].done);
-    }
-
-    showToast(s.content[preachFocusIndex].done ? 'Tópico marcado como ministrado' : 'Marcação removida');
-}
-
-function exitPreach() {
-    clearInterval(STATE.timer);
-    STATE.isRunning = false;
-    setEditorHeader(true);
-    showScreen('editorScreen');
-}
-
-function exportPDF() {
-    if (!STATE.currentId) return;
-    performSave();
-    startPreachMode();
-    setTimeout(() => window.print(), 800);
-}
-
-function toggleHud() { document.getElementById('hud').classList.toggle('hidden-hud'); }
-
-function adjustFont(delta) {
-    const el = document.getElementById('preachContent');
-    const current = parseFloat(window.getComputedStyle(el).fontSize);
-    el.style.fontSize = Math.max(16, Math.min(60, current + delta)) + 'px';
-}
-
-// ---- TIMER ----
-
-function toggleTimer() {
-    const btn = document.getElementById('btn-timer');
-    if (STATE.isRunning) {
-        clearInterval(STATE.timer);
-        STATE.isRunning = false;
-        if (btn) btn.textContent = '▶';
-    } else {
-        STATE.isRunning = true;
-        if (btn) btn.textContent = '⏸';
-        STATE.timer = setInterval(() => {
-            STATE.seconds++;
-            const m = String(Math.floor(STATE.seconds / 60)).padStart(2, '0');
-            const s = String(STATE.seconds % 60).padStart(2, '0');
-            const el = document.getElementById('timerDisplay');
-            if (el) el.textContent = `${m}:${s}`;
-        }, 1000);
-    }
-}
-
-function resetTimer() {
-    clearInterval(STATE.timer);
-    STATE.isRunning = false;
-    STATE.seconds = 0;
-    const el = document.getElementById('timerDisplay');
-    if (el) el.textContent = '00:00';
-    const btn = document.getElementById('btn-timer');
-    if (btn) btn.textContent = '▶';
-}
-
-// ---- SETTINGS ----
-
-function toggleSettings(show) {
-    document.getElementById('settingsModal').classList.toggle('active', show);
-    if (show) {
-        // Preencher campo com chave salva
-        const saved = localStorage.getItem(API_KEY_STORAGE);
-        if (saved) document.getElementById('apiKeyInput').value = saved;
-    }
-}
-
-function toggleTheme() {
-    document.body.classList.toggle('dark');
-    localStorage.setItem(THEME_KEY, document.body.classList.contains('dark') ? 'dark' : 'light');
-}
-
-function saveApiKey() {
-    const key = document.getElementById('apiKeyInput').value.trim();
-    if (!key) { showToast('Digite uma chave API válida'); return; }
-    localStorage.setItem(API_KEY_STORAGE, key);
-    showToast('Chave API salva com sucesso!');
-}
-
-function downloadBackup() {
-    performSave();
-    const payload = JSON.stringify({ version: DB_VERSION, exported: new Date().toISOString(), data: STATE.sermons }, null, 2);
-    const url = 'data:application/json;charset=utf-8,' + encodeURIComponent(payload);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `PregFlow_Backup_${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-}
-
-function validateBackup(parsed) {
-    let data = parsed;
-    if (parsed && !Array.isArray(parsed) && Array.isArray(parsed.data)) data = parsed.data;
-    if (!Array.isArray(data) || data.length === 0) return null;
-    const valid = data.every(s =>
-        s && typeof s.id === 'number' &&
-        typeof s.title === 'string' &&
-        typeof s.ref === 'string' &&
-        Array.isArray(s.content)
-    );
-    return valid ? data : null;
-}
-
-function restoreBackup(input) {
-    const f = input.files[0];
-    if (!f) return;
-    if (!f.name.endsWith('.json')) { showToast('Use um arquivo .json'); input.value = ''; return; }
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        try {
-            const parsed = JSON.parse(e.target.result);
-            const data = validateBackup(parsed);
-            if (!data) { showToast('Formato de backup inválido'); input.value = ''; return; }
-            STATE.sermons = data;
-            saveDB();
-            renderList();
-            toggleSettings(false);
-            showToast(`${data.length} mensagem(ns) restaurada(s) com sucesso`);
-        } catch {
-            showToast('Arquivo corrompido ou inválido');
-        }
-        input.value = '';
-    };
-    reader.readAsText(f);
-}
-
-// ---- AI STUDY ----
-
-let aiCurrentMode = 'study';
-
-function toggleAIStudy(show) {
-    document.getElementById('aiStudyModal').classList.toggle('active', show);
-}
-
-function renderMarkdown(text) {
-    // Simples renderer: **bold**, ## heading, - item, \n\n parágrafo
-    let html = text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
-
-    // Headings: ## texto
-    html = html.replace(/^##\s+(.+)$/gm, '<h3>$1</h3>');
-
-    // Bold: **texto**
-    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-
-    // Listas: - item
-    html = html.replace(/^-\s+(.+)$/gm, '<li>$1</li>');
-    html = html.replace(/(<li>.*<\/li>\n?)+/gs, (match) => `<ul>${match}</ul>`);
-
-    // Parágrafos: \n\n
-    html = html.replace(/\n\n+/g, '</p><p>');
-    html = `<p>${html}</p>`;
-
-    // Limpeza: não envolver h3 e ul dentro de p
-    html = html.replace(/<p>(<h3>)/g, '$1');
-    html = html.replace(/(<\/h3>)<\/p>/g, '$1');
-    html = html.replace(/<p>(<ul>)/g, '$1');
-    html = html.replace(/(<\/ul>)<\/p>/g, '$1');
-    html = html.replace(/<p><\/p>/g, '');
-
-    return html;
-}
-
-async function generateAIContent() {
-    const apiKey = localStorage.getItem(API_KEY_STORAGE);
-    if (!apiKey) {
-        showToast('Configure a chave API nas Configurações');
-        toggleAIStudy(false);
-        toggleSettings(true);
-        return;
-    }
-
-    const s = STATE.sermons.find(x => x.id === STATE.currentId);
-    const title = s ? (s.title || 'Sem título') : 'Sem título';
-    const ref = s ? (s.ref || '') : '';
-    const content = s ? s.content.map(b => b.text).filter(Boolean).join('\n') : '';
-
-    const contentEl = document.getElementById('aiStudyContent');
-    const btn = document.getElementById('btn-generate-study');
-    contentEl.innerHTML = `<div style="text-align:center; padding:40px; color:var(--text-muted); font-family:var(--font-ui);"><div style="font-size:32px; margin-bottom:16px">⏳</div><p>Gerando com IA...</p></div>`;
-    btn.disabled = true;
-    btn.textContent = 'Gerando...';
-
-    const isDevotional = aiCurrentMode === 'devotional';
-
-    const prompt = isDevotional
-        ? `Você é um pastor experiente. Com base na mensagem abaixo, gere um devocional completo em português brasileiro para leitura diária.
-
-**Título da Mensagem:** ${title}
-**Referência Bíblica:** ${ref}
-**Conteúdo da Mensagem:**
-${content}
-
-Estruture o devocional com:
-
-## Título do Devocional
-(título inspirador relacionado ao tema)
-
-## Texto Base
-(versículo principal do dia)
-
-## Contexto Bíblico
-(breve explicação do contexto histórico e espiritual)
-
-## Reflexão
-(3 parágrafos de meditação espiritual profunda baseados no texto)
-
-## Aplicação Pessoal
-(como viver este ensinamento hoje na prática)
-
-## Oração
-(oração pessoal baseada no tema)
-
-## Declaração de Fé
-(uma afirmação de fé para declarar ao longo do dia)`
-        : `Você é um pastor experiente. Com base na mensagem abaixo, gere um estudo de células completo em português brasileiro.
-
-**Título da Mensagem:** ${title}
-**Referência Bíblica:** ${ref}
-**Conteúdo da Mensagem:**
-${content}
-
-Estruture o estudo de células com:
-
-## Tema
-(tema central do estudo)
-
-## Texto Base
-(versículo(s) principal(is))
-
-## Aquecimento
-(1 pergunta quebra-gelo para iniciar a conversa)
-
-## Estudo Bíblico
-(4 perguntas de estudo baseadas no texto bíblico e na mensagem)
-
-## Aplicação Prática
-(3 pontos práticos de aplicação para a semana)
-
-## Oração Sugerida
-(uma oração curta relacionada ao tema)
-
-## Versículo para Memorizar
-(um versículo para a semana)`;
-
-    try {
-        const res = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': apiKey,
-                'anthropic-version': '2023-06-01',
-                'anthropic-dangerous-direct-browser-access': 'true'
-            },
-            body: JSON.stringify({
-                model: 'claude-opus-4-8',
-                max_tokens: 2048,
-                messages: [{ role: 'user', content: prompt }]
-            })
-        });
-
-        if (!res.ok) {
-            if (res.status === 401) {
-                contentEl.innerHTML = `<p style="color:var(--danger); padding:20px;">Chave API inválida. Verifique nas configurações.</p>`;
-            } else {
-                const errData = await res.json().catch(() => ({}));
-                contentEl.innerHTML = `<p style="color:var(--danger); padding:20px;">Erro ${res.status}: ${errData.error?.message || 'Erro desconhecido. Tente novamente.'}</p>`;
-            }
-            return;
-        }
-
-        const data = await res.json();
-        const text = data.content && data.content[0] ? data.content[0].text : '';
-        contentEl.innerHTML = renderMarkdown(text);
-
-    } catch (err) {
-        contentEl.innerHTML = `<p style="color:var(--danger); padding:20px;">Erro de conexão: ${escapeHtml(err.message || 'Verifique sua internet e tente novamente.')}</p>`;
-    } finally {
-        btn.disabled = false;
-        btn.textContent = '✦ Gerar com IA';
-    }
-}
-
-function exportAIStudyPDF() {
-    const s = STATE.sermons.find(x => x.id === STATE.currentId);
-    const sermonTitle = s ? (s.title || 'Mensagem') : 'Mensagem';
-    const typeLabel = aiCurrentMode === 'devotional' ? 'Devocional' : 'Estudo de Células';
-    const content = document.getElementById('aiStudyContent').innerHTML;
-
-    const win = window.open('', '_blank');
-    if (!win) { showToast('Permita pop-ups para exportar PDF'); return; }
-
-    win.document.write(`<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="UTF-8">
-<title>${escapeHtml(sermonTitle)} - ${escapeHtml(typeLabel)}</title>
-<style>
-  body { font-family: 'Georgia', serif; max-width: 800px; margin: 40px auto; padding: 0 24px; color: #111; font-size: 14pt; line-height: 1.7; }
-  h1 { font-size: 24pt; font-weight: 800; text-align: center; margin-bottom: 8px; }
-  h2 { font-size: 14pt; color: #7C3AED; text-align: center; margin-bottom: 32px; }
-  h3 { font-size: 16pt; font-weight: 700; color: #7C3AED; border-bottom: 1px solid #e5e7eb; padding-bottom: 4px; margin: 24px 0 12px 0; }
-  p { margin: 0 0 12px 0; }
-  ul, ol { margin: 0 0 12px 0; padding-left: 20px; }
-  li { margin-bottom: 6px; }
-  strong { font-weight: 700; }
-  @media print { body { margin: 0; padding: 24px; } }
-</style>
-</head>
-<body>
-<h1>${escapeHtml(sermonTitle)}</h1>
-<h2>${escapeHtml(typeLabel)}</h2>
-${content}
-</body>
-</html>`);
-
-    win.document.close();
-    setTimeout(() => { win.focus(); win.print(); }, 500);
-}
-
-// ---- UTILITIES ----
-
-let toastTimer;
-function showToast(msg) {
-    let toast = document.getElementById('toast');
-    if (!toast) {
-        toast = document.createElement('div');
-        toast.id = 'toast';
-        document.body.appendChild(toast);
-    }
-    toast.textContent = msg;
-    toast.classList.add('show');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => toast.classList.remove('show'), 2800);
-}
-
-function escapeHtml(str) {
-    if (!str) return '';
-    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
+init().catch(e => console.error('Erro na inicialização:', e));

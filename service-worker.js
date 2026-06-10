@@ -1,12 +1,12 @@
-const CACHE_NAME = 'pregflow-v13';
+const CACHE_NAME = 'cifrapro-v1';
 const STATIC_ASSETS = [
-    '/',
-    '/index.html',
-    '/styles.css',
-    '/app.js',
-    '/manifest.json',
-    '/icons/icon-192.png',
-    '/icons/icon-512.png'
+    '/Pregflow-app/',
+    '/Pregflow-app/index.html',
+    '/Pregflow-app/styles.css',
+    '/Pregflow-app/app.js',
+    '/Pregflow-app/manifest.json',
+    '/Pregflow-app/icons/icon-192.png',
+    '/Pregflow-app/icons/icon-512.png'
 ];
 
 self.addEventListener('install', (event) => {
@@ -28,34 +28,13 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
 
-    // Network-first for Bible API (always try fresh data)
-    if (url.hostname === 'bible-api.com') {
-        event.respondWith(
-            fetch(event.request).catch(() =>
-                new Response(JSON.stringify({ error: 'offline' }), {
-                    headers: { 'Content-Type': 'application/json' }
-                })
-            )
-        );
+    // Network-first for CORS proxy and external APIs
+    if (url.hostname.includes('allorigins.win') || url.hostname.includes('corsproxy')) {
+        event.respondWith(fetch(event.request));
         return;
     }
 
-    // Network-first for Google Fonts (external CDN)
-    if (url.hostname.includes('fonts.gstatic.com') || url.hostname.includes('fonts.googleapis.com')) {
-        event.respondWith(
-            caches.match(event.request).then(cached => {
-                const network = fetch(event.request).then(res => {
-                    const clone = res.clone();
-                    caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
-                    return res;
-                });
-                return cached || network;
-            })
-        );
-        return;
-    }
-
-    // Cache-first for all other static assets
+    // Cache-first for all static assets
     event.respondWith(
         caches.match(event.request).then(cached => {
             if (cached) return cached;
