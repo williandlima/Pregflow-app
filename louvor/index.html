@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#7C3AED">
+<meta name="description" content="Escala anual de louvor inteligente para igrejas.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Escala">
+<link rel="apple-touch-icon" href="../icons/icon-192.png">
+<title>Escala de Louvor</title>
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- SPLASH -->
+<div id="splash">
+  <div class="splash-icon">🎵</div>
+  <div class="splash-title">Escala de Louvor</div>
+  <div class="splash-sub">Carregando...</div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<!-- ===== SCREEN: HOME ===== -->
+<div id="screen-home" class="screen">
+  <header>
+    <h1>🎵 Escala de Louvor</h1>
+    <button class="icon-btn" onclick="showScreen('screen-settings')" title="Configurações">⚙️</button>
+  </header>
+
+  <div id="firebase-alert" class="firebase-alert hidden">
+    <strong>⚠️ Firebase não configurado</strong>
+    Os dados são salvos localmente neste dispositivo. Configure o Firebase nas configurações para sincronizar entre dispositivos.
+  </div>
+
+  <div class="home-cards">
+    <div class="home-card" onclick="showScreen('screen-annual')">
+      <div class="home-card-icon purple">📅</div>
+      <div>
+        <h2>Escala Anual</h2>
+        <p>Todos os domingos do ano</p>
+      </div>
+      <span class="home-card-arrow">›</span>
+    </div>
+
+    <div class="home-card" onclick="showScreen('screen-semester')">
+      <div class="home-card-icon amber">📋</div>
+      <div>
+        <h2>Escala Semestral</h2>
+        <p>1º ou 2º semestre</p>
+      </div>
+      <span class="home-card-arrow">›</span>
+    </div>
+
+    <div class="home-card" onclick="showScreen('screen-minister')">
+      <div class="home-card-icon green">🎤</div>
+      <div>
+        <h2>Por Ministro</h2>
+        <p>Datas de cada ministro</p>
+      </div>
+      <span class="home-card-arrow">›</span>
+    </div>
+  </div>
+
+  <div class="home-divider"></div>
+  <div class="home-section-label">Gestão</div>
+
+  <div class="home-cards" style="padding-top:0">
+    <div class="home-card" onclick="showScreen('screen-songs')">
+      <div class="home-card-icon purple">🎼</div>
+      <div>
+        <h2>Banco de Músicas</h2>
+        <p>Pesquisar por música ou ministro</p>
+      </div>
+      <span class="home-card-arrow">›</span>
+    </div>
+    <div class="home-card" onclick="showScreen('screen-members')">
+      <div class="home-card-icon amber">👥</div>
+      <div>
+        <h2>Membros & Equipes</h2>
+        <p>Gerenciar músicos e escalas</p>
+      </div>
+      <span class="home-card-arrow">›</span>
+    </div>
+    <div class="home-card" onclick="showScreen('screen-help')">
+      <div class="home-card-icon green">❓</div>
+      <div>
+        <h2>Ajuda</h2>
+        <p>Como usar o aplicativo</p>
+      </div>
+      <span class="home-card-arrow">›</span>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SCREEN: ANNUAL ===== -->
+<div id="screen-annual" class="screen">
+  <header>
+    <button class="icon-btn back-btn" onclick="showScreen('screen-home')">‹</button>
+    <div>
+      <h1 id="annual-title">Escala Anual</h1>
+      <div class="subtitle" id="annual-subtitle"></div>
+    </div>
+    <button class="icon-btn" onclick="showYearPicker()" title="Ano">📆</button>
+    <button class="icon-btn" onclick="shareFullSchedule()" title="Compartilhar">📤</button>
+  </header>
+  <div id="annual-list"></div>
+</div>
+
+<!-- ===== SCREEN: SEMESTER ===== -->
+<div id="screen-semester" class="screen">
+  <header>
+    <button class="icon-btn back-btn" onclick="showScreen('screen-home')">‹</button>
+    <h1>Escala Semestral</h1>
+    <button class="icon-btn" onclick="shareFullSchedule('semester')" title="Compartilhar">📤</button>
+  </header>
+  <div class="tabs" style="margin-top:12px">
+    <button class="tab active" onclick="setSemester(1,this)">1º Semestre</button>
+    <button class="tab" onclick="setSemester(2,this)">2º Semestre</button>
+  </div>
+  <div id="semester-list"></div>
+</div>
+
+<!-- ===== SCREEN: BY MINISTER ===== -->
+<div id="screen-minister" class="screen">
+  <header>
+    <button class="icon-btn back-btn" onclick="showScreen('screen-home')">‹</button>
+    <h1>Por Ministro</h1>
+  </header>
+  <div id="minister-grid" class="minister-grid"></div>
+  <div class="divider"></div>
+  <div id="minister-dates-list" style="padding: 12px 0"></div>
+</div>
+
+<!-- ===== SCREEN: MEMBERS & TEAMS ===== -->
+<div id="screen-members" class="screen">
+  <header>
+    <button class="icon-btn back-btn" onclick="showScreen('screen-home')">‹</button>
+    <h1>Membros & Equipes</h1>
+  </header>
+  <div class="tabs" style="margin-top:12px">
+    <button class="tab active" onclick="setMembersTab('members',this)">Membros</button>
+    <button class="tab" onclick="setMembersTab('teams',this)">Equipes</button>
+  </div>
+  <div id="tab-members">
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input class="search-input" id="member-search" placeholder="Buscar membro..." oninput="renderMembers()">
+    </div>
+    <div id="members-list"></div>
+  </div>
+  <div id="tab-teams" class="hidden">
+    <div style="padding:14px 16px 6px; font-size:13px; color:var(--text-muted)">
+      Configure os 5 ministros e suas equipes. A ordem aqui define o rodízio anual.
+    </div>
+    <div id="teams-list"></div>
+    <div style="padding:16px">
+      <button class="btn btn-primary" style="width:100%" onclick="autoGenerateSchedule()">
+        ✨ Gerar Escala Automática
+      </button>
+    </div>
+  </div>
+  <button class="fab" id="fab-member" onclick="openAddMemberModal()">+</button>
+</div>
+
+<!-- ===== SCREEN: SONGS ===== -->
+<div id="screen-songs" class="screen">
+  <header>
+    <button class="icon-btn back-btn" onclick="showScreen('screen-home')">‹</button>
+    <h1>Banco de Músicas</h1>
+  </header>
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input class="search-input" id="song-search" placeholder="Buscar música ou ministro..." oninput="renderSongs()">
+  </div>
+  <div id="songs-filter-row" style="padding: 0 16px 12px; display:flex; gap:8px; overflow-x:auto"></div>
+  <div id="songs-list"></div>
+</div>
+
+<!-- ===== SCREEN: SETTINGS ===== -->
+<div id="screen-settings" class="screen">
+  <header>
+    <button class="icon-btn back-btn" onclick="showScreen('screen-home')">‹</button>
+    <h1>Configurações</h1>
+  </header>
+  <div class="settings-section">
+    <div class="settings-row">
+      <div>
+        <h3>Modo Escuro</h3>
+        <p>Tema escuro para uso noturno</p>
+      </div>
+      <button class="toggle" id="toggle-dark" onclick="toggleDark()"></button>
+    </div>
+    <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:10px">
+      <div>
+        <h3>Ano da Escala</h3>
+        <p>Ano atual para geração de escalas</p>
+      </div>
+      <input class="form-input" type="number" id="setting-year" min="2024" max="2035" style="width:140px">
+      <button class="btn btn-primary" onclick="saveYear()">Salvar Ano</button>
+    </div>
+    <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:10px">
+      <div>
+        <h3>🔥 Firebase (opcional)</h3>
+        <p>Sincronize dados entre dispositivos. Cole o objeto de configuração do seu projeto Firebase:</p>
+      </div>
+      <textarea class="form-input" id="firebase-config-input" rows="5"
+        placeholder='{"apiKey":"...","authDomain":"...","projectId":"...","storageBucket":"...","messagingSenderId":"...","appId":"..."}'
+        style="width:100%;font-size:12px;font-family:monospace"></textarea>
+      <button class="btn btn-primary" onclick="saveFirebaseConfig()">Conectar Firebase</button>
+      <button class="btn btn-ghost" id="btn-disconnect-firebase" onclick="disconnectFirebase()" style="display:none">Desconectar</button>
+      <div id="firebase-status" style="font-size:12px;color:var(--text-muted)"></div>
+    </div>
+    <div class="settings-row">
+      <div>
+        <h3>Exportar Dados</h3>
+        <p>Baixe um backup local (JSON)</p>
+      </div>
+      <button class="btn btn-ghost" onclick="exportData()">⬇️ Backup</button>
+    </div>
+    <div class="settings-row">
+      <div>
+        <h3>Importar Dados</h3>
+        <p>Restaure um backup anterior</p>
+      </div>
+      <button class="btn btn-ghost" onclick="document.getElementById('import-input').click()">⬆️ Restaurar</button>
+      <input type="file" id="import-input" accept=".json" hidden onchange="importData(event)">
+    </div>
+    <div class="settings-row">
+      <div>
+        <h3 style="color:var(--danger)">Limpar Tudo</h3>
+        <p>Apaga todos os dados locais</p>
+      </div>
+      <button class="btn btn-danger" onclick="clearAllData()">🗑️ Limpar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SCREEN: HELP ===== -->
+<div id="screen-help" class="screen">
+  <header>
+    <button class="icon-btn back-btn" onclick="showScreen('screen-home')">‹</button>
+    <h1>Ajuda</h1>
+  </header>
+  <div class="help-section">
+    <div class="help-card" onclick="this.classList.toggle('open')">
+      <div class="help-q">Como criar as equipes? <span>+</span></div>
+      <div class="help-a">Vá em <strong>Membros & Equipes → aba Membros</strong> e adicione cada músico com seu papel (ministro, back vocal, violão, etc.). Depois, na aba <strong>Equipes</strong>, atribua os membros a cada uma das 5 equipes.</div>
+    </div>
+    <div class="help-card" onclick="this.classList.toggle('open')">
+      <div class="help-q">Como gerar a escala automática? <span>+</span></div>
+      <div class="help-a">Após configurar as 5 equipes, clique em <strong>✨ Gerar Escala Automática</strong>. O app distribui os domingos do ano no rodízio: Equipe 1, 2, 3, 4, 5, 1, 2...</div>
+    </div>
+    <div class="help-card" onclick="this.classList.toggle('open')">
+      <div class="help-q">Como registrar músicas de um culto? <span>+</span></div>
+      <div class="help-a">Abra qualquer domingo na Escala Anual ou Semestral, clique no botão <strong>+ Adicionar Música</strong> e informe o nome e o tom. As músicas ficam salvas no Banco de Músicas para consulta futura.</div>
+    </div>
+    <div class="help-card" onclick="this.classList.toggle('open')">
+      <div class="help-q">Como compartilhar a escala? <span>+</span></div>
+      <div class="help-a">Na escala de um domingo, use os botões: <strong>WhatsApp</strong> (envia o texto formatado), <strong>PDF</strong> (abre janela de impressão) ou <strong>Google Calendar</strong> (cria evento no calendário).</div>
+    </div>
+    <div class="help-card" onclick="this.classList.toggle('open')">
+      <div class="help-q">Como instalar no celular? <span>+</span></div>
+      <div class="help-a">No <strong>Android</strong>: abra o Chrome, toque no menu (⋮) e selecione "Adicionar à tela inicial". No <strong>iOS</strong>: abra o Safari, toque em Compartilhar (□↑) e "Adicionar à Tela de Início".</div>
+    </div>
+    <div class="help-card" onclick="this.classList.toggle('open')">
+      <div class="help-q">Como usar o Firebase? <span>+</span></div>
+      <div class="help-a">Crie um projeto gratuito em <strong>console.firebase.google.com</strong>. Ative o Firestore. Vá em Configurações do projeto → SDK → copie o objeto de configuração e cole em Configurações → Firebase. Isso sincroniza os dados entre todos os dispositivos.</div>
+    </div>
+    <div class="help-card" onclick="this.classList.toggle('open')">
+      <div class="help-q">Como editar ou substituir um membro? <span>+</span></div>
+      <div class="help-a">Em <strong>Membros & Equipes → Equipes</strong>, expanda a equipe desejada e altere o membro de qualquer posição. Ou abra um domingo específico na escala e clique no nome para substituir pontualmente.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: WEEK DETAIL ===== -->
+<div class="modal-overlay" id="modal-week">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="modal-week-title"></div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:2px" id="modal-week-team"></div>
+      </div>
+      <button class="icon-btn" onclick="closeModal('modal-week')">✕</button>
+    </div>
+
+    <!-- Share buttons -->
+    <div class="share-row">
+      <button class="share-btn whatsapp" onclick="shareWeekWhatsApp()">📱 WhatsApp</button>
+      <button class="share-btn calendar" onclick="shareWeekCalendar()">📅 Google Cal</button>
+      <button class="share-btn pdf" onclick="printWeek()">🖨️ PDF</button>
+    </div>
+
+    <!-- Team members -->
+    <div class="role-section" id="modal-week-roles"></div>
+
+    <!-- Songs -->
+    <div class="divider"></div>
+    <div class="songs-section">
+      <div class="songs-title">🎵 Músicas do Culto</div>
+      <div id="modal-week-songs"></div>
+      <button class="btn btn-ghost" style="width:100%;margin-top:6px" onclick="openAddSongModal()">+ Adicionar Música</button>
+    </div>
+
+    <!-- Edit team override -->
+    <div class="divider" style="margin-top:8px"></div>
+    <div style="padding:12px 16px">
+      <button class="btn btn-ghost" style="width:100%;color:var(--primary)" onclick="openEditWeekTeam()">✏️ Editar Equipe deste Domingo</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: ADD MEMBER ===== -->
+<div class="modal-overlay" id="modal-add-member">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title" id="modal-member-title">Adicionar Membro</div>
+      <button class="icon-btn" onclick="closeModal('modal-add-member')">✕</button>
+    </div>
+    <div style="padding:16px 0">
+      <div class="form-group">
+        <label class="form-label">Nome</label>
+        <input class="form-input" id="member-name-input" placeholder="Nome completo" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Papel principal</label>
+        <select class="form-select" id="member-role-input">
+          <option value="minister">🎤 Ministro</option>
+          <option value="back">🎵 Back Vocal</option>
+          <option value="guitar">🎸 Violão</option>
+          <option value="electric">⚡ Guitarra</option>
+          <option value="bass">🎸 Baixo</option>
+          <option value="drums">🥁 Bateria</option>
+          <option value="keyboard">🎹 Teclado</option>
+        </select>
+      </div>
+      <div style="padding:0 16px">
+        <button class="btn btn-primary" style="width:100%" onclick="saveMember()">Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: ADD SONG ===== -->
+<div class="modal-overlay" id="modal-add-song">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title">Adicionar Música</div>
+      <button class="icon-btn" onclick="closeModal('modal-add-song')">✕</button>
+    </div>
+    <div style="padding:16px 0">
+      <div class="form-group">
+        <label class="form-label">Nome da Música</label>
+        <input class="form-input" id="song-title-input" placeholder="Ex: Nada Além do Sangue" autocomplete="off">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Tom</label>
+          <select class="form-select" id="song-key-input">
+            <option>C</option><option>C#</option><option>D</option><option>D#</option>
+            <option>E</option><option>F</option><option>F#</option><option>G</option>
+            <option>G#</option><option>A</option><option>A#</option><option>B</option>
+            <option>Cm</option><option>Dm</option><option>Em</option><option>Fm</option>
+            <option>Gm</option><option>Am</option><option>Bm</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:2">
+          <label class="form-label">Artista / Origem</label>
+          <input class="form-input" id="song-artist-input" placeholder="Ex: Hillsong" autocomplete="off">
+        </div>
+      </div>
+      <div style="padding:0 16px">
+        <button class="btn btn-primary" style="width:100%" onclick="saveSong()">Salvar Música</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: EDIT WEEK TEAM ===== -->
+<div class="modal-overlay" id="modal-edit-week">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title">Editar Equipe</div>
+      <button class="icon-btn" onclick="closeModal('modal-edit-week')">✕</button>
+    </div>
+    <div id="edit-week-roles" style="padding:12px 0"></div>
+    <div style="padding:0 16px 16px">
+      <button class="btn btn-primary" style="width:100%" onclick="saveWeekOverride()">Salvar Alterações</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: YEAR PICKER ===== -->
+<div class="modal-overlay" id="modal-year">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title">Selecionar Ano</div>
+      <button class="icon-btn" onclick="closeModal('modal-year')">✕</button>
+    </div>
+    <div id="year-options" style="padding:12px 16px;display:flex;flex-direction:column;gap:8px"></div>
+  </div>
+</div>
+
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
