@@ -1,12 +1,12 @@
-const CACHE_NAME = 'pregflow-v3';
+const CACHE_NAME = 'pregflow-v16';
 const STATIC_ASSETS = [
-    '/',
-    '/index.html',
-    '/styles.css',
-    '/app.js',
-    '/manifest.json',
-    '/icons/icon-192.png',
-    '/icons/icon-512.png'
+    './',
+    './index.html',
+    './styles.css',
+    './app.js',
+    './manifest.json',
+    './icons/icon-192.png',
+    './icons/icon-512.png'
 ];
 
 self.addEventListener('install', (event) => {

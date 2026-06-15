@@ -168,18 +168,94 @@ h1 { font-size: 24px; margin: 0; letter-spacing: -0.02em; font-weight: 700; colo
 }
 .fab-main:hover { transform: scale(1.05) rotate(90deg); background: var(--primary); color: white; }
 
-/* EDITOR */
+/* EDITOR HEADER — position:fixed, nunca desaparece independente de scroll ou animação */
+.editor-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    background: var(--bg);
+    padding: 0 24px;
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 2px 10px -2px rgba(0,0,0,0.08);
+}
+body.dark .editor-header { box-shadow: 0 2px 10px -2px rgba(0,0,0,0.4); }
+
+/* BARRA FLUTUANTE — segue o bloco em foco */
+.floating-bar {
+    position: fixed;
+    left: 8px;
+    right: 8px;
+    z-index: 95;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 3px 8px;
+    display: flex;
+    gap: 1px;
+    align-items: center;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    box-shadow: 0 4px 20px -4px rgba(0,0,0,0.18), var(--shadow-xs);
+    transition: top 0.1s ease;
+}
+.floating-bar::-webkit-scrollbar { display: none; }
+.floating-bar.hidden { display: none !important; }
+.ftool {
+    padding: 5px 9px;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    flex-shrink: 0;
+    border: none;
+    cursor: pointer;
+    font-family: var(--font-ui);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: background 0.12s, color 0.12s;
+}
+.ftool:hover, .ftool:active { background: var(--primary-soft); color: var(--primary); }
+.ftool-div { width: 1px; height: 14px; background: var(--border); margin: 0 2px; flex-shrink: 0; }
+
+/* Editor: container fixo que rola internamente — header nunca se move */
+#editorScreen {
+    position: fixed !important;
+    top: 112px;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 24px 24px 140px !important;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
 .editor-nav {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
-    position: sticky;
-    top: 0;
-    z-index: 40;
-    background: var(--bg);
-    padding: 12px 0;
+    padding: 10px 0 6px 0;
 }
+
+/* TOOLBAR — dentro do editor-header */
+.editor-toolbar {
+    display: flex;
+    gap: 3px;
+    overflow-x: auto;
+    padding: 4px 0 8px 0;
+    align-items: center;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    background: transparent;
+}
+.editor-toolbar::-webkit-scrollbar { display: none; }
 
 .status-badge {
     font-size: 11px;
@@ -215,25 +291,6 @@ h1 { font-size: 24px; margin: 0; letter-spacing: -0.02em; font-weight: 700; colo
     font-family: var(--font-ui);
 }
 
-/* TOOLBAR GLASSMORPHISM */
-.toolbar-sticky {
-    position: sticky;
-    top: 10px;
-    z-index: 50;
-    background: rgba(255,255,255,0.7);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    padding: 6px;
-    border-radius: 14px;
-    border: 1px solid rgba(0,0,0,0.08);
-    display: flex;
-    gap: 4px;
-    overflow-x: auto;
-    margin-bottom: 30px;
-    box-shadow: var(--shadow-sm);
-    align-items: center;
-}
-body.dark .toolbar-sticky { background: rgba(24,24,27,0.7); border-color: rgba(255,255,255,0.1); }
 
 .tool-chip {
     padding: 8px 12px;
@@ -256,6 +313,10 @@ body.dark .toolbar-sticky { background: rgba(24,24,27,0.7); border-color: rgba(2
 .tool-chip.action { color: var(--primary); background: var(--primary-soft); }
 .tool-divider { width: 1px; height: 16px; background: var(--border); margin: 0 4px; flex-shrink: 0; }
 
+/* Color text buttons (Word-style: A with colored underline) */
+.color-btn { padding: 6px 8px; }
+.color-btn:hover { transform: scale(1.1); }
+
 /* EDITOR CONTENT */
 #editorBlocks { min-height: 60vh; padding-bottom: 100px; }
 
@@ -275,6 +336,77 @@ body.dark .toolbar-sticky { background: rgba(24,24,27,0.7); border-color: rgba(2
 
 .block[data-type="h1"] { font-family: var(--font-ui); font-size: 24px; font-weight: 800; margin-top: 32px; color: var(--text); line-height: 1.2; }
 .block[data-type="h2"] { font-family: var(--font-ui); font-size: 20px; font-weight: 700; color: var(--primary); margin-top: 24px; }
+/* ---- OUTLINE HIERÁRQUICO ---- */
+
+/* 1. Tópico principal — número vem do atributo data-number via JS */
+.block[data-type="topic"] {
+    font-family: var(--font-ui);
+    font-size: 19px;
+    font-weight: 700;
+    color: var(--text);
+    padding-left: 4px;
+    margin-top: 20px;
+    border-left: 3px solid var(--primary);
+}
+.block[data-type="topic"]:not(:empty)::before {
+    content: attr(data-number) " ";
+    color: var(--primary);
+    font-weight: 800;
+}
+.block[data-type="topic"]:empty::before {
+    content: attr(data-number) " " attr(placeholder);
+    color: var(--primary);
+    opacity: 0.55;
+    font-weight: 700;
+}
+
+/* 1.1 Subtópico — numeração composta via data-number */
+.block[data-type="subtopic"] {
+    font-family: var(--font-ui);
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    padding-left: 20px;
+    margin-top: 2px;
+    border-left: 2px solid var(--primary-soft);
+}
+.block[data-type="subtopic"]:not(:empty)::before {
+    content: attr(data-number) "  ";
+    color: var(--primary);
+    font-weight: 700;
+    font-size: 13px;
+}
+.block[data-type="subtopic"]:empty::before {
+    content: attr(data-number) "  " attr(placeholder);
+    color: var(--primary);
+    opacity: 0.5;
+    font-size: 13px;
+}
+
+/* → Ponto / detalhe — seta */
+.block[data-type="bullet"] {
+    font-family: var(--font-ui);
+    font-size: 15px;
+    color: var(--text-secondary);
+    padding-left: 36px;
+    border-left: none;
+}
+.block[data-type="bullet"]:not(:empty)::before {
+    content: "→  ";
+    color: var(--primary);
+    font-weight: 700;
+}
+.block[data-type="bullet"]:empty::before {
+    content: "→  " attr(placeholder);
+    color: var(--text-muted);
+    opacity: 0.5;
+}
+
+/* h3 — mantido para compatibilidade com dados antigos */
+.block[data-type="h3"] { font-family: var(--font-ui); font-size: 15px; font-weight: 700; color: var(--text-secondary); padding-left: 24px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* Ministrado (riscado) */
+.block[data-done="true"] { text-decoration: line-through; opacity: 0.45; color: var(--text-muted); }
 
 .preach-quote {
     font-family: var(--font-body);
@@ -311,6 +443,9 @@ body.dark .toolbar-sticky { background: rgba(24,24,27,0.7); border-color: rgba(2
 /* PREACH MODE */
 #preachScreen { background: var(--bg); padding: 80px 32px 200px 32px; height: 100vh; overflow-y: auto; z-index: 1000; position: fixed; inset: 0; }
 #preachContent { max-width: 800px; margin: 0 auto; font-family: var(--font-body); font-size: 28px; line-height: 1.6; color: var(--text); }
+
+/* Preach mode: bloco ministrado */
+.preach-block-done { text-decoration: line-through; opacity: 0.4; }
 
 .hud-float {
     position: fixed;
@@ -380,8 +515,26 @@ body.dark .toolbar-sticky { background: rgba(24,24,27,0.7); border-color: rgba(2
 }
 .settings-row:last-child { border-bottom: none; }
 
+/* Bible search result chips */
+.ref-chip {
+    display: inline-flex;
+    align-items: center;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 5px 12px;
+    font-size: 13px;
+    font-family: var(--font-ui);
+    color: var(--primary);
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.15s;
+    white-space: nowrap;
+}
+.ref-chip:hover { background: var(--primary); color: white; border-color: var(--primary); }
+
 /* BIBLE */
-.bible-controls { display: flex; gap: 12px; margin-bottom: 24px; flex-shrink: 0; }
+.bible-controls { display: flex; gap: 12px; margin-bottom: 16px; flex-shrink: 0; }
 .bible-select {
     flex: 1;
     padding: 12px;
@@ -398,6 +551,23 @@ body.dark .toolbar-sticky { background: rgba(24,24,27,0.7); border-color: rgba(2
     background-position: right 12px top 50%;
     background-size: 10px auto;
 }
+
+/* BIBLE SEARCH */
+.bible-search-wrapper { position: relative; margin-bottom: 16px; flex-shrink: 0; }
+.bible-search {
+    width: 100%; padding: 12px 40px 12px 16px;
+    border-radius: 10px; border: 1px solid var(--border);
+    background: var(--bg); color: var(--text);
+    font-size: 15px; font-family: var(--font-ui); outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    box-sizing: border-box;
+}
+.bible-search:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
+.bible-search-icon { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; }
+
+/* Versículo destacado */
+.verse-item.highlighted { background: var(--primary-soft); border-radius: 8px; }
+body.dark .verse-item.highlighted { background: #3b0764; }
 
 .bible-text-area {
     flex: 1;
@@ -438,6 +608,34 @@ body.dark .toolbar-sticky { background: rgba(24,24,27,0.7); border-color: rgba(2
 .verse-btn:hover { background: var(--bg); }
 .verse-btn.insert { background: var(--primary); color: white; border-color: var(--primary); }
 .verse-btn.insert:hover { background: var(--primary-hover); }
+
+/* AI TYPE TABS */
+.ai-type-tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-shrink: 0; }
+.ai-type-tab {
+    flex: 1; padding: 10px; border-radius: 10px;
+    border: 1px solid var(--border); background: var(--bg);
+    color: var(--text-secondary); font-family: var(--font-ui);
+    font-size: 13px; font-weight: 600; cursor: pointer; text-align: center;
+    transition: all 0.2s;
+}
+.ai-type-tab.active { background: var(--primary-soft); color: var(--primary); border-color: var(--primary); }
+
+/* AI STUDY CONTENT */
+.ai-study-content {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+    padding: 8px 4px;
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.7;
+    color: var(--text);
+}
+.ai-study-content h3 { font-family: var(--font-ui); font-size: 17px; font-weight: 700; color: var(--primary); margin: 20px 0 8px 0; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+.ai-study-content p { margin: 0 0 12px 0; color: var(--text-secondary); }
+.ai-study-content ul, .ai-study-content ol { margin: 0 0 12px 0; padding-left: 20px; }
+.ai-study-content li { margin-bottom: 6px; color: var(--text-secondary); }
+.ai-study-content strong { color: var(--text); font-weight: 700; }
 
 /* TOAST */
 #toast {
