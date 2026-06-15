@@ -885,6 +885,16 @@ function selectYear(y) {
   showToast('Ano: ' + y);
 }
 
+// ── FIREBASE CONFIG ───────────────────────────────────────────
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDlKTSsSUY0AHZnoNJ7hYx6tGYWIXqY7qk",
+  authDomain: "escala-reobote.firebaseapp.com",
+  projectId: "escala-reobote",
+  storageBucket: "escala-reobote.firebasestorage.app",
+  messagingSenderId: "477784086281",
+  appId: "1:477784086281:web:e73d6803f8a721847825d8"
+};
+
 // ── INIT ─────────────────────────────────────────────────────
 async function init() {
   loadLocal();
@@ -893,11 +903,10 @@ async function init() {
     navigator.serviceWorker.register('./sw.js').catch(() => {});
   }
 
-  if (state.firebaseConfig) {
-    try {
-      await initFirebase(state.firebaseConfig);
-    } catch(e) {}
-  } else {
+  try {
+    await initFirebase(FIREBASE_CONFIG);
+    document.getElementById('firebase-alert').classList.add('hidden');
+  } catch(e) {
     document.getElementById('firebase-alert').classList.remove('hidden');
   }
 
