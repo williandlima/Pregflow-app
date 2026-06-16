@@ -237,6 +237,25 @@
       <button class="btn btn-danger" onclick="clearAllData()">🗑️ Limpar</button>
     </div>
   </div>
+
+  <div class="home-section-label" style="padding-top:8px">Firebase</div>
+  <div class="settings-section" style="padding-top:0">
+    <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:10px">
+      <div>
+        <h3>Status da Conexão</h3>
+        <p id="firebase-status">Verificando...</p>
+      </div>
+      <button class="btn btn-danger" id="btn-disconnect-firebase" style="display:none" onclick="disconnectFirebase()">Desconectar</button>
+    </div>
+    <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:10px">
+      <div>
+        <h3>Configuração Firebase</h3>
+        <p>Cole o objeto JSON do Firebase Console</p>
+      </div>
+      <textarea class="form-input" id="firebase-config-input" rows="6" style="width:100%;font-size:12px;font-family:monospace" placeholder='{"apiKey":"...","projectId":"..."}'></textarea>
+      <button class="btn btn-primary" onclick="saveFirebaseConfig()">Conectar Firebase</button>
+    </div>
+  </div>
 </div>
 
 <!-- ===== SCREEN: HELP ===== -->
