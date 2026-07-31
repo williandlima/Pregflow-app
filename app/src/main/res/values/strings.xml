@@ -26,4 +26,12 @@
     <string name="editor_empty_blocks">Toque em + para adicionar o primeiro bloco</string>
     <string name="editor_saved_toast">Pregação salva</string>
     <string name="editor_block_text_placeholder">Digite o texto…</string>
+    <string name="editor_preach_cd">Modo Pregação</string>
+
+    <string name="preach_close_cd">Fechar</string>
+    <string name="preach_font_decrease_cd">Diminuir fonte</string>
+    <string name="preach_font_increase_cd">Aumentar fonte</string>
+    <string name="preach_timer_start_cd">Iniciar cronômetro</string>
+    <string name="preach_timer_pause_cd">Pausar cronômetro</string>
+    <string name="preach_timer_reset_cd">Zerar cronômetro</string>
 </resources>

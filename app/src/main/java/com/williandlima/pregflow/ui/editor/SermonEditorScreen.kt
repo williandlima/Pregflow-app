@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -42,6 +43,7 @@ import com.williandlima.pregflow.data.model.BlockType
 @Composable
 fun SermonEditorScreen(
     onBack: () -> Unit,
+    onPreach: (String) -> Unit,
     viewModel: SermonEditorViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -57,6 +59,9 @@ fun SermonEditorScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { viewModel.save(onSaved = { onPreach(viewModel.sermonId) }) }) {
+                        Icon(Icons.Filled.PlayArrow, contentDescription = stringResource(R.string.editor_preach_cd))
+                    }
                     TextButton(onClick = { viewModel.save(onSaved = onBack) }) {
                         Text(stringResource(R.string.editor_save))
                     }

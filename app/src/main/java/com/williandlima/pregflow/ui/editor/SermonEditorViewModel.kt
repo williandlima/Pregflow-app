@@ -24,7 +24,7 @@ class SermonEditorViewModel @Inject constructor(
     private val repository: SermonRepository,
 ) : ViewModel() {
 
-    private val sermonId: String = checkNotNull(savedStateHandle["sermonId"])
+    val sermonId: String = checkNotNull(savedStateHandle["sermonId"])
 
     private val _uiState = MutableStateFlow(EditorUiState(sermonId = sermonId))
     val uiState: StateFlow<EditorUiState> = _uiState.asStateFlow()

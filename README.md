@@ -31,8 +31,12 @@ do projeto — cada fase é implementada incrementalmente.
   como ministrado e excluir. Nesta v1 a formatação é por bloco inteiro,
   não por trecho selecionado dentro do texto — formatação em nível de
   seleção de texto é um risco técnico já mapeado para uma fase futura.
-- ⏳ Próximas: Modo Pregação, busca bíblica offline, login + backup em
-  nuvem, IA via backend próprio, assinatura Pro (Play Billing).
+- ✅ **Fase 3 — Modo Pregação**: tela cheia acessada pelo ▶ no editor, com
+  toque na tela para esconder/mostrar o HUD, controle de tamanho de fonte
+  (A-/A+), cronômetro (iniciar/pausar/zerar) e blocos ministrados exibidos
+  com opacidade reduzida.
+- ⏳ Próximas: busca bíblica offline, login + backup em nuvem, IA via
+  backend próprio, assinatura Pro (Play Billing).
 
 Login, IA e sincronização em nuvem ainda não existem — os dados vivem
 apenas no banco Room local do dispositivo.
@@ -74,5 +78,6 @@ app/src/main/java/com/williandlima/pregflow/
     ├── theme/                # Cores/tema Material 3 (marca PregFlow)
     ├── navigation/           # NavHost e rotas
     ├── home/                 # Lista de pregações
-    └── editor/                # Editor de blocos da pregação
+    ├── editor/                # Editor de blocos da pregação
+    └── preach/                # Modo Pregação (tela cheia)
 ```
