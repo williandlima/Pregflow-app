@@ -43,4 +43,12 @@
     <string name="bible_insert">Inserir</string>
     <string name="bible_error">Capítulo não encontrado. Verifique sua conexão.</string>
     <string name="bible_copied_toast">Versículo copiado</string>
+
+    <string name="home_settings_cd">Configurações</string>
+    <string name="settings_title">Configurações</string>
+    <string name="settings_back_cd">Voltar</string>
+    <string name="settings_backup_section">Backup</string>
+    <string name="settings_backup_description">Salve todas as suas pregações num arquivo, ou restaure a partir de um backup anterior. Os dados ficam apenas no seu aparelho — nenhuma conta ou nuvem envolvida ainda.</string>
+    <string name="settings_export_backup">Exportar backup</string>
+    <string name="settings_import_backup">Importar backup</string>
 </resources>

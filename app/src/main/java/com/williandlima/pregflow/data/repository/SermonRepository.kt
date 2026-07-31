@@ -11,4 +11,6 @@ interface SermonRepository {
     suspend fun createSermon(): String
     suspend fun saveSermon(sermon: SermonEntity, blocks: List<BlockEntity>)
     suspend fun deleteSermon(sermonId: String)
+    suspend fun exportBackupJson(): String
+    suspend fun importBackupJson(json: String)
 }

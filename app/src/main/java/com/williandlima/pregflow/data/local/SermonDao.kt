@@ -17,6 +17,10 @@ interface SermonDao {
     @Query("SELECT * FROM sermons WHERE id = :sermonId")
     fun observeSermonWithBlocks(sermonId: String): Flow<SermonWithBlocks?>
 
+    @Transaction
+    @Query("SELECT * FROM sermons")
+    suspend fun getAllSermonsWithBlocks(): List<SermonWithBlocks>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertSermon(sermon: SermonEntity)
 

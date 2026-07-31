@@ -14,12 +14,10 @@ do projeto — cada fase é implementada incrementalmente.
 
 - Kotlin + Jetpack Compose (Material 3)
 - Arquitetura MVVM + Hilt (injeção de dependência)
-- Room (cache local offline-first) + Cloud Firestore (sync entre
-  dispositivos, a partir da Fase 5)
-- Firebase Auth (Google Sign-In, a partir da Fase 5)
-- Firebase Cloud Functions (proxy do assistente de IA e validação de
-  compras, a partir das Fases 6/7)
-- Google Play Billing Library (assinatura Pro, Fase 7)
+- Room (armazenamento local — hoje é a única fonte de dados; Firebase/nuvem
+  fica pausado por decisão do projeto, ver Status atual)
+- OkHttp + kotlinx.serialization (consulta à bible-api.com)
+- Google Play Billing Library (assinatura Pro, fase futura)
 
 ## Status atual
 
@@ -43,11 +41,20 @@ do projeto — cada fase é implementada incrementalmente.
   tema/palavra-chave (índice local de referências, sem texto de versículo)
   ou navegação por livro/capítulo; inserir um versículo cria um bloco de
   citação no editor.
-- ⏳ Próximas: login + backup em nuvem, IA via backend próprio, assinatura
-  Pro (Play Billing).
+- ✅ **Fase 5 — Backup local**: em vez de login + sincronização em nuvem
+  (Firebase), que fica pausado por decisão do projeto por enquanto, esta
+  fase adiciona exportar/importar backup como arquivo `.json` via seletor
+  de arquivos do sistema (tela de Configurações, acessível pelo ícone de
+  engrenagem na tela inicial) — mesma ideia do backup manual que o PWA
+  original já tinha, sem depender de nenhuma conta ou serviço externo.
+- ⏸️ Pausado por decisão do projeto (sem Firebase/Gemini por enquanto):
+  login + sincronização em nuvem entre dispositivos, assistente de IA.
+- ⏳ Próxima: assinatura Pro (Google Play Billing) — não depende de
+  Firebase, pode avançar mesmo com login/IA pausados.
 
 Login, IA e sincronização em nuvem ainda não existem — os dados vivem
-apenas no banco Room local do dispositivo.
+apenas no banco Room local do dispositivo, com backup/restauração manual
+via arquivo.
 
 **Nota sobre conteúdo bíblico:** o app não embute texto de nenhuma
 tradução (NVI, NVT, Almeida Revisada etc.) porque essas traduções são
@@ -86,9 +93,10 @@ app/src/main/java/com/williandlima/pregflow/
 ├── PregFlowApplication.kt   # @HiltAndroidApp
 ├── MainActivity.kt
 ├── data/
-│   ├── model/                # BlockType, TextSpan, BibleBook, índice de temas
+│   ├── model/                # BlockType, TextSpan, BibleBook, índice de temas, backup
 │   ├── local/                # Entidades Room, DAO, Database, Converters
 │   ├── remote/                # Cliente da bible-api.com (OkHttp + kotlinx.serialization)
+│   ├── backup/                # Leitura/escrita do arquivo de backup (SAF)
 │   └── repository/           # SermonRepository, BibleRepository
 ├── di/                       # Módulos Hilt (Database, Network, Repository)
 └── ui/
@@ -97,5 +105,6 @@ app/src/main/java/com/williandlima/pregflow/
     ├── home/                 # Lista de pregações
     ├── editor/                # Editor de blocos da pregação
     ├── preach/                # Modo Pregação (tela cheia)
-    └── bible/                 # Busca bíblica
+    ├── bible/                 # Busca bíblica
+    └── settings/              # Exportar/importar backup
 ```

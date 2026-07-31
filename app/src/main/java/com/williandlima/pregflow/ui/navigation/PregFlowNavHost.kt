@@ -12,6 +12,7 @@ import com.williandlima.pregflow.ui.bible.BibleScreen
 import com.williandlima.pregflow.ui.editor.SermonEditorScreen
 import com.williandlima.pregflow.ui.home.HomeScreen
 import com.williandlima.pregflow.ui.preach.PreachModeScreen
+import com.williandlima.pregflow.ui.settings.SettingsScreen
 
 object PregFlowDestinations {
     const val HOME = "home"
@@ -20,6 +21,7 @@ object PregFlowDestinations {
     const val PREACH = "preach/{$EDITOR_ARG_SERMON_ID}"
     const val BIBLE = "bible"
     const val BIBLE_RESULT_KEY = "insertedVerse"
+    const val SETTINGS = "settings"
 
     fun editorRoute(sermonId: String) = "editor/$sermonId"
     fun preachRoute(sermonId: String) = "preach/$sermonId"
@@ -34,7 +36,11 @@ fun PregFlowNavHost() {
                 onOpenSermon = { sermonId ->
                     navController.navigate(PregFlowDestinations.editorRoute(sermonId))
                 },
+                onOpenSettings = { navController.navigate(PregFlowDestinations.SETTINGS) },
             )
+        }
+        composable(PregFlowDestinations.SETTINGS) {
+            SettingsScreen(onBack = { navController.popBackStack() })
         }
         composable(
             route = PregFlowDestinations.EDITOR,
@@ -69,6 +75,6 @@ fun PregFlowNavHost() {
                 },
             )
         }
-        // Próximas rotas (Fase 5+): configurações, login.
+        // Próximas rotas: login + sincronização em nuvem (quando Firebase for adotado).
     }
 }
