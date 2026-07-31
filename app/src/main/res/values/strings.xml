@@ -3,4 +3,27 @@
     <string name="home_title">PregFlow</string>
     <string name="home_empty_state">Nenhuma pregação ainda. Toque em + para criar a primeira.</string>
     <string name="home_new_sermon_cd">Nova pregação</string>
+    <string name="home_untitled">Sem título</string>
+    <string name="home_delete_cd">Excluir</string>
+    <string name="home_delete_confirm_title">Excluir pregação?</string>
+    <string name="home_delete_confirm_message">Esta ação não pode ser desfeita.</string>
+    <string name="home_delete_confirm_confirm">Excluir</string>
+    <string name="home_delete_confirm_cancel">Cancelar</string>
+
+    <string name="editor_title_placeholder">Título da pregação</string>
+    <string name="editor_bible_ref_placeholder">Referência bíblica (opcional)</string>
+    <string name="editor_add_block_cd">Adicionar bloco</string>
+    <string name="editor_save">Salvar</string>
+    <string name="editor_back_cd">Voltar</string>
+    <string name="editor_block_delete_cd">Excluir bloco</string>
+    <string name="editor_block_move_up_cd">Mover para cima</string>
+    <string name="editor_block_move_down_cd">Mover para baixo</string>
+    <string name="editor_block_ministered_cd">Marcar como ministrado</string>
+    <string name="editor_block_bold_cd">Negrito</string>
+    <string name="editor_block_italic_cd">Itálico</string>
+    <string name="editor_block_underline_cd">Sublinhado</string>
+    <string name="editor_block_strikethrough_cd">Tachado</string>
+    <string name="editor_empty_blocks">Toque em + para adicionar o primeiro bloco</string>
+    <string name="editor_saved_toast">Pregação salva</string>
+    <string name="editor_block_text_placeholder">Digite o texto…</string>
 </resources>

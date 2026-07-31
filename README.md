@@ -23,9 +23,19 @@ do projeto — cada fase é implementada incrementalmente.
 
 ## Status atual
 
-**Fase 1 — Scaffold do projeto.** O app compila para uma tela inicial
-("shell") vazia com o tema/marca do PregFlow; ainda não há CRUD de
-sermões, editor de blocos, login ou IA — isso vem nas próximas fases.
+- ✅ **Fase 1 — Scaffold do projeto**: tema/marca, navegação, ícone adaptativo.
+- ✅ **Fase 2 — CRUD de sermões + editor de blocos (offline, Room)**: tela
+  inicial lista/cria/exclui pregações; editor permite título, referência
+  bíblica, blocos (parágrafo, títulos, tópico, citação, aviso, destaque)
+  com formatação (negrito/itálico/sublinhado/tachado), reordenar, marcar
+  como ministrado e excluir. Nesta v1 a formatação é por bloco inteiro,
+  não por trecho selecionado dentro do texto — formatação em nível de
+  seleção de texto é um risco técnico já mapeado para uma fase futura.
+- ⏳ Próximas: Modo Pregação, busca bíblica offline, login + backup em
+  nuvem, IA via backend próprio, assinatura Pro (Play Billing).
+
+Login, IA e sincronização em nuvem ainda não existem — os dados vivem
+apenas no banco Room local do dispositivo.
 
 ## Abrir no Android Studio
 
@@ -55,8 +65,14 @@ sermões, editor de blocos, login ou IA — isso vem nas próximas fases.
 app/src/main/java/com/williandlima/pregflow/
 ├── PregFlowApplication.kt   # @HiltAndroidApp
 ├── MainActivity.kt
+├── data/
+│   ├── model/                # BlockType, TextSpan (modelo de domínio)
+│   ├── local/                # Entidades Room, DAO, Database, Converters
+│   └── repository/           # SermonRepository
+├── di/                       # Módulos Hilt (Database, Repository)
 └── ui/
     ├── theme/                # Cores/tema Material 3 (marca PregFlow)
     ├── navigation/           # NavHost e rotas
-    └── home/                 # Tela inicial (shell)
+    ├── home/                 # Lista de pregações
+    └── editor/                # Editor de blocos da pregação
 ```
