@@ -1,0 +1,30 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Chama + cruz reaproveitadas do ícone do PWA original (icons/icon.svg),
+         reescaladas do viewBox 512x512 para o safe-zone do ícone adaptativo. -->
+    <group
+        android:scaleX="0.1928"
+        android:scaleY="0.1928"
+        android:translateX="4.64"
+        android:translateY="3.19">
+
+        <path
+            android:fillColor="#F97316"
+            android:pathData="M256,445 C195,428 148,372 165,295 C174,254 197,234 197,234 C197,270 212,286 226,262 C234,246 234,218 248,192 C250,218 254,238 256,250 C258,238 262,218 264,192 C278,218 278,246 286,262 C300,286 315,270 315,234 C315,234 338,254 347,295 C364,372 317,428 256,445Z" />
+
+        <path
+            android:fillColor="#FCD34D"
+            android:pathData="M256,420 C215,406 190,362 204,306 C212,274 228,258 228,258 C228,284 238,296 249,278 C253,264 254,248 256,234 C258,248 259,264 263,278 C274,296 284,284 284,258 C284,258 300,274 308,306 C322,362 297,406 256,420Z" />
+
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M232,82 L280,82 L280,292 L232,292 Z" />
+
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M148,148 L364,148 L364,196 L148,196 Z" />
+    </group>
+</vector>

@@ -1,70 +1,62 @@
-# PregFlow Pro
+# PregFlow (Android nativo)
 
-Aplicativo PWA para criar, editar e apresentar sermões e mensagens. Funciona offline após a primeira visita.
+App Android nativo para criar, editar e apresentar sermões/pregações,
+reescrito em Kotlin + Jetpack Compose a partir do PWA original. Objetivo:
+publicação paga (assinatura Pro) na Google Play Store.
 
-## Funcionalidades
+Este projeto está em migração ativa a partir de um PWA estático
+(HTML/CSS/JS). O plano completo de fases (editor de blocos, Modo Pregação,
+busca bíblica offline, login + backup em nuvem, IA via backend próprio,
+assinatura Google Play Billing) está descrito no histórico de planejamento
+do projeto — cada fase é implementada incrementalmente.
 
-- **Editor de blocos** — parágrafos, títulos H1/H2, citações bíblicas, avisos e destaques
-- **Modo Pregação** — tela cheia com cronômetro e controle de tamanho de fonte
-- **Bíblia integrada** — busca versículos por livro/capítulo e insere no editor (requer internet)
-- **Backup e restauração** — exporta/importa dados em JSON
-- **Modo escuro** — tema claro e escuro com persistência
-- **PWA instalável** — funciona offline, pode ser instalado como app no celular ou desktop
+## Stack
 
-## Como usar
+- Kotlin + Jetpack Compose (Material 3)
+- Arquitetura MVVM + Hilt (injeção de dependência)
+- Room (cache local offline-first) + Cloud Firestore (sync entre
+  dispositivos, a partir da Fase 5)
+- Firebase Auth (Google Sign-In, a partir da Fase 5)
+- Firebase Cloud Functions (proxy do assistente de IA e validação de
+  compras, a partir das Fases 6/7)
+- Google Play Billing Library (assinatura Pro, Fase 7)
 
-### Criar uma mensagem
-1. Abra o app e toque em **+** (canto inferior direito)
-2. Digite o título e a referência bíblica
-3. Use a barra de ferramentas para formatar os blocos
+## Status atual
 
-### Modo Pregação
-- Toque no botão **▶** (play) no editor para entrar em modo tela cheia
-- Use **A-** / **A+** para ajustar o tamanho da fonte
-- Toque na área inferior para mostrar/esconder o HUD
-- O cronômetro inicia com o botão ▶ na barra inferior
+**Fase 1 — Scaffold do projeto.** O app compila para uma tela inicial
+("shell") vazia com o tema/marca do PregFlow; ainda não há CRUD de
+sermões, editor de blocos, login ou IA — isso vem nas próximas fases.
 
-### Bíblia
-- Toque no ícone de livro no editor
-- Selecione o livro e o capítulo
-- **Copiar** — copia o versículo para a área de transferência
-- **Inserir** — insere o versículo como citação no editor
+## Abrir no Android Studio
 
-### Backup
-1. Vá em **Configurações** (ícone de engrenagem)
-2. **Baixar** — salva um arquivo `.json` com todas as mensagens
-3. **Upload** — restaura a partir de um arquivo de backup
+1. Clone o repositório e abra a pasta raiz no Android Studio (Ladybug ou
+   mais recente).
+2. Deixe o Gradle sincronizar (primeira sincronização baixa o Android SDK
+   platform 35 e as dependências do Google Maven — precisa de acesso à
+   internet a `dl.google.com`/`maven.google.com`, o que **não** foi
+   possível validar no ambiente onde este scaffold foi gerado, pois o
+   acesso a `dl.google.com` estava bloqueado pela política de rede da
+   sessão; o build não foi compilado/testado localmente por causa dessa
+   restrição — a primeira verificação real precisa ser feita no Android
+   Studio).
+3. Rode a configuração `app` num emulador ou dispositivo físico
+   (`minSdk 26`).
 
-## Instalar como PWA
-
-No Chrome/Edge, toque em **Instalar** na barra de endereços ou no menu do navegador. No iOS (Safari), use **Compartilhar → Adicionar à Tela Inicial**.
-
-## Estrutura do Projeto
-
-```
-Pregflow-app/
-├── index.html         # Estrutura HTML
-├── styles.css         # Estilos e design system
-├── app.js             # Lógica da aplicação
-├── service-worker.js  # Cache offline (PWA)
-├── manifest.json      # Configuração PWA
-└── icons/             # Ícones para instalação PWA
-```
-
-## Desenvolvimento
-
-Não há dependências ou build step. Basta servir os arquivos com qualquer servidor HTTP:
+## Build via linha de comando
 
 ```bash
-# Python
-python3 -m http.server 8080
-
-# Node.js (npx)
-npx serve .
+./gradlew assembleDebug
+./gradlew testDebugUnitTest
 ```
 
-Abra `http://localhost:8080` no navegador.
+## Estrutura
 
-## Dados
-
-Todos os dados são armazenados localmente no `localStorage` do navegador. Use o **Backup** regularmente para não perder mensagens ao limpar o cache do navegador.
+```
+app/src/main/java/com/williandlima/pregflow/
+├── PregFlowApplication.kt   # @HiltAndroidApp
+├── MainActivity.kt
+└── ui/
+    ├── theme/                # Cores/tema Material 3 (marca PregFlow)
+    ├── navigation/           # NavHost e rotas
+    └── home/                 # Tela inicial (shell)
+```
