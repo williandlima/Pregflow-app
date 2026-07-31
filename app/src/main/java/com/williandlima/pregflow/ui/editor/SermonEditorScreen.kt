@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -26,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -44,10 +46,20 @@ import com.williandlima.pregflow.data.model.BlockType
 fun SermonEditorScreen(
     onBack: () -> Unit,
     onPreach: (String) -> Unit,
+    onOpenBible: () -> Unit,
+    pendingBibleVerse: String?,
+    onBibleVerseConsumed: () -> Unit,
     viewModel: SermonEditorViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
     var showAddBlockMenu by remember { mutableStateOf(false) }
+
+    LaunchedEffect(pendingBibleVerse) {
+        if (pendingBibleVerse != null) {
+            viewModel.insertQuoteBlock(pendingBibleVerse)
+            onBibleVerseConsumed()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -59,6 +71,9 @@ fun SermonEditorScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = onOpenBible) {
+                        Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.editor_bible_cd))
+                    }
                     IconButton(onClick = { viewModel.save(onSaved = { onPreach(viewModel.sermonId) }) }) {
                         Icon(Icons.Filled.PlayArrow, contentDescription = stringResource(R.string.editor_preach_cd))
                     }

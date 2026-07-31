@@ -34,4 +34,13 @@
     <string name="preach_timer_start_cd">Iniciar cronômetro</string>
     <string name="preach_timer_pause_cd">Pausar cronômetro</string>
     <string name="preach_timer_reset_cd">Zerar cronômetro</string>
+
+    <string name="editor_bible_cd">Buscar na Bíblia</string>
+    <string name="bible_title">Bíblia</string>
+    <string name="bible_back_cd">Voltar</string>
+    <string name="bible_search_placeholder">Tema, palavra ou referência (ex: João 3:16)</string>
+    <string name="bible_copy">Copiar</string>
+    <string name="bible_insert">Inserir</string>
+    <string name="bible_error">Capítulo não encontrado. Verifique sua conexão.</string>
+    <string name="bible_copied_toast">Versículo copiado</string>
 </resources>

@@ -62,6 +62,12 @@ class SermonEditorViewModel @Inject constructor(
         }
     }
 
+    fun insertQuoteBlock(text: String) {
+        _uiState.update { state ->
+            state.copy(blocks = state.blocks + BlockUiState(id = UUID.randomUUID().toString(), type = BlockType.QUOTE, text = text))
+        }
+    }
+
     fun updateBlockText(blockId: String, text: String) = updateBlock(blockId) { it.copy(text = text) }
     fun toggleBold(blockId: String) = updateBlock(blockId) { it.copy(bold = !it.bold) }
     fun toggleItalic(blockId: String) = updateBlock(blockId) { it.copy(italic = !it.italic) }

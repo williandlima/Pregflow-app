@@ -35,11 +35,27 @@ do projeto — cada fase é implementada incrementalmente.
   toque na tela para esconder/mostrar o HUD, controle de tamanho de fonte
   (A-/A+), cronômetro (iniciar/pausar/zerar) e blocos ministrados exibidos
   com opacidade reduzida.
-- ⏳ Próximas: busca bíblica offline, login + backup em nuvem, IA via
-  backend próprio, assinatura Pro (Play Billing).
+- ✅ **Fase 4 — Busca bíblica**: consulta em tempo real à bible-api.com
+  (tradução Almeida), igual ao PWA original — o app não empacota nem
+  redistribui texto bíblico (NVI/NVT/Almeida Revisada são traduções
+  comerciais protegidas por direitos autorais, sem licença obtida ainda;
+  ver observação abaixo). Busca por referência direta ("João 3:16"), por
+  tema/palavra-chave (índice local de referências, sem texto de versículo)
+  ou navegação por livro/capítulo; inserir um versículo cria um bloco de
+  citação no editor.
+- ⏳ Próximas: login + backup em nuvem, IA via backend próprio, assinatura
+  Pro (Play Billing).
 
 Login, IA e sincronização em nuvem ainda não existem — os dados vivem
 apenas no banco Room local do dispositivo.
+
+**Nota sobre conteúdo bíblico:** o app não embute texto de nenhuma
+tradução (NVI, NVT, Almeida Revisada etc.) porque essas traduções são
+protegidas por direitos autorais das respectivas sociedades bíblicas/
+editoras (Biblica, Mundo Cristão, Imprensa Bíblica Brasileira/SBB) e
+exigem licenciamento comercial antes de serem redistribuídas num app
+pago — algo que ainda não foi obtido. A busca bíblica depende de conexão
+com a internet (bible-api.com) até que essa licença seja resolvida.
 
 ## Abrir no Android Studio
 
@@ -70,14 +86,16 @@ app/src/main/java/com/williandlima/pregflow/
 ├── PregFlowApplication.kt   # @HiltAndroidApp
 ├── MainActivity.kt
 ├── data/
-│   ├── model/                # BlockType, TextSpan (modelo de domínio)
+│   ├── model/                # BlockType, TextSpan, BibleBook, índice de temas
 │   ├── local/                # Entidades Room, DAO, Database, Converters
-│   └── repository/           # SermonRepository
-├── di/                       # Módulos Hilt (Database, Repository)
+│   ├── remote/                # Cliente da bible-api.com (OkHttp + kotlinx.serialization)
+│   └── repository/           # SermonRepository, BibleRepository
+├── di/                       # Módulos Hilt (Database, Network, Repository)
 └── ui/
     ├── theme/                # Cores/tema Material 3 (marca PregFlow)
     ├── navigation/           # NavHost e rotas
     ├── home/                 # Lista de pregações
     ├── editor/                # Editor de blocos da pregação
-    └── preach/                # Modo Pregação (tela cheia)
+    ├── preach/                # Modo Pregação (tela cheia)
+    └── bible/                 # Busca bíblica
 ```
