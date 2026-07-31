@@ -1,2 +1,17 @@
 make_icons.py
 .claude/
+
+# Android / Gradle
+*.iml
+.gradle/
+build/
+captures/
+.cxx/
+local.properties
+.idea/
+.DS_Store
+/app/release/
+/app/debug/
+
+# Firebase (adicionado na Fase 5 — nunca versionar as chaves reais)
+google-services.json
