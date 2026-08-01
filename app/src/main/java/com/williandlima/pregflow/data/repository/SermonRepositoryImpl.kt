@@ -1,5 +1,6 @@
 package com.williandlima.pregflow.data.repository
 
+import android.util.Log
 import com.williandlima.pregflow.data.local.BlockEntity
 import com.williandlima.pregflow.data.local.SermonDao
 import com.williandlima.pregflow.data.local.SermonEntity
@@ -26,6 +27,7 @@ class SermonRepositoryImpl @Inject constructor(
         dao.observeSermonWithBlocks(sermonId)
 
     override suspend fun createSermon(): String {
+        Log.d("PregFlowDebug", "SermonRepositoryImpl.createSermon: start")
         val now = System.currentTimeMillis()
         val sermon = SermonEntity(
             id = UUID.randomUUID().toString(),
@@ -34,7 +36,9 @@ class SermonRepositoryImpl @Inject constructor(
             createdAt = now,
             updatedAt = now,
         )
+        Log.d("PregFlowDebug", "SermonRepositoryImpl.createSermon: about to insert id=${sermon.id}")
         dao.upsertSermon(sermon)
+        Log.d("PregFlowDebug", "SermonRepositoryImpl.createSermon: insert done, returning id=${sermon.id}")
         return sermon.id
     }
 

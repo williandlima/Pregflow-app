@@ -1,5 +1,6 @@
 package com.williandlima.pregflow.ui.home
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.williandlima.pregflow.data.local.SermonEntity
@@ -20,9 +21,13 @@ class HomeViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     fun createSermon(onCreated: (String) -> Unit) {
+        Log.d("PregFlowDebug", "HomeViewModel.createSermon: launching coroutine")
         viewModelScope.launch {
+            Log.d("PregFlowDebug", "HomeViewModel.createSermon: coroutine started, calling repository.createSermon()")
             val id = repository.createSermon()
+            Log.d("PregFlowDebug", "HomeViewModel.createSermon: got id=$id, calling onCreated")
             onCreated(id)
+            Log.d("PregFlowDebug", "HomeViewModel.createSermon: onCreated returned")
         }
     }
 

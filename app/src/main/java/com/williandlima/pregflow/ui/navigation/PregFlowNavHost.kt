@@ -1,5 +1,6 @@
 package com.williandlima.pregflow.ui.navigation
 
+import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -34,7 +35,9 @@ fun PregFlowNavHost() {
         composable(PregFlowDestinations.HOME) {
             HomeScreen(
                 onOpenSermon = { sermonId ->
+                    Log.d("PregFlowDebug", "NavHost: onOpenSermon called with sermonId=$sermonId, navigating")
                     navController.navigate(PregFlowDestinations.editorRoute(sermonId))
+                    Log.d("PregFlowDebug", "NavHost: navigate() call returned")
                 },
                 onOpenSettings = { navController.navigate(PregFlowDestinations.SETTINGS) },
             )

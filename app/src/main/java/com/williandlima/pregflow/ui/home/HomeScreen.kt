@@ -1,5 +1,6 @@
 package com.williandlima.pregflow.ui.home
 
+import android.util.Log
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -55,7 +56,10 @@ fun HomeScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { viewModel.createSermon(onOpenSermon) }) {
+            FloatingActionButton(onClick = {
+                Log.d("PregFlowDebug", "HomeScreen: FAB clicked")
+                viewModel.createSermon(onOpenSermon)
+            }) {
                 Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.home_new_sermon_cd))
             }
         },
