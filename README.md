@@ -5,17 +5,17 @@ reescrito em Kotlin + Jetpack Compose a partir do PWA original. Objetivo:
 publicação paga (assinatura Pro) na Google Play Store.
 
 Este projeto está em migração ativa a partir de um PWA estático
-(HTML/CSS/JS). O plano completo de fases (editor de blocos, Modo Pregação,
-busca bíblica offline, login + backup em nuvem, IA via backend próprio,
-assinatura Google Play Billing) está descrito no histórico de planejamento
-do projeto — cada fase é implementada incrementalmente.
+(HTML/CSS/JS). **Decisão definitiva do projeto: os dados ficam sempre no
+aparelho — sem login, conta de usuário ou sincronização em nuvem, nem no
+futuro.** O plano completo de fases está descrito no histórico de
+planejamento do projeto — cada fase é implementada incrementalmente.
 
 ## Stack
 
 - Kotlin + Jetpack Compose (Material 3)
 - Arquitetura MVVM + Hilt (injeção de dependência)
-- Room (armazenamento local — hoje é a única fonte de dados; Firebase/nuvem
-  fica pausado por decisão do projeto, ver Status atual)
+- Room (armazenamento local — única fonte de dados; sem Firebase/nuvem
+  por decisão definitiva do projeto)
 - OkHttp + kotlinx.serialization (consulta à bible-api.com)
 - Google Play Billing Library (assinatura Pro, fase futura)
 
@@ -41,19 +41,23 @@ do projeto — cada fase é implementada incrementalmente.
   tema/palavra-chave (índice local de referências, sem texto de versículo)
   ou navegação por livro/capítulo; inserir um versículo cria um bloco de
   citação no editor.
-- ✅ **Fase 5 — Backup local**: em vez de login + sincronização em nuvem
-  (Firebase), que fica pausado por decisão do projeto por enquanto, esta
-  fase adiciona exportar/importar backup como arquivo `.json` via seletor
-  de arquivos do sistema (tela de Configurações, acessível pelo ícone de
-  engrenagem na tela inicial) — mesma ideia do backup manual que o PWA
-  original já tinha, sem depender de nenhuma conta ou serviço externo.
-- ⏸️ Pausado por decisão do projeto (sem Firebase/Gemini por enquanto):
-  login + sincronização em nuvem entre dispositivos, assistente de IA.
+- ✅ **Fase 5 — Backup local**: substitui de vez o antigo plano de login +
+  sincronização em nuvem (Firebase) — os dados ficam **sempre** só no
+  aparelho, por decisão definitiva do projeto. Esta fase adiciona
+  exportar/importar backup como arquivo `.json` via seletor de arquivos do
+  sistema (tela de Configurações, acessível pelo ícone de engrenagem na
+  tela inicial) — mesma ideia do backup manual que o PWA original já
+  tinha, sem depender de nenhuma conta ou serviço externo.
+- ❌ Fora do roteiro (decisão definitiva): login/conta de usuário,
+  sincronização em nuvem entre dispositivos.
+- ⏸️ Sem plano concreto por enquanto: assistente de IA (dependia do
+  backend Firebase descartado; será redesenhado sem Firebase se retomado).
 - ⏳ Próxima: assinatura Pro (Google Play Billing) — não depende de
-  Firebase, pode avançar mesmo com login/IA pausados.
+  nuvem para o conteúdo, só os servidores do Google validam a compra em
+  si.
 
-Login, IA e sincronização em nuvem ainda não existem — os dados vivem
-apenas no banco Room local do dispositivo, com backup/restauração manual
+Login e sincronização em nuvem nunca existirão neste app — os dados vivem
+sempre no banco Room local do dispositivo, com backup/restauração manual
 via arquivo.
 
 **Nota sobre conteúdo bíblico:** o app não embute texto de nenhuma

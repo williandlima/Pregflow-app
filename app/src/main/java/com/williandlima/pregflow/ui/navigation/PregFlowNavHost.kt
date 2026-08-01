@@ -75,6 +75,6 @@ fun PregFlowNavHost() {
                 },
             )
         }
-        // Próximas rotas: login + sincronização em nuvem (quando Firebase for adotado).
+        // Sem login/sincronização em nuvem por decisão do projeto — dados sempre locais.
     }
 }
